@@ -837,7 +837,7 @@ void render()
 	else
 		appConfig->_window.clear();
 
-	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_frameHi, audioConfig->_frameMax);
+ 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_midAverage, audioConfig->_midMax);
 
 	if (uiConfig->_menuShowing)
 	{
@@ -896,6 +896,113 @@ void render()
 	appConfig->_window.display();
 }
 
+void doAudioAnalysis()
+{
+	//Do fourier transform
+	{ //lock for frequency data
+		std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
+		if (audioConfig->_frames.size() >= (FRAMES_PER_BUFFER * 2))
+			audioConfig->_fftData = std::vector<SAMPLE>(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
+	} //end lock
+
+	auto halfSize = audioConfig->_fftData.size() / 2;
+
+	four1(audioConfig->_fftData.data(), halfSize);
+	float factor = 50;
+	audioConfig->_frequencyData.clear();
+
+	for (int it = 0; it < halfSize; it++)
+	{
+		auto re = audioConfig->_fftData[it];
+		auto im = audioConfig->_fftData[it + 1];
+		auto magnitude = std::sqrt(re * re + im * im);
+
+		//Compensations for the fact my FFT implementation is probably wrong
+		float point = it / factor + 0.3;
+		magnitude = magnitude * atan(point);
+		if (it == 0) magnitude *= 0.7;
+
+		//Store the magnitude
+		audioConfig->_frequencyData.push_back(magnitude);
+
+		//store data for bass and treble
+		if (it < FRAMES_PER_BUFFER / 10 && magnitude > audioConfig->_bassHi)
+			audioConfig->_bassHi = magnitude;
+
+		if (it > FRAMES_PER_BUFFER / 10 && it < FRAMES_PER_BUFFER / 4 && magnitude > audioConfig->_midHi)
+			audioConfig->_midHi = magnitude;
+
+		if (it > FRAMES_PER_BUFFER / 4 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
+			audioConfig->_trebleHi = magnitude;
+
+		if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
+			audioConfig->_frameHi = magnitude;
+	}
+
+
+	if (audioConfig->_frameHi != 0.0)
+	{
+		//update audio data for this frame
+		if (audioConfig->_frameHi < 0) audioConfig->_frameHi *= -1.0;
+		audioConfig->_frame = audioConfig->_frameHi;
+
+		audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
+		audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
+		if (audioConfig->_frame > audioConfig->_frameMax)
+			audioConfig->_frameMax = audioConfig->_frame;
+
+		if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
+
+		audioConfig->_bassAverage -= audioConfig->_bassAverage / audioConfig->_smoothAmount;
+		audioConfig->_bassAverage += audioConfig->_bassHi / audioConfig->_smoothAmount;
+		if (audioConfig->_bassHi > audioConfig->_bassMax)
+			audioConfig->_bassMax = audioConfig->_bassHi;
+
+		if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
+
+		audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
+		audioConfig->_midAverage += audioConfig->_midHi / audioConfig->_smoothAmount;
+		if (audioConfig->_midHi > audioConfig->_midMax)
+			audioConfig->_midMax = audioConfig->_midHi;
+
+		if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
+
+		audioConfig->_trebleAverage -= audioConfig->_trebleAverage / audioConfig->_smoothAmount;
+		audioConfig->_trebleAverage += audioConfig->_trebleHi / audioConfig->_smoothAmount;
+		if (audioConfig->_trebleHi > audioConfig->_trebleMax)
+			audioConfig->_trebleMax = audioConfig->_trebleHi;
+	}
+
+	//As long as the music is loud enough the current max is good
+	if (audioConfig->_frame > audioConfig->_cutoff * 2)
+	{
+		audioConfig->_quietTimer.restart();
+	}
+	else if (audioConfig->_quietTimer.getElapsedTime().asSeconds() > 0.3)
+	{
+		//if the quietTimer reaches 1.5s, start reducing the max
+
+		float maxFallSpeed = 0.005;
+
+		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
+		audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
+		audioConfig->_midMax -= (audioConfig->_midMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
+		audioConfig->_trebleMax -= (audioConfig->_trebleMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
+
+		if (audioConfig->_frameMax < 0.2)
+			audioConfig->_frameMax = 0.2;
+
+		if (audioConfig->_bassMax < 0.2)
+			audioConfig->_bassMax = 0.2;
+
+		if (audioConfig->_midMax < 0.2)
+			audioConfig->_midMax = 0.2;
+
+		if (audioConfig->_trebleMax < 0.2)
+			audioConfig->_trebleMax = 0.2;
+	}
+}
+
 
 int main()
 {
@@ -903,11 +1010,14 @@ int main()
 
 	std::srand(time(0));
 
+
 	appConfig = new AppConfig();
 	uiConfig = new UIConfig();
 	audioConfig = new AudioConfig();
 
 	layerMan = new LayerManager();
+	const std::string lastLayerSettingsFile = "lastLayers.xml";
+	layerMan->LoadLayers(lastLayerSettingsFile);
 
 	getWindowSizes();
 
@@ -919,7 +1029,7 @@ int main()
 	if (appConfig->_startMaximised)
 		appConfig->_isFullScreen = true;
 
-	uiConfig->_ico.loadFromFile("icon1.png");
+	uiConfig->_ico.loadFromFile("icon.png");
 	uiConfig->_settingsFileBoxName.resize(30);
 
 	uiConfig->_moveIcon.loadFromFile("move.png");
@@ -988,95 +1098,7 @@ int main()
 	////////////////////////////////////// MAIN LOOP /////////////////////////////////////
 	while (appConfig->_currentWindow->isOpen())
 	{
-		//Do fourier transform
-		{ //lock for frequency data
-			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
-			if(audioConfig->_frames.size() >= (FRAMES_PER_BUFFER * 2))
-				audioConfig->_fftData = std::vector<SAMPLE>(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
-		} //end lock
-
-		auto halfSize = audioConfig->_fftData.size() / 2;
-
-		four1(audioConfig->_fftData.data(), halfSize);
-		float factor = 50;
-		audioConfig->_frequencyData.clear();
-
-		for (int it = 0; it < halfSize; it++)
-		{
-			auto re = audioConfig->_fftData[it];
-			auto im = audioConfig->_fftData[it + 1];
-			auto magnitude = std::sqrt(re*re + im*im);
-
-			//Compensations for the fact my FFT implementation is probably wrong
-			float point = it / factor + 0.3;
-			magnitude = magnitude*atan(point);
-			if (it == 0) magnitude *= 0.7;
-
-			//Store the magnitude
-			audioConfig->_frequencyData.push_back(magnitude);
-
-			//store data for bass and treble
-			if (it < FRAMES_PER_BUFFER / 10 && magnitude > audioConfig->_bassHi)
-				audioConfig->_bassHi = magnitude;
-
-			if (it > FRAMES_PER_BUFFER / 4 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
-				audioConfig->_trebleHi = magnitude;
-
-			if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
-				audioConfig->_frameHi = magnitude;
-		}
-
-
-		if (audioConfig->_frameHi != 0.0)
-		{
-			//update audio data for this frame
-			if (audioConfig->_frameHi < 0) audioConfig->_frameHi *= -1.0;
-			audioConfig->_frame = audioConfig->_frameHi;
-
-			audioConfig->_runningAverage -= audioConfig->_runningAverage / 30;
-			audioConfig->_runningAverage += audioConfig->_frame / 30;
-			if (audioConfig->_frame > audioConfig->_frameMax)
-				audioConfig->_frameMax = audioConfig->_frame;
-
-			if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
-
-			audioConfig->_bassAverage -= audioConfig->_bassAverage / 30;
-			audioConfig->_bassAverage += audioConfig->_bassHi / 30;
-			if (audioConfig->_bassHi > audioConfig->_bassMax)
-				audioConfig->_bassMax = audioConfig->_bassHi;
-
-			if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
-
-			audioConfig->_trebleAverage -= audioConfig->_trebleAverage / 30;
-			audioConfig->_trebleAverage += audioConfig->_trebleHi / 30;
-			if (audioConfig->_trebleHi > audioConfig->_trebleMax)
-				audioConfig->_trebleMax = audioConfig->_trebleHi;
-		}
-
-		//As long as the music is loud enough the current max is good
-		if (audioConfig->_frame > audioConfig->_cutoff * 2)
-		{
-			audioConfig->_quietTimer.restart();
-		}
-		else if (audioConfig->_quietTimer.getElapsedTime().asSeconds() > 0.3)
-		{
-			//if the quietTimer reaches 1.5s, start reducing the max
-
-			float maxFallSpeed = 0.01;
-
-			audioConfig->_frameMax -= (audioConfig->_frameMax-(audioConfig->_cutoff * 2))*maxFallSpeed;
-			audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2))*maxFallSpeed;
-			audioConfig->_trebleMax -= (audioConfig->_trebleMax - (audioConfig->_cutoff * 2))*maxFallSpeed;
-
-			if (audioConfig->_frameMax < 0.2) 
-				audioConfig->_frameMax = 0.2;
-
-			if (audioConfig->_bassMax < 0.2)
-				audioConfig->_bassMax = 0.2;
-
-			if (audioConfig->_trebleMax < 0.2)
-				audioConfig->_trebleMax = 0.2;
-		}
+		doAudioAnalysis();
 
 		handleEvents();
 		if (!appConfig->_currentWindow->isOpen())
@@ -1086,6 +1108,7 @@ int main()
 
 		audioConfig->_frameHi = 0;
 		audioConfig->_bassHi = 0;
+		audioConfig->_midHi = 0;
 		audioConfig->_trebleHi = 0;
 
 		sf::sleep(sf::milliseconds(8));
@@ -1096,6 +1119,8 @@ int main()
 	Pa_Terminate();
 
 	xmlLoader.saveCommon();
+
+	layerMan->SaveLayers(lastLayerSettingsFile);
 
 	ImGui::SFML::Shutdown();
 
