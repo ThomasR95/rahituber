@@ -1,3 +1,8 @@
 <Config>
-    <Common startMaximised="false" lastWidth="1062" lastHeight="579" lastX="371" lastY="299" alwaysOnTop="false" lastAudioDevice="3"/>
+    <Common startMaximised="false" lastWidth="1022" lastHeight="726" lastX="165" lastY="238" alwaysOnTop="false" lastAudioDevice="3"/>
+    <Presets>
+        <Preset Name="middlescreen" AffectsWindow="true">
+            <Window x="413" y="154" w="1022" h="726" AlwaysOnTop="false" Transparent="false" MinOpacity="0.25"/>
+        </Preset>
+    </Presets>
 </Config>
