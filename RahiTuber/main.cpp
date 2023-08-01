@@ -160,7 +160,7 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "VisualiStar", 0);
+				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -178,7 +178,7 @@ void initWindow(bool firstStart = false)
 		appConfig->_scrH = appConfig->_minScrH;
 		if (appConfig->_wasFullScreen || firstStart)
 		{
-			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), "VisualiStar", 0);
+			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), "RahiTuber", 0);
 			appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
 		}
 		else
