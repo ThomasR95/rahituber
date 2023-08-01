@@ -163,6 +163,7 @@
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="LayerManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="SpriteSheet.cpp" />
     <ClCompile Include="tinyxml2\tinyxml2.cpp" />
     <ClCompile Include="xmlConfig.cpp" />
   </ItemGroup>
@@ -171,6 +172,7 @@
     <ClInclude Include="file_browser_modal.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="LayerManager.h" />
+    <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="tinyxml2\tinyxml2.h" />
     <ClInclude Include="xmlConfig.h" />
   </ItemGroup>

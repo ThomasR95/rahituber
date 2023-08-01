@@ -17,6 +17,8 @@ public:
 	bool loadPreset(const std::string& presetName);
 	bool savePreset(const std::string& presetName);
 
+	std::string getSettingsFilePath() { return _settingsFileName; }
+
 private:
 
 	AppConfig* _appConfig = nullptr;

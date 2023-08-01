@@ -7,6 +7,8 @@
 #include "imgui.h"
 #include "imgui-SFML.h"
 
+#include "SpriteSheet.h"
+
 class LayerManager
 {
 public:
@@ -49,20 +51,38 @@ public:
 		std::string _blinkImagePath = "";
 		sf::Texture _blinkImage;
 
-		sf::Sprite _sprite;
+		SpriteSheet _idleSprite;
+		SpriteSheet _talkSprite;
+		SpriteSheet _blinkSprite;
 
 		sf::Vector2f _scale = { 1.f, 1.f };
 		sf::Vector2f _pos;
 		float _rot = 0.0;
+		bool _keepAspect = true;
 		bool _integerPixels = false;
 
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;
 		bool _importBlinkOpen = false;
 
+		bool _spriteIdleOpen = false;
+		bool _spriteTalkOpen = false;
+		bool _spriteBlinkOpen = false;
+		bool _oldSpriteIdleOpen = false;
+		bool _oldSpriteTalkOpen = false;
+		bool _oldSpriteBlinkOpen = false;
+
 		void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
 		void DrawGUI(ImGuiStyle& style, int layerID);
+
+
+		std::vector<int> _animGrid = { 1, 1 };
+		int _animFCount = 1;
+		float _animFPS = 12;
+		std::vector<int> _animFrameSize = { -1, -1 };
+
+		void AnimPopup(SpriteSheet& anim, const sf::Texture& tex, bool& open, bool& oldOpen);
 	};
 
 	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
@@ -72,7 +92,8 @@ public:
 	void AddLayer();
 	void RemoveLayer(int toRemove);
 
-	void SaveLayers();
+	bool SaveLayers(const std::string& settingsFileName);
+	bool LoadLayers(const std::string& settingsFileName);
 
 	void SelectLayer(int layer);
 	int GetSelectedLayer() { return _selectedLayer; }
@@ -83,11 +104,16 @@ private:
 
 	int _selectedLayer;
 
+	std::string _lastSavedLocation = "";
+
 };
 
 static sf::Texture _resetIcon;
 
-inline void AddResetButton(const char* id, float& value, float resetValue, ImGuiStyle* style = nullptr)
+static sf::Texture _animIcon;
+
+template <typename T>
+inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* style = nullptr)
 {
 	if(_resetIcon.getSize().x == 0)
 		_resetIcon.loadFromFile("reset.png");
@@ -102,3 +128,4 @@ inline void AddResetButton(const char* id, float& value, float resetValue, ImGui
 	ImGui::PopID();
 	ImGui::SameLine();
 }
+

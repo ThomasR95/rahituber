@@ -92,6 +92,12 @@ struct AudioConfig
 	SAMPLE _trebleMax;
 	SAMPLE _trebleAverage;
 
+	SAMPLE _midHi;
+	SAMPLE _midMax;
+	SAMPLE _midAverage;
+
+	float _smoothAmount = 10;
+
 	SAMPLE _frameHi;
 	PaStreamParameters _params;
 	PaDeviceIndex _devIdx = -1;
