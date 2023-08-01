@@ -588,6 +588,7 @@ void menu()
 
 	ImVec4 baseColor(1.0, 0.0, 1.0, 1.0);
 
+	ImVec4 col_dark2(baseColor.x * 0.1f, baseColor.y * 0.1f, baseColor.z * 0.1f, 1.f);
 	ImVec4 col_dark(baseColor.x*0.3f, baseColor.y*0.3f, baseColor.z*0.3f, 1.f);
 	ImVec4 col_med(baseColor.x*0.5f, baseColor.y*0.5f, baseColor.z*0.5f, 1.f);
 	ImVec4 col_light(baseColor.x*0.8f, baseColor.y*0.8f, baseColor.z*0.8f, 1.f);
@@ -598,6 +599,7 @@ void menu()
 
 	style.Colors[ImGuiCol_WindowBg] = style.Colors[ImGuiCol_ChildWindowBg] = { 0.05f,0.05f,0.05f, 1.0f };
 	style.Colors[ImGuiCol_PopupBg] = { 0.08f,0.08f,0.08f, 1.0f };
+	style.Colors[ImGuiCol_ChildBg] = col_dark2;
 	style.Colors[ImGuiCol_FrameBg] = col_dark;
 	style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
 	style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
@@ -650,11 +652,12 @@ void menu()
 
 	ImGui::Separator();
 	float separatorPos = ImGui::GetCursorPosY();
+	float nextSectionPos = windowHeight - 120;
 
-	layerMan->DrawGUI(style);
+	layerMan->DrawGUI(style, nextSectionPos - separatorPos);
 
 	//	INPUT LIST
-	ImGui::SetCursorPosY(windowHeight - 120);
+	ImGui::SetCursorPosY(nextSectionPos);
 	ImGui::Separator();
 	menuAudio(style);
 	
@@ -833,6 +836,8 @@ void render()
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
 	else
 		appConfig->_window.clear();
+
+	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_frameHi, audioConfig->_frameMax);
 
 	if (uiConfig->_menuShowing)
 	{
@@ -1062,6 +1067,15 @@ int main()
 			audioConfig->_frameMax -= (audioConfig->_frameMax-(audioConfig->_cutoff * 2))*maxFallSpeed;
 			audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2))*maxFallSpeed;
 			audioConfig->_trebleMax -= (audioConfig->_trebleMax - (audioConfig->_cutoff * 2))*maxFallSpeed;
+
+			if (audioConfig->_frameMax < 0.2) 
+				audioConfig->_frameMax = 0.2;
+
+			if (audioConfig->_bassMax < 0.2)
+				audioConfig->_bassMax = 0.2;
+
+			if (audioConfig->_trebleMax < 0.2)
+				audioConfig->_trebleMax = 0.2;
 		}
 
 		handleEvents();
