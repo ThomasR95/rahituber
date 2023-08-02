@@ -23,6 +23,10 @@ public:
 	float getRotation() const { return _sprite.getRotation(); }
 	sf::Vector2f getScale() const { return _sprite.getScale(); }
 
+	void SetColor(float* col) { _sprite.setColor({ sf::Uint8(255*col[0]), sf::Uint8(255*col[1]),sf::Uint8(255*col[2]),sf::Uint8(255*col[3]) }); }
+	void SetColor(const sf::Color col) { _sprite.setColor(col); }
+
+
 	sf::Vector2i Size() const { return _spriteSize; }
 	sf::Vector2i GridSize() const { return _gridSize; }
 	int FrameCount() const { return _frameRects.size(); }

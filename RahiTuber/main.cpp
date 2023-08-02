@@ -711,8 +711,38 @@ void handleEvents()
 	sf::Event evt;
 	while (appConfig->_currentWindow->pollEvent(evt))
 	{
+		if (evt.type == evt.KeyPressed
+			&& evt.key.code != sf::Keyboard::LControl
+			&& evt.key.code != sf::Keyboard::LShift
+			&& evt.key.code != sf::Keyboard::LAlt
+			&& evt.key.code != sf::Keyboard::LSystem
+			&& evt.key.code != sf::Keyboard::RControl
+			&& evt.key.code != sf::Keyboard::RShift
+			&& evt.key.code != sf::Keyboard::RAlt
+			&& evt.key.code != sf::Keyboard::RSystem
+			&& evt.key.code != sf::Keyboard::Escape)
+		{
+			if (layerMan->PendingHotkey())
+			{
+				sf::Keyboard::Key mod = sf::Keyboard::Unknown;
+				if (evt.key.control)
+					mod = sf::Keyboard::LControl;
+				if (evt.key.shift)
+					mod = sf::Keyboard::LShift;
+				if (evt.key.alt)
+					mod = sf::Keyboard::LAlt;
+				if (evt.key.system)
+					mod = sf::Keyboard::LSystem;
+				layerMan->SetHotkeys(evt.key.code, mod);
+				continue;
+			}
+			
+			layerMan->HandleHotkey(evt.key);
+		}
+
 		if (evt.type == evt.Closed)
 		{
+			layerMan->SaveLayers("lastLayers.xml");
 			//close the application
 			appConfig->_currentWindow->close();
 			break;
