@@ -831,6 +831,8 @@ void handleEvents()
 
 void render()
 {
+	auto dt = appConfig->_timer.restart();
+	appConfig->_fps = (1.0 / dt.asSeconds());
 
 	if (appConfig->_transparent)
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
@@ -850,12 +852,12 @@ void render()
 	}
 	else if(uiConfig->_showFPS)
 	{
-		auto dt = appConfig->_timer.getElapsedTime();
-		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.restart());
+		
+		ImGui::SFML::Update(appConfig->_window, dt);
 
 		ImGui::Begin("", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
 
-		ImGui::Text("FPS: %d", (int)(1.0 / dt.asSeconds()) );
+		ImGui::Text("FPS: %d", (int)appConfig->_fps);
 
 		ImGui::End();
 		ImGui::EndFrame();
@@ -926,28 +928,31 @@ void doAudioAnalysis()
 		audioConfig->_frequencyData.push_back(magnitude);
 
 		//store data for bass and treble
-		if (it < FRAMES_PER_BUFFER / 10 && magnitude > audioConfig->_bassHi)
+		if (it < FRAMES_PER_BUFFER / 12 && magnitude > audioConfig->_bassHi)
 			audioConfig->_bassHi = magnitude;
 
-		if (it > FRAMES_PER_BUFFER / 10 && it < FRAMES_PER_BUFFER / 4 && magnitude > audioConfig->_midHi)
+		if (it > FRAMES_PER_BUFFER / 12 && it < FRAMES_PER_BUFFER / 3 && magnitude > audioConfig->_midHi)
 			audioConfig->_midHi = magnitude;
 
-		if (it > FRAMES_PER_BUFFER / 4 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
+		if (it > FRAMES_PER_BUFFER / 3 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
 			audioConfig->_trebleHi = magnitude;
 
 		if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
 			audioConfig->_frameHi = magnitude;
 	}
 
+	audioConfig->_smoothAmount = appConfig->_fps / 6;
 
 	if (audioConfig->_frameHi != 0.0)
 	{
 		//update audio data for this frame
 		if (audioConfig->_frameHi < 0) audioConfig->_frameHi *= -1.0;
-		audioConfig->_frame = audioConfig->_frameHi;
+			audioConfig->_frame = audioConfig->_frameHi;
 
 		audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
 		audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
+		if (audioConfig->_frame > audioConfig->_runningAverage)
+			audioConfig->_runningAverage = audioConfig->_frame;
 		if (audioConfig->_frame > audioConfig->_frameMax)
 			audioConfig->_frameMax = audioConfig->_frame;
 
@@ -955,6 +960,8 @@ void doAudioAnalysis()
 
 		audioConfig->_bassAverage -= audioConfig->_bassAverage / audioConfig->_smoothAmount;
 		audioConfig->_bassAverage += audioConfig->_bassHi / audioConfig->_smoothAmount;
+		if (audioConfig->_bassHi > audioConfig->_bassAverage)
+			audioConfig->_bassAverage = audioConfig->_bassHi;
 		if (audioConfig->_bassHi > audioConfig->_bassMax)
 			audioConfig->_bassMax = audioConfig->_bassHi;
 
@@ -962,6 +969,8 @@ void doAudioAnalysis()
 
 		audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
 		audioConfig->_midAverage += audioConfig->_midHi / audioConfig->_smoothAmount;
+		if (audioConfig->_midHi > audioConfig->_midAverage)
+			audioConfig->_midAverage = audioConfig->_midHi;
 		if (audioConfig->_midHi > audioConfig->_midMax)
 			audioConfig->_midMax = audioConfig->_midHi;
 
@@ -969,6 +978,8 @@ void doAudioAnalysis()
 
 		audioConfig->_trebleAverage -= audioConfig->_trebleAverage / audioConfig->_smoothAmount;
 		audioConfig->_trebleAverage += audioConfig->_trebleHi / audioConfig->_smoothAmount;
+		if (audioConfig->_trebleHi > audioConfig->_trebleAverage)
+			audioConfig->_trebleAverage = audioConfig->_trebleHi;
 		if (audioConfig->_trebleHi > audioConfig->_trebleMax)
 			audioConfig->_trebleMax = audioConfig->_trebleHi;
 	}

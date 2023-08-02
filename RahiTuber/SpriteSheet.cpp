@@ -24,12 +24,20 @@ void SpriteSheet::LoadFromTexture(const sf::Texture& tex, int frameCount, int gr
 {
 	_sprite.setTexture(tex, true);
 
+	SetAttributes(frameCount, gridX, gridY, fps, size);
+}
+
+void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2i& size)
+{
+	if (_sprite.getTexture() == nullptr)
+		return;
+
 	_fps = fps;
 
 	_gridSize = { gridX, gridY };
 
 	sf::Vector2i frameSize = size;
-	sf::Vector2u texSize = tex.getSize();
+	sf::Vector2u texSize = _sprite.getTexture()->getSize();
 
 	if (frameSize == sf::Vector2i(-1, -1))
 	{

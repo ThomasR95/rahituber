@@ -3,6 +3,8 @@
 #include "file_browser_modal.h"
 #include "tinyxml2\tinyxml2.h"
 
+#include "defines.h"
+
 #include <windows.h>
 //#include <shellapi.h>
 
@@ -13,8 +15,9 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
-	for (LayerInfo& layer : _layers)
+	for (int l = _layers.size()-1; l >= 0; l--)
 	{
+		LayerInfo& layer = _layers[l];
 		if(layer._visible)
 			layer.Draw(target, windowHeight, windowWidth, talkLevel, talkMax);
 	}
@@ -57,6 +60,65 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 void LayerManager::AddLayer()
 {
 	_layers.push_back(LayerInfo());
+
+	_layers.back()._blinkTimer.restart();
+	_layers.back()._isBlinking = false;
+	_layers.back()._blinkVarDelay = GetRandom11() * _layers.back()._blinkVariation;
+	_layers.back()._parent = this;
+}
+
+void LayerManager::RemoveLayer(int toRemove)
+{
+	_layers.erase(_layers.begin() + toRemove);
+}
+
+void LayerManager::MoveLayerUp(int moveUp)
+{
+	if (moveUp <= 0)
+		return;
+
+	LayerInfo copy = _layers[moveUp];
+	RemoveLayer(moveUp);
+	int insertIdx = moveUp - 1;
+	_layers.insert(_layers.begin() + insertIdx, copy);
+}
+
+void LayerManager::MoveLayerDown(int moveDown)
+{
+	if (moveDown >= _layers.size() - 1)
+		return;
+
+	LayerInfo copy = _layers[moveDown];
+	RemoveLayer(moveDown);
+	int insertIdx = moveDown + 1;
+	_layers.insert(_layers.begin() + insertIdx, copy);
+}
+
+void LayerManager::RemoveLayer(LayerInfo* toRemove)
+{
+	for (int l = 0; l < _layers.size(); l++)
+	{
+		if (&_layers[l] == toRemove)
+			RemoveLayer(l);
+	}
+}
+
+void LayerManager::MoveLayerUp(LayerInfo* moveUp)
+{
+	for (int l = 0; l < _layers.size(); l++)
+	{
+		if (&_layers[l] == moveUp)
+			MoveLayerUp(l);
+	}
+}
+
+void LayerManager::MoveLayerDown(LayerInfo* moveDown)
+{
+	for (int l = 0; l < _layers.size(); l++)
+	{
+		if (&_layers[l] == moveDown)
+			MoveLayerDown(l);
+	}
 }
 
 bool LayerManager::SaveLayers(const std::string& settingsFileName)
@@ -94,27 +156,36 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
 
 		thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
-		thisLayer->SetAttribute("blinkTime", layer._blinkFrequency);
+		thisLayer->SetAttribute("blinkTime", layer._blinkDelay);
+		thisLayer->SetAttribute("blinkDur", layer._blinkDuration);
 		thisLayer->SetAttribute("blinkVar", layer._blinkVariation);
 
-		thisLayer->SetAttribute("bobType", layer._bobType);
+		thisLayer->SetAttribute("bounceType", layer._bounceType);
 		thisLayer->SetAttribute("bounceHeight", layer._bounceHeight);
 		thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
 
-		thisLayer->SetAttribute("bobType", layer._doBreathing);
-		thisLayer->SetAttribute("bounceHeight", layer._breathHeight);
-		thisLayer->SetAttribute("bounceTime", layer._breathFrequency);
+		thisLayer->SetAttribute("breathing", layer._doBreathing);
+		thisLayer->SetAttribute("breathHeight", layer._breathHeight);
+		thisLayer->SetAttribute("breathTime", layer._breathFrequency);
 
 		thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
 		thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
 		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
+
+		if (layer._idleSprite.FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
+
+		if (layer._talkSprite.FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
+
+		if (layer._blinkSprite.FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
 
 		thisLayer->SetAttribute("scaleX", layer._scale.x);
 		thisLayer->SetAttribute("scaleY", layer._scale.y);
 		thisLayer->SetAttribute("posX", layer._pos.x);
 		thisLayer->SetAttribute("posY", layer._pos.y);
 		thisLayer->SetAttribute("rot", layer._rot);
-		thisLayer->SetAttribute("integerPixels", layer._integerPixels);
 	}
 
 	doc.SaveFile(settingsFileName.c_str());
@@ -142,7 +213,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	auto thisLayer = lastLayers->FirstChildElement("layer");
 	while (thisLayer)
 	{
-		LayerInfo layer;
+		_layers.emplace_back(LayerInfo());
+
+		LayerInfo& layer = _layers.back();
+
+		layer._parent = this;
 
 		layer._name = thisLayer->Attribute("name");
 		thisLayer->QueryAttribute("visible", &layer._visible);
@@ -151,40 +226,45 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
 
 		thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
-		thisLayer->QueryAttribute("blinkTime", &layer._blinkFrequency);
+		thisLayer->QueryAttribute("blinkTime", &layer._blinkDelay);
+		thisLayer->QueryAttribute("blinkDur", &layer._blinkDuration);
 		thisLayer->QueryAttribute("blinkVar", &layer._blinkVariation);
 
 		int bobtype = 0;
-		thisLayer->QueryIntAttribute("bobType", &bobtype);
-		layer._bobType = (LayerInfo::BobbingType)bobtype;
+		thisLayer->QueryIntAttribute("bounceType", &bobtype);
+		layer._bounceType = (LayerInfo::BounceType)bobtype;
 		thisLayer->QueryAttribute("bounceHeight", &layer._bounceHeight);
 		thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
 
-		thisLayer->QueryAttribute("bobType", &layer._doBreathing);
-		thisLayer->QueryAttribute("bounceHeight", &layer._breathHeight);
-		thisLayer->QueryAttribute("bounceTime", &layer._breathFrequency);
+		thisLayer->QueryAttribute("breathing", &layer._doBreathing);
+		thisLayer->QueryAttribute("breathHeight", &layer._breathHeight);
+		thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
 
 		layer._idleImagePath = thisLayer->Attribute("idlePath");
 		layer._talkImagePath = thisLayer->Attribute("talkPath");
 		layer._blinkImagePath = thisLayer->Attribute("blinkPath");
 
-		layer._idleImage.loadFromFile(layer._idleImagePath);
-		layer._talkImage.loadFromFile(layer._talkImagePath);
-		layer._blinkImage.loadFromFile(layer._blinkImagePath);
+		layer._idleImage = _textureMan.GetTexture(layer._idleImagePath);
+		layer._talkImage = _textureMan.GetTexture(layer._talkImagePath);
+		layer._blinkImage = _textureMan.GetTexture(layer._blinkImagePath);
+
+		layer._idleSprite.LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
+		layer._talkSprite.LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
+		layer._blinkSprite.LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
+
+		LoadAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
+		LoadAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
+		LoadAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
+
+		layer._blinkTimer.restart();
+		layer._isBlinking = false;
+		layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
 
 		thisLayer->QueryAttribute("scaleX", &layer._scale.x);
 		thisLayer->QueryAttribute("scaleY", &layer._scale.y);
 		thisLayer->QueryAttribute("posX", &layer._pos.x);
 		thisLayer->QueryAttribute("posY", &layer._pos.y);
 		thisLayer->QueryAttribute("rot", &layer._rot);
-		thisLayer->QueryAttribute("integerPixels", &layer._integerPixels);
-
-		_layers.push_back(layer);
-
-
-		_layers.back()._idleSprite.LoadFromTexture(_layers.back()._idleImage, 1, 1, 1, 1);
-		_layers.back()._talkSprite.LoadFromTexture(_layers.back()._talkImage, 1, 1, 1, 1);
-		_layers.back()._blinkSprite.LoadFromTexture(_layers.back()._blinkImage, 1, 1, 1, 1);
 
 		thisLayer = thisLayer->NextSiblingElement("layer");
 	}
@@ -197,35 +277,113 @@ void LayerManager::LayerInfo::Draw(sf::RenderTarget* target, float windowHeight,
 {
 	SpriteSheet* activeSprite = nullptr;
 
+	if (!_idleImage)
+		return;
+
 	activeSprite = &_idleSprite;
 
 	float talkFactor = talkLevel / talkMax;
+	talkFactor = pow(talkFactor, 0.5);
 
-	//TODO blink chance
-	float blinkTime = 100;
-	if (_useBlinkFrame && blinkTime == 0)
+	bool talking = talkFactor > _talkThreshold;
+
+
+	if (_blinkImage && !talking && !_isBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay)
+	{
+		_isBlinking = true;
+		_blinkTimer.restart();
+		_blinkSprite.Restart();
+		_blinkVarDelay = GetRandom11() * _blinkVariation;
+	}
+
+	if (_blinkImage && _isBlinking)
+	{
 		activeSprite = &_blinkSprite;
 
-	if (_swapWhenTalking && talkFactor > _talkThreshold)
+		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
+			_isBlinking = false;
+	}
+
+	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
 		activeSprite = &_talkSprite;
 
 	sf::Vector2f pos = _pos;
 
-	switch (_bobType)
+	float newMotionHeight = 0;
+
+	switch (_bounceType)
 	{
-	case LayerManager::LayerInfo::BobNone:
+	case LayerManager::LayerInfo::BounceNone:
 		break;
-	case LayerManager::LayerInfo::BobLoudness:
-		pos.y -= _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold)/(1.0 - _talkThreshold));
+	case LayerManager::LayerInfo::BounceLoudness:
+		_isBouncing = false;
+		if (talking)
+		{
+			_isBouncing = true;
+			newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0 - _talkThreshold));
+		}
 		break;
-	case LayerManager::LayerInfo::BobRegular:
+	case LayerManager::LayerInfo::BounceRegular:
+		if (talking && _bounceFrequency > 0)
+		{
+			if (!_isBouncing)
+			{
+				_isBouncing = true;
+				_motionTimer.restart();
+			}
+
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
+			float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
+			newMotionHeight = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
+		}
+		else
+			_isBouncing = false;
+
 		break;
 	default:
 		break;
 	}
 
+	float breathScale = 1.0;
+
+	if (_doBreathing)
+	{
+		_breathAmount *= 0.95;
+
+		if (!talking && !_isBouncing && _breathFrequency > 0)
+		{
+			if (!_isBreathing)
+			{
+				_motionTimer.restart();
+				_isBreathing = true;
+			}
+
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			motionTime -= floor(motionTime / _breathFrequency) * _breathFrequency;
+			float phase = (motionTime / _breathFrequency) * 2.0 * PI;
+			_breathAmount = (-0.5 * cos(phase) + 0.5);
+		}
+		else
+		{
+			_isBreathing = false;
+		}
+
+		// breathing is half movement, half scale
+		newMotionHeight += _breathAmount * (_breathHeight / 2);
+
+		float origHeight = activeSprite->Size().y * _scale.y;
+		float breathHeight = origHeight + _breathAmount * (_breathHeight / 2);
+
+		breathScale = breathHeight / origHeight;
+	}
+
+	_motionHeight += (newMotionHeight - _motionHeight) * 0.3;
+
+	pos.y -= _motionHeight;
+
 	activeSprite->setOrigin({ 0.5f*activeSprite->Size().x, 0.5f*activeSprite->Size().y });
-	activeSprite->setScale(_scale);
+	activeSprite->setScale(_scale * breathScale);
 	activeSprite->setPosition({ windowWidth / 2 + pos.x, windowHeight / 2 + pos.y });
 	activeSprite->setRotation(_rot);
 
@@ -236,16 +394,33 @@ void LayerManager::LayerInfo::Draw(sf::RenderTarget* target, float windowHeight,
 void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
 
-	if (_animIcon.getSize().x == 0)
-		_animIcon.loadFromFile("anim.png");
+	if (_animIcon == nullptr)
+		_animIcon = _textureMan.GetTexture("anim.png");
+
+
+	if (_emptyIcon == nullptr)
+		_emptyIcon = _textureMan.GetTexture("empty.png");
 
 	sf::Color btnColor = style.Colors[ImGuiCol_Text];
 
 	ImGui::PushID(1000+layerID);
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
-	if (ImGui::CollapsingHeader(name.c_str(), name.c_str(), true, false ))
+	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed ))
 	{
+		ImGui::Columns(4, 0, false);
 		ImGui::Checkbox("Visible", &_visible);
+		ImGui::NextColumn();
+		if (ImGui::Button("Move Up"))
+			_parent->MoveLayerUp(this);
+		ImGui::NextColumn();
+		if (ImGui::Button("Move Down"))
+			_parent->MoveLayerDown(this);
+		ImGui::NextColumn();
+		if (ImGui::Button("Delete"))
+			_parent->RemoveLayer(this);
+		ImGui::Columns();
+
+		ImGui::Separator();
 
 		static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
 		static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
@@ -256,17 +431,20 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
 		ImGui::PushID("idleimport");
 
-		_importIdleOpen = ImGui::ImageButton(_idleImage, { 100,100 });
+		sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
+		_importIdleOpen = ImGui::ImageButton(*idleIcon, { 100,100 });
 		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 		{
-			_idleImage.loadFromFile(_idleImagePath);
-			_idleSprite.LoadFromTexture(_idleImage, 1, 1, 1, 1);
+			if (_idleImage == nullptr)
+				_idleImage = new sf::Texture();
+			_idleImage = _textureMan.GetTexture(_idleImagePath);
+			_idleSprite.LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 		}
 
 		ImGui::SameLine(116);
 		ImGui::PushID("idleanimbtn");
-		_spriteIdleOpen |= ImGui::ImageButton(_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-		AnimPopup(_idleSprite, _idleImage, _spriteIdleOpen, _oldSpriteIdleOpen);
+		_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+		AnimPopup(_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
 		ImGui::PopID();
 
 		fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
@@ -288,18 +466,21 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
 			ImGui::PushID("talkimport");
-			_importTalkOpen = ImGui::ImageButton(_talkImage, { 100,100 });
+			sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
+			_importTalkOpen = ImGui::ImageButton(*talkIcon, { 100,100 });
 			fileBrowserTalk.SetStartingDir(chosenDir);
 			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 			{
-				_talkImage.loadFromFile(_talkImagePath);
-				_talkSprite.LoadFromTexture(_talkImage, 1, 1, 1, 1);
+				if (_talkImage == nullptr)
+					_talkImage = new sf::Texture();
+				_talkImage = _textureMan.GetTexture(_talkImagePath);
+				_talkSprite.LoadFromTexture(*_talkImage, 1, 1, 1, 1);
 			}
 			
 			ImGui::SameLine(116);
 			ImGui::PushID("talkanimbtn");
-			_spriteTalkOpen |= ImGui::ImageButton(_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			AnimPopup(_talkSprite, _talkImage, _spriteTalkOpen, _oldSpriteTalkOpen);
+			_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+			AnimPopup(_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
 			ImGui::PopID();
 
 			ImGui::PushID("talkimportfile");
@@ -320,18 +501,21 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 			ImGui::PushID("blinkimport");
-			_importBlinkOpen = ImGui::ImageButton(_blinkImage, { 100,100 });
+			sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
+			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, { 100,100 });
 			fileBrowserBlink.SetStartingDir(chosenDir);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
-				_blinkImage.loadFromFile(_blinkImagePath);
-				_blinkSprite.LoadFromTexture(_blinkImage, 1, 1, 1, 1);
+				if (_blinkImage == nullptr)
+					_blinkImage = new sf::Texture();
+				_blinkImage = _textureMan.GetTexture(_blinkImagePath);
+				_blinkSprite.LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
 			}
 
 			ImGui::SameLine(116);
 			ImGui::PushID("blinkanimbtn");
-			_spriteBlinkOpen |= ImGui::ImageButton(_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			AnimPopup(_blinkSprite, _blinkImage, _spriteBlinkOpen, _oldSpriteBlinkOpen);
+			_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+			AnimPopup(_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
 			ImGui::PopID();
 			
 			ImGui::PushID("blinkimportfile");
@@ -353,45 +537,49 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
 		if (_swapWhenTalking)
 		{
-			AddResetButton("talkThresh", _talkThreshold, 0.5f, &style);
-			ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0);
+			AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
+			ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", 2.f);
 		}
 		ImGui::Separator();
 
 		ImGui::Checkbox("Use Blink frame", &_useBlinkFrame);
 		if (_useBlinkFrame)
 		{
-			AddResetButton("blinkfreq", _blinkFrequency, 4.f, &style);
-			ImGui::SliderFloat("Blink Time", &_blinkFrequency, 0.0, 10.0);
-			AddResetButton("blinkvar", _blinkVariation, 1.f, &style);
+			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
+			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0);
+			AddResetButton("blinkdelay", _blinkDelay, 6.f, &style);
+			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0);
+			AddResetButton("blinkvar", _blinkVariation, 4.f, &style);
 			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0);
 		}
 		ImGui::Separator();
 
 		std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
-		if (ImGui::BeginCombo("Bobbing", bobOptions[_bobType]))
+		if (ImGui::BeginCombo("Bouncing", bobOptions[_bounceType]))
 		{
-			if (ImGui::Selectable("None", _bobType == BobNone))
-				_bobType = BobNone;
-			if (ImGui::Selectable("Loudness", _bobType == BobLoudness))
-				_bobType = BobLoudness;
-			if (ImGui::Selectable("Regular", _bobType == BobRegular))
-				_bobType = BobRegular;
+			if (ImGui::Selectable("None", _bounceType == BounceNone))
+				_bounceType = BounceNone;
+			if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
+				_bounceType = BounceLoudness;
+			if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
+				_bounceType = BounceRegular;
 			ImGui::EndCombo();
 		}
-		if (_bobType != BobNone)
+		if (_bounceType != BounceNone)
 		{
-			AddResetButton("bobheight", _bounceHeight, 100.f, &style);
-			ImGui::SliderFloat("Bob height", &_bounceHeight, 0.0, 500.0);
+			AddResetButton("bobheight", _bounceHeight, 80.f, &style);
+			ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
+			AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
+			ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0);
 		}
 		ImGui::Separator();
 
 		ImGui::Checkbox("Breathing", &_doBreathing);
 		if (_doBreathing)
 		{
-			AddResetButton("breathheight", _breathHeight, 80.f, &style);
+			AddResetButton("breathheight", _breathHeight, 30.f, &style);
 			ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
-			AddResetButton("breathfreq", _breathFrequency, 2.f, &style);
+			AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
 			ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f);
 		}
 		ImGui::Separator();
@@ -426,14 +614,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 		}
 		ImGui::Checkbox("Constrain", &_keepAspect);
-		ImGui::Checkbox("Integer Pixels", &_integerPixels);
 
 		ImGui::Separator();
 	}
 	ImGui::PopID();
 }
 
-void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, const sf::Texture& tex, bool& open, bool& oldOpen)
+void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen)
 {
 	if (open != oldOpen)
 	{
@@ -471,7 +658,14 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, const sf::Texture& te
 		ImGui::PushItemWidth(120);
 
 		AddResetButton("gridreset", _animGrid, {anim.GridSize().x, anim.GridSize().y});
-		ImGui::InputInt2("Sheet Columns/Rows", _animGrid.data());
+		if (ImGui::InputInt2("Sheet Columns/Rows", _animGrid.data()))
+		{
+			if (_animGrid[0] != anim.GridSize().x || _animGrid[1] != anim.GridSize().y)
+			{
+				_animFCount = _animGrid[0] * _animGrid[1];
+				_animFrameSize = { -1,-1 };
+			}
+		}
 
 		AddResetButton("fcountreset", _animFCount, anim.FrameCount());
 		ImGui::InputInt("Frame Count", &_animFCount, 0, 0);
@@ -488,7 +682,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, const sf::Texture& te
 		ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
 		if (ImGui::Button("Save"))
 		{
-			anim.LoadFromTexture(tex, _animFCount, _animGrid[0], _animGrid[1], _animFPS, { _animFrameSize[0], _animFrameSize[1] });
+			anim.SetAttributes(_animFCount, _animGrid[0], _animGrid[1], _animFPS, { _animFrameSize[0], _animFrameSize[1] });
 			open = false;
 			ImGui::CloseCurrentPopup();
 		}

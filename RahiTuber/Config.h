@@ -12,7 +12,7 @@
 #include <deque>
 #include <mutex>
 
-#define PI 3.14159265359
+#include "defines.h"
 
 #define SCRW 1280
 #define SCRH 720
@@ -58,6 +58,8 @@ struct AppConfig
 	bool _isFullScreen = false;
 	bool _wasFullScreen = false;
 	bool _alwaysOnTop = false;
+
+	float _fps = 0;
 
 	sf::Clock _timer;
 
