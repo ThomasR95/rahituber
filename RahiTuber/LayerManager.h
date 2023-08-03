@@ -16,6 +16,9 @@ class TextureManager
 public:
 	inline sf::Texture* GetTexture(const std::string& path)
 	{
+		if (path.empty())
+			return nullptr;
+
 		if (_textures.count(path))
 		{
 			return &_textures[path];
@@ -37,6 +40,8 @@ public:
 
 	struct LayerInfo 
 	{
+		int _id = 0;
+
 		LayerManager* _parent = nullptr;
 
 		bool _visible = true;
@@ -76,16 +81,21 @@ public:
 
 		std::string _idleImagePath = "";
 		sf::Texture* _idleImage = nullptr;
+		float _idleTint[4] = { 1,1,1,1 };
 
 		std::string _talkImagePath = "";
 		sf::Texture* _talkImage = nullptr;
+		float _talkTint[4] = { 1,1,1,1 };
 
 		std::string _blinkImagePath = "";
 		sf::Texture* _blinkImage = nullptr;
+		float _blinkTint[4] = { 1,1,1,1 };
 
 		SpriteSheet _idleSprite;
 		SpriteSheet _talkSprite;
 		SpriteSheet _blinkSprite;
+
+		SpriteSheet* _activeSprite = nullptr;
 
 		sf::Vector2f _scale = { 1.f, 1.f };
 		sf::Vector2f _pos;
@@ -102,8 +112,10 @@ public:
 		bool _oldSpriteIdleOpen = false;
 		bool _oldSpriteTalkOpen = false;
 		bool _oldSpriteBlinkOpen = false;
+		bool _renamePopupOpen = false;
+		std::string _renamingString = "";
 
-		void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
+		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
 		void DrawGUI(ImGuiStyle& style, int layerID);
 
@@ -114,6 +126,23 @@ public:
 
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
 
+		int _motionParent = -1;
+		struct MotionLinkData
+		{
+			sf::Vector2f _scale = { 1.f, 1.f };
+			sf::Vector2f _pos = { 0,0 };
+			float _rot = 0.0;
+		};
+
+		MotionLinkData _motionLinkData;
+
+	};
+
+	struct HotkeyInfo
+	{
+		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
+		sf::Keyboard::Key _modifier = sf::Keyboard::Unknown;
+		std::map<int, bool> _layerStates;
 	};
 
 	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
@@ -132,11 +161,66 @@ public:
 	bool SaveLayers(const std::string& settingsFileName);
 	bool LoadLayers(const std::string& settingsFileName);
 
+	bool PendingHotkey() { return _waitingForHotkey; }
+	void SetHotkeys(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod)
+	{
+		_pendingKey = key;
+		_pendingMod = mod;
+	}
+	bool HandleHotkey(const sf::Event::KeyEvent& evt);
+
+	LayerInfo* GetLayer(int id) 
+	{
+		for (auto& layer : _layers)
+			if (layer._id == id)
+				return &layer;
+
+		return nullptr;
+	}
+
+	const std::vector<LayerInfo>& GetLayers()
+	{
+		return _layers;
+	}
+
 private:
+
+	std::vector<HotkeyInfo> _hotkeys;
 
 	std::vector<LayerInfo> _layers;
 
 	std::string _lastSavedLocation = "";
+
+	bool _hotkeysMenuOpen = false;
+	bool _oldHotkeysMenuOpen = false;
+	bool _waitingForHotkey = false;
+	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
+	sf::Keyboard::Key _pendingMod = sf::Keyboard::Unknown;
+	void DrawHotkeysGUI();
+
+	inline void SaveColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, const float* col)
+	{
+		auto colElement = parent->FirstChildElement(colorName);
+		if (!colElement)
+			colElement = parent->InsertFirstChild(doc->NewElement(colorName))->ToElement();
+
+		colElement->SetAttribute("r", col[0]);
+		colElement->SetAttribute("g", col[1]);
+		colElement->SetAttribute("b", col[2]);
+		colElement->SetAttribute("a", col[3]);
+	}
+
+	inline void LoadColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, float* col)
+	{
+		auto colElement = parent->FirstChildElement(colorName);
+		if (!colElement)
+			return;
+
+		colElement->QueryAttribute("r", &col[0]);
+		colElement->QueryAttribute("g", &col[1]);
+		colElement->QueryAttribute("b", &col[2]);
+		colElement->QueryAttribute("a", &col[3]);
+	}
 
 	inline void SaveAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, const SpriteSheet& anim)
 	{

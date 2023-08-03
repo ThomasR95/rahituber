@@ -5,6 +5,8 @@
 
 #include "defines.h"
 
+#include <iostream>
+
 #include <windows.h>
 //#include <shellapi.h>
 
@@ -15,11 +17,30 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
+	std::vector<LayerInfo*> calculateOrder;
 	for (int l = _layers.size()-1; l >= 0; l--)
+		calculateOrder.push_back(&_layers[l]);
+	
+	std::sort(calculateOrder.begin(), calculateOrder.end(), [](const LayerInfo* lhs, const LayerInfo* rhs)
+	{
+		return (lhs->_id == rhs->_motionParent);
+	});
+
+	for (auto layer : calculateOrder)
+	{
+		if(layer->_visible)
+			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax);
+	}
+		
+
+	for (int l = _layers.size() - 1; l >= 0; l--)
 	{
 		LayerInfo& layer = _layers[l];
-		if(layer._visible)
-			layer.Draw(target, windowHeight, windowWidth, talkLevel, talkMax);
+		if (layer._visible)
+		{
+			if (layer._activeSprite)
+				layer._activeSprite->Draw(target);
+		}
 	}
 }
 
@@ -39,6 +60,12 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ImGui::SameLine();
 	if (ImGui::Button("Save Layers") && !_lastSavedLocation.empty())
 		SaveLayers(_lastSavedLocation);
+
+	ImGui::SameLine();
+	if (ImGui::Button("Hotkeys"))
+		_hotkeysMenuOpen = true;
+
+	DrawHotkeysGUI();
 
 	ImGui::Separator();
 
@@ -61,10 +88,14 @@ void LayerManager::AddLayer()
 {
 	_layers.push_back(LayerInfo());
 
-	_layers.back()._blinkTimer.restart();
-	_layers.back()._isBlinking = false;
-	_layers.back()._blinkVarDelay = GetRandom11() * _layers.back()._blinkVariation;
-	_layers.back()._parent = this;
+	LayerInfo& layer = _layers.back();
+
+	layer._blinkTimer.restart();
+	layer._isBlinking = false;
+	layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
+	layer._parent = this;
+	layer._id = time(0);
+
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -143,11 +174,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	lastLayers->DeleteChildren();
 
-	for (const auto& layer : _layers)
+	auto thisLayer = lastLayers->FirstChildElement("layer");
+	if (!thisLayer)
+		thisLayer = lastLayers->InsertFirstChild(doc.NewElement("layer"))->ToElement();
+
+	for (int l = 0; l < _layers.size(); l++)
 	{
-		auto thisLayer = lastLayers->FirstChildElement("layer");
-		if (!thisLayer)
-			thisLayer = lastLayers->InsertFirstChild(doc.NewElement("layer"))->ToElement();
+		const auto& layer = _layers[l];
+
+		thisLayer->SetAttribute("id", layer._id);
 
 		thisLayer->SetAttribute("name", layer._name.c_str());
 		thisLayer->SetAttribute("visible", layer._visible);
@@ -181,11 +216,26 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		if (layer._blinkSprite.FrameCount() > 1)
 			SaveAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
 
+		SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
+		SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
+		SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
+
 		thisLayer->SetAttribute("scaleX", layer._scale.x);
 		thisLayer->SetAttribute("scaleY", layer._scale.y);
 		thisLayer->SetAttribute("posX", layer._pos.x);
 		thisLayer->SetAttribute("posY", layer._pos.y);
 		thisLayer->SetAttribute("rot", layer._rot);
+
+		thisLayer->SetAttribute("motionParent", layer._motionParent);
+
+		if (l < _layers.size() - 1)
+		{
+			auto nextLayer = thisLayer->NextSiblingElement("layer");
+			if (!nextLayer)
+				nextLayer = lastLayers->InsertEndChild(doc.NewElement("layer"))->ToElement();
+
+			thisLayer = nextLayer;
+		}
 	}
 
 	doc.SaveFile(settingsFileName.c_str());
@@ -211,13 +261,19 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	_layers.clear();
 
 	auto thisLayer = lastLayers->FirstChildElement("layer");
+	int layerCount = 0;
 	while (thisLayer)
 	{
+		layerCount++;
 		_layers.emplace_back(LayerInfo());
 
 		LayerInfo& layer = _layers.back();
 
 		layer._parent = this;
+
+		thisLayer->QueryAttribute("id", &layer._id);
+		if (layer._id == 0)
+			layer._id = time(0) + layerCount;
 
 		layer._name = thisLayer->Attribute("name");
 		thisLayer->QueryAttribute("visible", &layer._visible);
@@ -248,13 +304,20 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		layer._talkImage = _textureMan.GetTexture(layer._talkImagePath);
 		layer._blinkImage = _textureMan.GetTexture(layer._blinkImagePath);
 
-		layer._idleSprite.LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
-		layer._talkSprite.LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
-		layer._blinkSprite.LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
+		if(layer._idleImage)
+			layer._idleSprite.LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
+		if (layer._talkImage)
+			layer._talkSprite.LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
+		if(layer._blinkImage)
+			layer._blinkSprite.LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
 
 		LoadAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
 		LoadAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
 		LoadAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
+
+		LoadColor(thisLayer, &doc, "idleTint", layer._idleTint);
+		LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
+		LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 
 		layer._blinkTimer.restart();
 		layer._isBlinking = false;
@@ -266,21 +329,98 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("posY", &layer._pos.y);
 		thisLayer->QueryAttribute("rot", &layer._rot);
 
+		thisLayer->QueryAttribute("motionParent", &layer._motionParent);
+
 		thisLayer = thisLayer->NextSiblingElement("layer");
+
 	}
 
 	_lastSavedLocation = settingsFileName;
 	return true;
 }
 
-void LayerManager::LayerInfo::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
+bool LayerManager::HandleHotkey(const sf::Event::KeyEvent& evt)
 {
-	SpriteSheet* activeSprite = nullptr;
+	return false;
+}
+
+void LayerManager::DrawHotkeysGUI()
+{
+	if (_hotkeysMenuOpen != _oldHotkeysMenuOpen)
+	{
+		_oldHotkeysMenuOpen = _hotkeysMenuOpen;
+
+		if (_hotkeysMenuOpen)
+		{
+			ImGui::SetNextWindowPosCenter();
+			ImGui::SetNextWindowSize({ 400, 200 });
+			ImGui::OpenPopup("Hotkey Setup");
+
+
+		}
+	}
+
+	if (ImGui::BeginPopupModal("Hotkey Setup", &_hotkeysMenuOpen))
+	{
+		if (ImGui::Button("Add"))
+		{
+			_hotkeys.push_back(HotkeyInfo());
+		}
+
+		int hkeyIdx = 0;
+		for (auto& hkeys : _hotkeys)
+		{
+			ImGui::PushID(hkeyIdx++);
+			std::string name = g_key_names[hkeys._key];
+			if (hkeys._key == sf::Keyboard::Unknown)
+				name = "Not set";
+			if(hkeys._modifier != sf::Keyboard::Unknown)
+				name = g_key_names[hkeys._modifier] + "," + g_key_names[hkeys._key];
+			if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed))
+			{
+				std::string btnName = name;
+				if (hkeys._key == sf::Keyboard::Unknown)
+					btnName = "Click to\nrecord key";
+				if (_waitingForHotkey) 
+					btnName = "(press a key)";
+				ImGui::PushID("recordKeyBtn");
+				if (ImGui::Button(btnName.c_str(), { 100,30 }))
+				{
+					_pendingKey = sf::Keyboard::Unknown;
+					_pendingMod = sf::Keyboard::Unknown;
+					_waitingForHotkey = true;
+				}
+				ImGui::PopID();
+
+				if (_waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
+				{
+					hkeys._key = _pendingKey;
+					hkeys._modifier = _pendingMod;
+					_waitingForHotkey = false;
+				}
+
+				for (auto& l : _layers)
+				{
+					ImGui::Checkbox(l._name.c_str(), &hkeys._layerStates[l._id]);
+				}
+			}
+			ImGui::PopID();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
+void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
+{
+	_activeSprite = nullptr;
 
 	if (!_idleImage)
 		return;
 
-	activeSprite = &_idleSprite;
+	_activeSprite = &_idleSprite;
+
+	_idleSprite.SetColor(_idleTint);
 
 	float talkFactor = talkLevel / talkMax;
 	talkFactor = pow(talkFactor, 0.5);
@@ -298,96 +438,122 @@ void LayerManager::LayerInfo::Draw(sf::RenderTarget* target, float windowHeight,
 
 	if (_blinkImage && _isBlinking)
 	{
-		activeSprite = &_blinkSprite;
+		_activeSprite = &_blinkSprite;
+
+		_blinkSprite.SetColor(_blinkTint);
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
 			_isBlinking = false;
 	}
 
 	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
-		activeSprite = &_talkSprite;
-
-	sf::Vector2f pos = _pos;
-
-	float newMotionHeight = 0;
-
-	switch (_bounceType)
 	{
-	case LayerManager::LayerInfo::BounceNone:
-		break;
-	case LayerManager::LayerInfo::BounceLoudness:
-		_isBouncing = false;
-		if (talking)
+		_activeSprite = &_talkSprite;
+		_talkSprite.SetColor(_talkTint);
+	}
+
+	if (_motionParent == -1)
+	{
+
+		sf::Vector2f pos;
+
+		float newMotionHeight = 0;
+
+		switch (_bounceType)
 		{
-			_isBouncing = true;
-			newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0 - _talkThreshold));
-		}
-		break;
-	case LayerManager::LayerInfo::BounceRegular:
-		if (talking && _bounceFrequency > 0)
-		{
-			if (!_isBouncing)
+		case LayerManager::LayerInfo::BounceNone:
+			break;
+		case LayerManager::LayerInfo::BounceLoudness:
+			_isBouncing = false;
+			if (talking)
 			{
 				_isBouncing = true;
-				_motionTimer.restart();
+				newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0 - _talkThreshold));
 			}
-
-			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
-			float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
-			newMotionHeight = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
-		}
-		else
-			_isBouncing = false;
-
-		break;
-	default:
-		break;
-	}
-
-	float breathScale = 1.0;
-
-	if (_doBreathing)
-	{
-		_breathAmount *= 0.95;
-
-		if (!talking && !_isBouncing && _breathFrequency > 0)
-		{
-			if (!_isBreathing)
+			break;
+		case LayerManager::LayerInfo::BounceRegular:
+			if (talking && _bounceFrequency > 0)
 			{
-				_motionTimer.restart();
-				_isBreathing = true;
+				if (!_isBouncing)
+				{
+					_isBouncing = true;
+					_motionTimer.restart();
+				}
+
+				float motionTime = _motionTimer.getElapsedTime().asSeconds();
+				motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
+				float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
+				newMotionHeight = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
+			}
+			else
+				_isBouncing = false;
+
+			break;
+		default:
+			break;
+		}
+
+		float breathScale = 1.0;
+
+		if (_doBreathing)
+		{
+			_breathAmount *= 0.95;
+
+			if (!talking && !_isBouncing && _breathFrequency > 0)
+			{
+				if (!_isBreathing)
+				{
+					_motionTimer.restart();
+					_isBreathing = true;
+				}
+
+				float motionTime = _motionTimer.getElapsedTime().asSeconds();
+				motionTime -= floor(motionTime / _breathFrequency) * _breathFrequency;
+				float phase = (motionTime / _breathFrequency) * 2.0 * PI;
+				_breathAmount = (-0.5 * cos(phase) + 0.5);
+			}
+			else
+			{
+				_isBreathing = false;
 			}
 
-			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			motionTime -= floor(motionTime / _breathFrequency) * _breathFrequency;
-			float phase = (motionTime / _breathFrequency) * 2.0 * PI;
-			_breathAmount = (-0.5 * cos(phase) + 0.5);
+			// breathing is half movement, half scale
+			newMotionHeight += _breathAmount * (_breathHeight / 2);
+
+			float origHeight = _activeSprite->Size().y * _scale.y;
+			float breathHeight = origHeight + _breathAmount * (_breathHeight / 2);
+
+			breathScale = breathHeight / origHeight;
 		}
-		else
-		{
-			_isBreathing = false;
-		}
 
-		// breathing is half movement, half scale
-		newMotionHeight += _breathAmount * (_breathHeight / 2);
+		_motionHeight += (newMotionHeight - _motionHeight) * 0.3;
 
-		float origHeight = activeSprite->Size().y * _scale.y;
-		float breathHeight = origHeight + _breathAmount * (_breathHeight / 2);
+		pos.y -= _motionHeight;
 
-		breathScale = breathHeight / origHeight;
+		_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
+		_activeSprite->setScale(_scale * breathScale);
+		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + pos.x, windowHeight / 2 + _pos.y + pos.y });
+		_activeSprite->setRotation(_rot);
+
+		_motionLinkData._pos = pos;
+		_motionLinkData._scale = { breathScale, breathScale };
+		_motionLinkData._rot = _rot;
 	}
+	else
+	{
+		LayerInfo* mp = _parent->GetLayer(_motionParent);
+		if (mp)
+		{
+			sf::Vector2f mpScale = mp->_motionLinkData._scale;
+			sf::Vector2f mpPos = mp->_motionLinkData._pos;
+			float mpRot = mp->_motionLinkData._rot;
 
-	_motionHeight += (newMotionHeight - _motionHeight) * 0.3;
-
-	pos.y -= _motionHeight;
-
-	activeSprite->setOrigin({ 0.5f*activeSprite->Size().x, 0.5f*activeSprite->Size().y });
-	activeSprite->setScale(_scale * breathScale);
-	activeSprite->setPosition({ windowWidth / 2 + pos.x, windowHeight / 2 + pos.y });
-	activeSprite->setRotation(_rot);
-
-	activeSprite->Draw(target);
+			_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
+			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
+			_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
+			_activeSprite->setRotation(_rot + mpRot);
+		}
+	}
 
 }
 
@@ -405,20 +571,51 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 	ImGui::PushID(1000+layerID);
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
-	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed ))
+	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed))
 	{
-		ImGui::Columns(4, 0, false);
+		float bwidth = 77;
+		float bheight = 20;
+		ImGui::Columns(5, 0, false);
 		ImGui::Checkbox("Visible", &_visible);
 		ImGui::NextColumn();
-		if (ImGui::Button("Move Up"))
+		if (ImGui::Button("Move Up", { bwidth, bheight }))
 			_parent->MoveLayerUp(this);
 		ImGui::NextColumn();
-		if (ImGui::Button("Move Down"))
+		if (ImGui::Button("Move Down", { bwidth, bheight }))
 			_parent->MoveLayerDown(this);
 		ImGui::NextColumn();
-		if (ImGui::Button("Delete"))
+		if (ImGui::Button("Rename", { bwidth, bheight }))
+		{
+			_renamingString = _name;
+			_renamePopupOpen = true;
+			ImGui::SetNextWindowSize({ 200,60 });
+			ImGui::OpenPopup("Rename Layer");
+		}
+		ImGui::NextColumn();
+		if (ImGui::Button("Delete", { bwidth, bheight }))
 			_parent->RemoveLayer(this);
+
 		ImGui::Columns();
+
+		if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
+		{
+			char inputStr[32] = " ";
+			_renamingString.copy(inputStr, 32);
+			if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+			{
+				_renamingString = inputStr;
+			}
+			ImGui::SameLine();
+
+			if (ImGui::Button("Save"))
+			{
+				_renamePopupOpen = false;
+				_name = _renamingString;
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
 
 		ImGui::Separator();
 
@@ -458,6 +655,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		}
 		ImGui::PopID();
 
+		ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+
 		ImGui::PopID();
 
 		ImGui::NextColumn();
@@ -491,6 +690,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_talkImagePath = talkbuf;
 			}
 			ImGui::PopID();
+
+			ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
 
 			ImGui::PopID();
 		}
@@ -527,6 +728,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 			ImGui::PopID();
 
+			ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+
 			ImGui::PopID();
 
 			
@@ -542,7 +745,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		}
 		ImGui::Separator();
 
-		ImGui::Checkbox("Use Blink frame", &_useBlinkFrame);
+		ImGui::Checkbox("Blinking", &_useBlinkFrame);
 		if (_useBlinkFrame)
 		{
 			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
@@ -554,37 +757,59 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		}
 		ImGui::Separator();
 
-		std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
-		if (ImGui::BeginCombo("Bouncing", bobOptions[_bounceType]))
+		LayerInfo* oldMp = _parent->GetLayer(_motionParent);
+		std::string mpName = oldMp ? oldMp->_name : "Off";
+		if (ImGui::BeginCombo("Motion Inherit", mpName.c_str()))
 		{
-			if (ImGui::Selectable("None", _bounceType == BounceNone))
-				_bounceType = BounceNone;
-			if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
-				_bounceType = BounceLoudness;
-			if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
-				_bounceType = BounceRegular;
+			if (ImGui::Selectable("Off", _motionParent == -1))
+				_motionParent = -1;
+			for (auto& layer : _parent->GetLayers())
+			{
+				if (layer._id != _id && layer._motionParent != _id)
+					if (ImGui::Selectable(layer._name.c_str(), _motionParent == layer._id))
+					{
+						_motionParent = layer._id;
+					}
+			}
 			ImGui::EndCombo();
 		}
-		if (_bounceType != BounceNone)
-		{
-			AddResetButton("bobheight", _bounceHeight, 80.f, &style);
-			ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
-			AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
-			ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0);
-		}
+
 		ImGui::Separator();
 
-		ImGui::Checkbox("Breathing", &_doBreathing);
-		if (_doBreathing)
+		if (_motionParent == -1)
 		{
-			AddResetButton("breathheight", _breathHeight, 30.f, &style);
-			ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
-			AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
-			ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f);
-		}
-		ImGui::Separator();
+			std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
+			if (ImGui::BeginCombo("Bouncing", bobOptions[_bounceType]))
+			{
+				if (ImGui::Selectable("None", _bounceType == BounceNone))
+					_bounceType = BounceNone;
+				if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
+					_bounceType = BounceLoudness;
+				if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
+					_bounceType = BounceRegular;
+				ImGui::EndCombo();
+			}
+			if (_bounceType != BounceNone)
+			{
+				AddResetButton("bobheight", _bounceHeight, 80.f, &style);
+				ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
+				AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
+				ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0);
+			}
+			ImGui::Separator();
 
-		AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0));
+			ImGui::Checkbox("Breathing", &_doBreathing);
+			if (_doBreathing)
+			{
+				AddResetButton("breathheight", _breathHeight, 30.f, &style);
+				ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
+				AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
+				ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f);
+			}
+			ImGui::Separator();
+		}
+
+		AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), &style);
 		float pos[2] = { _pos.x, _pos.y };
 		if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
 		{
@@ -592,10 +817,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			_pos.y = pos[1];
 		}
 
-		AddResetButton("rot", _rot, 0.f);
+		AddResetButton("rot", _rot, 0.f, &style);
 		ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f);
 
-		AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0));
+		AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), &style);
 		float scale[2] = {_scale.x, _scale.y};
 		if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
 		{
