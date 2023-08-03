@@ -29,10 +29,20 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files) {
     const fs::path& dirPath = dirEntry.path();
 
     if (!fs::is_directory(dirPath))
+    {
+      std::string ext = dirPath.extension().string();
+      for (char& c : ext)
+        c = tolower(c);
+
+      if(  ext == ".png" 
+        || ext == ".jpg" 
+        || ext == ".bmp")
       files.push_back({
           " " + dirPath.filename().string(),
           dirPath
         });
+    }
+      
   }
 }
 

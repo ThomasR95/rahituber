@@ -17,6 +17,13 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
+	if (_activeHotkeyIdx != -1)
+	{
+		HotkeyInfo& hkey = _hotkeys[_activeHotkeyIdx];
+		if (hkey._useTimeout && _hotkeyTimer.getElapsedTime().asSeconds() > hkey._timeout)
+			ResetHotkeys();
+	}
+
 	std::vector<LayerInfo*> calculateOrder;
 	for (int l = _layers.size()-1; l >= 0; l--)
 		calculateOrder.push_back(&_layers[l]);
@@ -165,18 +172,20 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	if (!root)
 		return false;
 
-	auto lastLayers = root->FirstChildElement("lastLayers");
-	if (!lastLayers) 
-		lastLayers = root->InsertFirstChild(doc.NewElement("lastLayers"))->ToElement();
+	auto layers = root->FirstChildElement("layers");
+	if (!layers) 
+		layers = root->InsertFirstChild(doc.NewElement("layers"))->ToElement();
 
-	if (!lastLayers)
+	if (!layers)
 		return false;
 
-	lastLayers->DeleteChildren();
+	layers->DeleteChildren();
 
-	auto thisLayer = lastLayers->FirstChildElement("layer");
+	ResetHotkeys();
+
+	auto thisLayer = layers->FirstChildElement("layer");
 	if (!thisLayer)
-		thisLayer = lastLayers->InsertFirstChild(doc.NewElement("layer"))->ToElement();
+		thisLayer = layers->InsertFirstChild(doc.NewElement("layer"))->ToElement();
 
 	for (int l = 0; l < _layers.size(); l++)
 	{
@@ -232,11 +241,52 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		{
 			auto nextLayer = thisLayer->NextSiblingElement("layer");
 			if (!nextLayer)
-				nextLayer = lastLayers->InsertEndChild(doc.NewElement("layer"))->ToElement();
+				nextLayer = layers->InsertEndChild(doc.NewElement("layer"))->ToElement();
 
 			thisLayer = nextLayer;
 		}
 	}
+
+	auto hotkeys = root->FirstChildElement("hotkeys");
+	if (!hotkeys)
+		hotkeys = root->InsertFirstChild(doc.NewElement("hotkeys"))->ToElement();
+
+	if (!hotkeys)
+		return false;
+
+	hotkeys->DeleteChildren();
+
+	auto thisHotkey = hotkeys->FirstChildElement("hotkey");
+	if (!thisHotkey)
+		thisHotkey = hotkeys->InsertFirstChild(doc.NewElement("hotkey"))->ToElement();
+
+	for (int h = 0; h < _hotkeys.size(); h++)
+	{
+		const auto& hkey = _hotkeys[h];
+
+		thisHotkey->SetAttribute("key", (int)hkey._key);
+		thisHotkey->SetAttribute("mod", (int)hkey._modifier);
+		thisHotkey->SetAttribute("timeout", hkey._timeout);
+		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
+		thisHotkey->SetAttribute("toggle", hkey._toggle);
+
+		for (auto& state : hkey._layerStates)
+		{
+			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
+			thisState->SetAttribute("id", state.first);
+			thisState->SetAttribute("visible", state.second);
+		}
+
+		if (h < _hotkeys.size() - 1)
+		{
+			auto nextHotkey = thisHotkey->NextSiblingElement("hotkey");
+			if (!nextHotkey)
+				nextHotkey = hotkeys->InsertEndChild(doc.NewElement("hotkey"))->ToElement();
+
+			thisHotkey = nextHotkey;
+		}
+	}
+
 
 	doc.SaveFile(settingsFileName.c_str());
 	_lastSavedLocation = settingsFileName;
@@ -254,13 +304,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	if (!root)
 		return false;
 
-	auto lastLayers = root->FirstChildElement("lastLayers");
-	if (!lastLayers)
+	auto layers = root->FirstChildElement("layers");
+	if (!layers)
 		return false;
 
 	_layers.clear();
 
-	auto thisLayer = lastLayers->FirstChildElement("layer");
+	_lastSavedLocation = settingsFileName;
+
+	auto thisLayer = layers->FirstChildElement("layer");
 	int layerCount = 0;
 	while (thisLayer)
 	{
@@ -335,13 +387,92 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 	}
 
-	_lastSavedLocation = settingsFileName;
+	auto hotkeys = root->FirstChildElement("hotkeys");
+	if (!hotkeys)
+		return false;
+
+	_hotkeys.clear();
+
+	auto thisHotkey = hotkeys->FirstChildElement("hotkey");
+	while (thisHotkey)
+	{
+		_hotkeys.emplace_back(HotkeyInfo());
+		HotkeyInfo& hkey = _hotkeys.back();
+
+		int key;
+		int mod;
+		thisHotkey->QueryAttribute("key", &key);
+		hkey._key = (sf::Keyboard::Key)key;
+		thisHotkey->QueryAttribute("mod", &mod);
+		hkey._modifier = (sf::Keyboard::Key)mod;
+		thisHotkey->QueryAttribute("timeout", &hkey._timeout);
+		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
+		thisHotkey->QueryAttribute("toggle", &hkey._toggle);
+
+		auto thisLayerState = thisHotkey->FirstChildElement("state");
+		while (thisLayerState)
+		{
+			int id;
+			bool vis;
+			thisLayerState->QueryAttribute("id", &id);
+			thisLayerState->QueryAttribute("visible", &vis);
+
+			hkey._layerStates[id] = vis;
+
+			thisLayerState = thisLayerState->NextSiblingElement("state");
+		}
+
+		thisHotkey = thisHotkey->NextSiblingElement("hotkey");
+	}
+
+
 	return true;
 }
 
-bool LayerManager::HandleHotkey(const sf::Event::KeyEvent& evt)
+void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod)
 {
-	return false;
+	for (int h = 0; h < _hotkeys.size(); h++)
+	{
+		auto& hkey = _hotkeys[h];
+		if (hkey._key == key && hkey._modifier == mod)
+		{
+			if (_activeHotkeyIdx == h && hkey._toggle)
+			{
+					ResetHotkeys();
+			}
+			else if (_activeHotkeyIdx == -1)
+			{
+				_defaultLayerStates.clear();
+				for (auto& l : _layers)
+				{
+					_defaultLayerStates[l._id] = l._visible;
+				}
+
+				for (auto& state : hkey._layerStates)
+				{
+					GetLayer(state.first)->_visible = state.second;
+				}
+				_activeHotkeyIdx = h;
+				_hotkeyTimer.restart();
+			}
+			break;
+		}
+	}
+
+	return;
+}
+
+void LayerManager::ResetHotkeys()
+{
+	if (_activeHotkeyIdx == -1)
+		return;
+
+	for (auto& l : _layers)
+	{
+		if(_defaultLayerStates.count(l._id))
+			l._visible = _defaultLayerStates[l._id];
+	}
+	_activeHotkeyIdx = -1;
 }
 
 void LayerManager::DrawHotkeysGUI()
@@ -353,38 +484,49 @@ void LayerManager::DrawHotkeysGUI()
 		if (_hotkeysMenuOpen)
 		{
 			ImGui::SetNextWindowPosCenter();
-			ImGui::SetNextWindowSize({ 400, 200 });
+			ImGui::SetNextWindowSize({ 400, 400 });
 			ImGui::OpenPopup("Hotkey Setup");
-
-
 		}
 	}
 
-	if (ImGui::BeginPopupModal("Hotkey Setup", &_hotkeysMenuOpen))
+	if (ImGui::BeginPopupModal("Hotkey Setup", &_hotkeysMenuOpen, ImGuiWindowFlags_NoResize))
 	{
+		ImGui::TextWrapped("Use Hotkeys to instantly set the visibility of multiple layers");
+
 		if (ImGui::Button("Add"))
 		{
 			_hotkeys.push_back(HotkeyInfo());
+			for (auto& l : _layers)
+			{
+				_hotkeys.back()._layerStates[l._id] = l._visible;
+			}
 		}
 
 		int hkeyIdx = 0;
-		for (auto& hkeys : _hotkeys)
+		while (hkeyIdx < _hotkeys.size())
 		{
-			ImGui::PushID(hkeyIdx++);
+			auto& hkeys = _hotkeys[hkeyIdx];
+			ImGui::PushID(hkeyIdx);
+
 			std::string name = g_key_names[hkeys._key];
 			if (hkeys._key == sf::Keyboard::Unknown)
 				name = "Not set";
 			if(hkeys._modifier != sf::Keyboard::Unknown)
 				name = g_key_names[hkeys._modifier] + "," + g_key_names[hkeys._key];
-			if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed))
+			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ImGui::Columns(3, 0, false);
+				ImGui::SetColumnWidth(0, 150);
+				ImGui::SetColumnWidth(1, 100);
+				ImGui::SetColumnWidth(2, 300);
 				std::string btnName = name;
 				if (hkeys._key == sf::Keyboard::Unknown)
-					btnName = "Click to\nrecord key";
+					btnName = " Click to\nrecord key";
 				if (_waitingForHotkey) 
 					btnName = "(press a key)";
 				ImGui::PushID("recordKeyBtn");
-				if (ImGui::Button(btnName.c_str(), { 100,30 }))
+				if (ImGui::Button(btnName.c_str(), { 140,42 }))
 				{
 					_pendingKey = sf::Keyboard::Unknown;
 					_pendingMod = sf::Keyboard::Unknown;
@@ -399,12 +541,49 @@ void LayerManager::DrawHotkeysGUI()
 					_waitingForHotkey = false;
 				}
 
+				ImGui::NextColumn();
+
+				ImGui::Checkbox("Toggle", &hkeys._toggle);
+				ImGui::Checkbox("Timeout", &hkeys._useTimeout);
+
+				ImGui::NextColumn();
+
+				ImGui::SameLine(10);
+				if (hkeys._useTimeout)
+				{
+					ImGui::PushID("timeoutSlider");
+					ImGui::SliderFloat("", &hkeys._timeout, 0.0, 30.0, "%.1f s", 2.f);
+					ImGui::PopID();
+				}
+
+				ImGui::Columns();
+
+				ImGui::Separator();
+
 				for (auto& l : _layers)
 				{
 					ImGui::Checkbox(l._name.c_str(), &hkeys._layerStates[l._id]);
 				}
 			}
+			ImVec2 endHeaderPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(delButtonPos);
+			ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
+			ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
+			if (ImGui::Button("Delete"))
+			{
+				_hotkeys.erase(_hotkeys.begin() + hkeyIdx);
+			}
+			ImGui::PopStyleColor(4);
 			ImGui::PopID();
+
+			ImGui::SetCursorPos(endHeaderPos);
+
+			if (hkeyIdx >= _hotkeys.size())
+				break;
+
+			hkeyIdx++;
 		}
 
 		ImGui::EndPopup();
@@ -499,7 +678,9 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		{
 			_breathAmount *= 0.95;
 
-			if (!talking && !_isBouncing && _breathFrequency > 0)
+			bool talkActive = talking && _swapWhenTalking;
+
+			if ( !talkActive && !_isBouncing && _breathFrequency > 0)
 			{
 				if (!_isBreathing)
 				{
@@ -563,62 +744,23 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	if (_animIcon == nullptr)
 		_animIcon = _textureMan.GetTexture("anim.png");
 
-
 	if (_emptyIcon == nullptr)
 		_emptyIcon = _textureMan.GetTexture("empty.png");
 
+	if (_upIcon == nullptr)
+		_upIcon = _textureMan.GetTexture("arrowup.png");
+
+	if (_dnIcon == nullptr)
+		_dnIcon = _textureMan.GetTexture("arrowdn.png");
+
 	sf::Color btnColor = style.Colors[ImGuiCol_Text];
 
-	ImGui::PushID(1000+layerID);
+	ImGui::PushID(_id);
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
-	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed))
+	ImVec2 headerButtonsPos = { ImGui::GetCursorPosX() + 240, ImGui::GetCursorPosY() };
+
+	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
-		float bwidth = 77;
-		float bheight = 20;
-		ImGui::Columns(5, 0, false);
-		ImGui::Checkbox("Visible", &_visible);
-		ImGui::NextColumn();
-		if (ImGui::Button("Move Up", { bwidth, bheight }))
-			_parent->MoveLayerUp(this);
-		ImGui::NextColumn();
-		if (ImGui::Button("Move Down", { bwidth, bheight }))
-			_parent->MoveLayerDown(this);
-		ImGui::NextColumn();
-		if (ImGui::Button("Rename", { bwidth, bheight }))
-		{
-			_renamingString = _name;
-			_renamePopupOpen = true;
-			ImGui::SetNextWindowSize({ 200,60 });
-			ImGui::OpenPopup("Rename Layer");
-		}
-		ImGui::NextColumn();
-		if (ImGui::Button("Delete", { bwidth, bheight }))
-			_parent->RemoveLayer(this);
-
-		ImGui::Columns();
-
-		if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
-		{
-			char inputStr[32] = " ";
-			_renamingString.copy(inputStr, 32);
-			if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
-			{
-				_renamingString = inputStr;
-			}
-			ImGui::SameLine();
-
-			if (ImGui::Button("Save"))
-			{
-				_renamePopupOpen = false;
-				_name = _renamingString;
-				ImGui::CloseCurrentPopup();
-			}
-
-			ImGui::EndPopup();
-		}
-
-		ImGui::Separator();
-
 		static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
 		static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
 		static imgui_ext::file_browser_modal fileBrowserBlink("Import Blink Sprite");
@@ -628,8 +770,9 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
 		ImGui::PushID("idleimport");
 
+		sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
 		sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-		_importIdleOpen = ImGui::ImageButton(*idleIcon, { 100,100 });
+		_importIdleOpen = ImGui::ImageButton(*idleIcon, { 100,100 }, -1, sf::Color::Transparent, idleCol);
 		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 		{
 			if (_idleImage == nullptr)
@@ -665,8 +808,9 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
 			ImGui::PushID("talkimport");
+			sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-			_importTalkOpen = ImGui::ImageButton(*talkIcon, { 100,100 });
+			_importTalkOpen = ImGui::ImageButton(*talkIcon, { 100,100 }, -1, sf::Color::Transparent, talkCol);
 			fileBrowserTalk.SetStartingDir(chosenDir);
 			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 			{
@@ -702,8 +846,9 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 			ImGui::PushID("blinkimport");
+			sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
-			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, { 100,100 });
+			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, { 100,100 }, -1, sf::Color::Transparent, blinkCol);
 			fileBrowserBlink.SetStartingDir(chosenDir);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
@@ -749,11 +894,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (_useBlinkFrame)
 		{
 			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
-			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0);
+			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
 			AddResetButton("blinkdelay", _blinkDelay, 6.f, &style);
-			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0);
+			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
 			AddResetButton("blinkvar", _blinkVariation, 4.f, &style);
-			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0);
+			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
 		}
 		ImGui::Separator();
 
@@ -793,8 +938,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				AddResetButton("bobheight", _bounceHeight, 80.f, &style);
 				ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
-				AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
-				ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0);
+				if (_bounceType == BounceRegular)
+				{
+					AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
+					ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+				}
 			}
 			ImGui::Separator();
 
@@ -804,7 +952,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				AddResetButton("breathheight", _breathHeight, 30.f, &style);
 				ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
 				AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
-				ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f);
+				ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
 			}
 			ImGui::Separator();
 		}
@@ -842,6 +990,63 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		ImGui::Separator();
 	}
+
+	auto oldCursorPos = ImGui::GetCursorPos();
+	ImGui::SetCursorPos(headerButtonsPos);
+
+	ImGui::PushID("visible");
+	ImGui::Checkbox("", &_visible);
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::PushID("upbtn");
+	if (ImGui::ImageButton(*_upIcon, {16,16}, 1, sf::Color::Transparent, btnColor))
+		_parent->MoveLayerUp(this);
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::PushID("dnbtn");
+	if (ImGui::ImageButton(*_dnIcon, {16, 16}, 1, sf::Color::Transparent, btnColor))
+		_parent->MoveLayerDown(this);
+	ImGui::PopID();
+	ImGui::SameLine();
+	if (ImGui::Button("Rename"))
+	{
+		_renamingString = _name;
+		_renamePopupOpen = true;
+		ImGui::SetNextWindowSize({ 200,60 });
+		ImGui::OpenPopup("Rename Layer");
+	}
+	ImGui::SameLine();
+	ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
+	if (ImGui::Button("Delete"))
+		_parent->RemoveLayer(this);
+	ImGui::PopStyleColor(4);
+
+	if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
+	{
+		char inputStr[32] = " ";
+		_renamingString.copy(inputStr, 32);
+		if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+		{
+			_renamingString = inputStr;
+		}
+		ImGui::SameLine();
+
+		if (ImGui::Button("Save"))
+		{
+			_renamePopupOpen = false;
+			_name = _renamingString;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+
+	ImGui::SetCursorPos(oldCursorPos);
+
 	ImGui::PopID();
 }
 
