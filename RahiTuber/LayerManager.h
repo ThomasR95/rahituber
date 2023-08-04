@@ -142,6 +142,9 @@ public:
 	{
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
 		sf::Keyboard::Key _modifier = sf::Keyboard::Unknown;
+		float _timeout = 5.0;
+		bool _useTimeout = true;
+		bool _toggle = true;
 		std::map<int, bool> _layerStates;
 	};
 
@@ -167,7 +170,8 @@ public:
 		_pendingKey = key;
 		_pendingMod = mod;
 	}
-	bool HandleHotkey(const sf::Event::KeyEvent& evt);
+	void HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod);
+	void ResetHotkeys();
 
 	LayerInfo* GetLayer(int id) 
 	{
@@ -196,6 +200,9 @@ private:
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
 	sf::Keyboard::Key _pendingMod = sf::Keyboard::Unknown;
+	std::map<int, bool> _defaultLayerStates;
+	sf::Clock _hotkeyTimer;
+	int _activeHotkeyIdx = -1;
 	void DrawHotkeysGUI();
 
 	inline void SaveColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, const float* col)
@@ -261,6 +268,8 @@ private:
 static sf::Texture* _resetIcon = nullptr;
 static sf::Texture* _emptyIcon = nullptr;
 static sf::Texture* _animIcon = nullptr;
+static sf::Texture* _upIcon = nullptr;
+static sf::Texture* _dnIcon = nullptr;
 
 static TextureManager _textureMan;
 

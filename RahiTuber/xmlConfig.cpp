@@ -34,6 +34,17 @@ bool xmlConfigLoader::loadCommon()
 			common->QueryIntAttribute("lastY", &_appConfig->_scrY);
 			common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 			common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
+
+			int r = -1;
+			int g = -1; 
+			int b = -1;
+			common->QueryIntAttribute("lastBgCol_r", &r);
+			common->QueryIntAttribute("lastBgCol_g", &g);
+			common->QueryIntAttribute("lastBgCol_b", &b);
+			if (r >= 0 && g >= 0 && b >= 0)
+			{
+				_appConfig->_bgColor = sf::Color(r, g, b);
+			}
 		}
 	}
 	else return false;
@@ -64,6 +75,9 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastY", _appConfig->_scrY);
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
+			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
+			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
+			common->SetAttribute("lastBgCol_b", _appConfig->_bgColor.b);
 		}
 	}
 	else return false;
@@ -143,6 +157,17 @@ bool xmlConfigLoader::loadPreset(const std::string & presetName)
 			window->QueryBoolAttribute("Transparent", &_appConfig->_transparent);
 			window->QueryFloatAttribute("MinOpacity", &_appConfig->_minOpacity);
 
+			int r = -1;
+			int g = -1;
+			int b = -1;
+			window->QueryIntAttribute("bgCol_r", &r);
+			window->QueryIntAttribute("bgCol_g", &g);
+			window->QueryIntAttribute("bgCol_b", &b);
+			if (r >= 0 && g >= 0 && b >= 0)
+			{
+				_appConfig->_bgColor = sf::Color(r, g, b);
+			}
+
 			_uiConfig->_windowSettingsChanged = true;
 		}
 	}
@@ -196,6 +221,9 @@ bool xmlConfigLoader::savePreset(const std::string & presetName)
 		window->SetAttribute("AlwaysOnTop", _appConfig->_alwaysOnTop);
 		window->SetAttribute("Transparent", _appConfig->_transparent);
 		window->SetAttribute("MinOpacity", _appConfig->_minOpacity);
+		window->SetAttribute("bgCol_r", _appConfig->_bgColor.r);
+		window->SetAttribute("bgCol_g", _appConfig->_bgColor.g);
+		window->SetAttribute("bgCol_b", _appConfig->_bgColor.b);
 	}
 
 	doc.SaveFile(_settingsFileName.c_str());

@@ -248,7 +248,7 @@ void swapFullScreen()
 
 void menuHelp(ImGuiStyle& style)
 {
-	if (ImGui::Button("Help", { ImGui::GetWindowWidth() / 2 - 10,20 }))
+	if (ImGui::Button("Help", { ImGui::GetWindowWidth() / 2 - 10, 20 }))
 	{
 		float h = ImGui::GetWindowHeight();
 		ImGui::SetNextWindowSize({ 400, h });
@@ -264,8 +264,8 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Fullscreen:");				ImGui::SameLine(160); ImGui::TextWrapped("Toggles fullscreen.");
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Show Advanced...:");		ImGui::SameLine(160); ImGui::TextWrapped("Reveals some advanced options.");
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Audio Input:");			ImGui::SameLine(160); ImGui::TextWrapped("Lets you select which audio device affects the visuals.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Presets:");				ImGui::SameLine(160); ImGui::TextWrapped("Save and load Presets for the visualiser and window settings.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Exit RahiTuber:");		ImGui::SameLine(160); ImGui::TextWrapped("Closes the program.");
+		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Presets:");				ImGui::SameLine(160); ImGui::TextWrapped("Save and load window settings.");
+		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Exit RahiTuber:");		ImGui::SameLine(160); ImGui::TextWrapped("Saves the layers and closes the program.");
 		ImGui::NewLine();
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
 		ImGui::TextWrapped("Drag from the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
@@ -298,12 +298,21 @@ void menuHelp(ImGuiStyle& style)
 
 void menuAdvanced(ImGuiStyle& style)
 {
-	if (ImGui::Button(uiConfig->_advancedMenuShowing ? "Hide Advanced" : "Show Advanced...", { -1,20 }))
+	if (ImGui::Button(uiConfig->_advancedMenuShowing ? "Hide Advanced" : "Show Advanced...", { -1, 20 }))
 	{
 		uiConfig->_advancedMenuShowing = !uiConfig->_advancedMenuShowing;
 	}
 	if (uiConfig->_advancedMenuShowing)
 	{
+		ImVec4 col = ImVec4( (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255, 1.0 );
+		if (ImGui::ColorButton("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel, {120, 20}))
+		{
+			appConfig->_bgColor = sf::Color(int(255.f * col.x), int(255.f * col.y), int(255.f * col.z));
+		}
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
+		ImGui::PopStyleColor();
+
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 		float transChkBoxPos = ImGui::GetCursorPosY();
 		if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
@@ -355,15 +364,6 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
 		ImGui::SameLine(140); ImGui::TextWrapped("Turns the app background transparent (Useful for screen capture).");
 		ImGui::PopStyleColor();
-
-		if (appConfig->_transparent)
-		{
-			//ImGui::SameLine(227);
-			ImGui::SetCursorPosY(transChkBoxPos + 22);
-			ImGui::PushItemWidth(60);
-			ImGui::DragFloat("Opacity", &appConfig->_minOpacity, 0.005f, 0.1f, 0.8f, "%.2f");
-			ImGui::PopItemWidth();
-		}
 
 		if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
 		{
@@ -471,9 +471,12 @@ void menuPresets(ImGuiStyle& style)
 	{
 		ImGui::SetWindowSize({ 400,-1 });
 		ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
+
+		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Save or load presets for window attributes");
+		ImGui::Separator();
 		std::string prevName = "";
 		if (uiConfig->_presetNames.size()) prevName = uiConfig->_presetNames[uiConfig->_presetIdx];
-		if (ImGui::BeginCombo("Presets", prevName.c_str()))
+		if (ImGui::BeginCombo("Preset", prevName.c_str()))
 		{
 			for (int p = 0; p < uiConfig->_presetNames.size(); p++)
 			{
@@ -537,25 +540,29 @@ void menuPresets(ImGuiStyle& style)
 		std::string saveCheckBox = "Save";
 		if (overwriting) saveCheckBox = "Update";
 
-		ImGui::PushID("windowsettings_id");
-		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Window Settings");
-		ImGui::SameLine(); ImGui::TextColored(style.Colors[ImGuiCol_Separator], "(Size, position)");
+		//ImGui::PushID("windowsettings_id");
+		//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Window Settings");
+		//ImGui::SameLine(); ImGui::TextColored(style.Colors[ImGuiCol_Separator], "(Size, position)");
 
-		if (ImGui::Checkbox(saveCheckBox.c_str(), &uiConfig->_saveWindowInfo))
-		{
-			if (uiConfig->_saveWindowInfo)
-				uiConfig->_clearWindowInfo = false;
-		}
-		if (overwriting)
-		{
-			ImGui::SameLine();
-			if (ImGui::Checkbox("Clear", &uiConfig->_clearWindowInfo))
-			{
-				if (uiConfig->_clearWindowInfo)
-					uiConfig->_saveWindowInfo = false;
-			}
-		}
-		ImGui::PopID();
+		//if (ImGui::Checkbox(saveCheckBox.c_str(), &uiConfig->_saveWindowInfo))
+		//{
+		//	if (uiConfig->_saveWindowInfo)
+		//		uiConfig->_clearWindowInfo = false;
+		//}
+		//if (overwriting)
+		//{
+		//	ImGui::SameLine();
+		//	if (ImGui::Checkbox("Clear", &uiConfig->_clearWindowInfo))
+		//	{
+		//		if (uiConfig->_clearWindowInfo)
+		//			uiConfig->_saveWindowInfo = false;
+		//	}
+		//}
+		//ImGui::PopID();
+
+		uiConfig->_clearWindowInfo = false;
+		uiConfig->_saveWindowInfo = true;
+		
 
 		std::string saveName = "Save";
 		if (overwriting) saveName = "Overwrite";
@@ -694,7 +701,7 @@ void menu()
 
 void handleEvents()
 {
-	if (appConfig->_currentWindow->hasFocus() && appConfig->_isFullScreen && !uiConfig->_menuShowing && !appConfig->_transparent)
+	if (appConfig->_currentWindow->hasFocus() && appConfig->_isFullScreen && !uiConfig->_menuShowing)
 	{
 		appConfig->_currentWindow->setMouseCursorVisible(false);
 	}
@@ -722,22 +729,25 @@ void handleEvents()
 			&& evt.key.code != sf::Keyboard::RSystem
 			&& evt.key.code != sf::Keyboard::Escape)
 		{
+			sf::Keyboard::Key mod = sf::Keyboard::Unknown;
+			if (evt.key.control)
+				mod = sf::Keyboard::LControl;
+			if (evt.key.shift)
+				mod = sf::Keyboard::LShift;
+			if (evt.key.alt)
+				mod = sf::Keyboard::LAlt;
+			if (evt.key.system)
+				mod = sf::Keyboard::LSystem;
+
 			if (layerMan->PendingHotkey())
 			{
-				sf::Keyboard::Key mod = sf::Keyboard::Unknown;
-				if (evt.key.control)
-					mod = sf::Keyboard::LControl;
-				if (evt.key.shift)
-					mod = sf::Keyboard::LShift;
-				if (evt.key.alt)
-					mod = sf::Keyboard::LAlt;
-				if (evt.key.system)
-					mod = sf::Keyboard::LSystem;
 				layerMan->SetHotkeys(evt.key.code, mod);
 				continue;
 			}
-			
-			layerMan->HandleHotkey(evt.key);
+			else
+			{
+				layerMan->HandleHotkey(evt.key.code, mod);
+			}
 		}
 
 		if (evt.type == evt.Closed)
@@ -747,7 +757,7 @@ void handleEvents()
 			appConfig->_currentWindow->close();
 			break;
 		}
-		else if (evt.type == evt.GainedFocus && appConfig->_transparent)
+		else if (false && evt.type == evt.GainedFocus && appConfig->_transparent)
 		{
 			//gaining focus when transparent makes it non-transparent again and shows the menu
 			appConfig->_transparent = false;
@@ -789,7 +799,7 @@ void handleEvents()
 			if (uiConfig->_menuShowing)
 				uiConfig->_firstMenu = true;
 			else if (appConfig->_transparent)
-				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
+				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
 
 			appConfig->_timer.restart();
 
@@ -867,9 +877,9 @@ void render()
 	if (appConfig->_transparent)
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
 	else
-		appConfig->_window.clear();
+		appConfig->_window.clear(appConfig->_bgColor);
 
- 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_midAverage, audioConfig->_midMax);
+ 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage), audioConfig->_midMax);
 
 	if (uiConfig->_menuShowing)
 	{

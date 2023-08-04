@@ -35,6 +35,8 @@ struct AppConfig
 
 	bool _transparent = false;
 
+	sf::Color _bgColor = sf::Color(128,110,128);
+
 	float _fullScrW;
 	float _fullScrH;
 	float _minScrW;

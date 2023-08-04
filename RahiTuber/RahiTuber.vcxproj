@@ -174,9 +174,16 @@
     <ClInclude Include="file_browser_modal.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="LayerManager.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="SpriteSheet.h" />
     <ClInclude Include="tinyxml2\tinyxml2.h" />
     <ClInclude Include="xmlConfig.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="RahiTuber.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
