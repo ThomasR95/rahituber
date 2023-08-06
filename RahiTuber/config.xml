@@ -1,8 +1,3 @@
 <Config>
-    <Common startMaximised="false" lastWidth="1022" lastHeight="726" lastX="413" lastY="154" alwaysOnTop="false" lastAudioDevice="1" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128"/>
-    <Presets>
-        <Preset Name="middlescreen" AffectsWindow="true">
-            <Window x="413" y="154" w="1022" h="726" AlwaysOnTop="false" Transparent="false" MinOpacity="0.25" bgCol_r="128" bgCol_g="110" bgCol_b="128"/>
-        </Preset>
-    </Presets>
+    <Common startMaximised="false" lastWidth="1280" lastHeight="720" lastX="0" lastY="0" alwaysOnTop="false" lastAudioDevice="6" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="true" menuOnStart="true"/>
 </Config>

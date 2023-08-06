@@ -182,13 +182,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	layers->DeleteChildren();
 
 	ResetHotkeys();
-
-	auto thisLayer = layers->FirstChildElement("layer");
-	if (!thisLayer)
-		thisLayer = layers->InsertFirstChild(doc.NewElement("layer"))->ToElement();
-
+	
 	for (int l = 0; l < _layers.size(); l++)
 	{
+		auto thisLayer = layers->InsertEndChild(doc.NewElement("layer"))->ToElement();
+
 		const auto& layer = _layers[l];
 
 		thisLayer->SetAttribute("id", layer._id);
@@ -236,15 +234,6 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("rot", layer._rot);
 
 		thisLayer->SetAttribute("motionParent", layer._motionParent);
-
-		if (l < _layers.size() - 1)
-		{
-			auto nextLayer = thisLayer->NextSiblingElement("layer");
-			if (!nextLayer)
-				nextLayer = layers->InsertEndChild(doc.NewElement("layer"))->ToElement();
-
-			thisLayer = nextLayer;
-		}
 	}
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
@@ -256,12 +245,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	hotkeys->DeleteChildren();
 
-	auto thisHotkey = hotkeys->FirstChildElement("hotkey");
-	if (!thisHotkey)
-		thisHotkey = hotkeys->InsertFirstChild(doc.NewElement("hotkey"))->ToElement();
-
 	for (int h = 0; h < _hotkeys.size(); h++)
 	{
+		auto thisHotkey = hotkeys->InsertEndChild(doc.NewElement("hotkey"))->ToElement();
 		const auto& hkey = _hotkeys[h];
 
 		thisHotkey->SetAttribute("key", (int)hkey._key);
@@ -275,15 +261,6 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
 			thisState->SetAttribute("id", state.first);
 			thisState->SetAttribute("visible", state.second);
-		}
-
-		if (h < _hotkeys.size() - 1)
-		{
-			auto nextHotkey = thisHotkey->NextSiblingElement("hotkey");
-			if (!nextHotkey)
-				nextHotkey = hotkeys->InsertEndChild(doc.NewElement("hotkey"))->ToElement();
-
-			thisHotkey = nextHotkey;
 		}
 	}
 
@@ -327,7 +304,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		if (layer._id == 0)
 			layer._id = time(0) + layerCount;
 
-		layer._name = thisLayer->Attribute("name");
+		const char* name = thisLayer->Attribute("name");
+		if (!name)
+			break;
+
+		layer._name = name;
 		thisLayer->QueryAttribute("visible", &layer._visible);
 
 		thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
@@ -431,6 +412,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod)
 {
+	for (auto& l : _layers)
+		if (l._renamePopupOpen)
+			return;
+
 	for (int h = 0; h < _hotkeys.size(); h++)
 	{
 		auto& hkey = _hotkeys[h];
