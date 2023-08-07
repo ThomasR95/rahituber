@@ -35,6 +35,7 @@ bool xmlConfigLoader::loadCommon()
 			common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 			common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
 
+
 			int r = -1;
 			int g = -1; 
 			int b = -1;
@@ -45,6 +46,9 @@ bool xmlConfigLoader::loadCommon()
 			{
 				_appConfig->_bgColor = sf::Color(r, g, b);
 			}
+
+			common->QueryAttribute("transparent", &_appConfig->_transparent);
+			common->QueryAttribute("menuOnStart", &_uiConfig->_showMenuOnStart);
 		}
 	}
 	else return false;
@@ -78,6 +82,9 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
 			common->SetAttribute("lastBgCol_b", _appConfig->_bgColor.b);
+
+			common->SetAttribute("transparent", _appConfig->_transparent);
+			common->SetAttribute("menuOnStart", _uiConfig->_showMenuOnStart);
 		}
 	}
 	else return false;

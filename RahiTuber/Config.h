@@ -37,20 +37,20 @@ struct AppConfig
 
 	sf::Color _bgColor = sf::Color(128,110,128);
 
-	float _fullScrW;
-	float _fullScrH;
-	float _minScrW;
-	float _minScrH;
-	float _scrW;
-	float _scrH;
-	float _ratio;
-	int _scrX;
-	int _scrY;
+	float _fullScrW = 1920;
+	float _fullScrH = 1080;
+	float _minScrW = SCRW;
+	float _minScrH = SCRH;
+	float _scrW = SCRW;
+	float _scrH = SCRH;
+	float _ratio = 16.f / 9.f;
+	int _scrX = 0;
+	int _scrY = 0;
 
 	bool _enableVSync = true;
 
 	sf::RenderWindow _window;
-	sf::RenderWindow* _currentWindow;
+	sf::RenderWindow* _currentWindow = nullptr;
 	sf::RenderTexture _RT;
 
 	sf::Shader _shader;
@@ -88,27 +88,27 @@ struct AudioConfig
 	std::vector<SAMPLE> _fftData;
 	std::vector<SAMPLE> _frequencyData;
 	std::mutex _freqDataMutex;
-	SAMPLE _bassHi;
-	SAMPLE _bassMax;
-	SAMPLE _bassAverage;
+	SAMPLE _bassHi = 0.0;
+	SAMPLE _bassMax = 0.0;
+	SAMPLE _bassAverage = 0.0;
 
-	SAMPLE _trebleHi;
-	SAMPLE _trebleMax;
-	SAMPLE _trebleAverage;
+	SAMPLE _trebleHi = 0.0;
+	SAMPLE _trebleMax = 0.0;
+	SAMPLE _trebleAverage = 0.0;
 
-	SAMPLE _midHi;
-	SAMPLE _midMax;
-	SAMPLE _midAverage;
+	SAMPLE _midHi = 0.0;
+	SAMPLE _midMax = 0.0;
+	SAMPLE _midAverage = 0.0;
 
 	float _smoothAmount = 10;
 
-	SAMPLE _frameHi;
+	SAMPLE _frameHi = 0.0;
 	PaStreamParameters _params;
 	PaDeviceIndex _devIdx = -1;
-	int _nDevices;
+	int _nDevices = 0;
 	std::vector<std::pair<std::string, int>> _deviceList;
 	paTestData* _streamData;
-	PaStream* _audioStr;
+	PaStream* _audioStr = nullptr;
 	bool _leftChannel = true;
 	int _numChannels = 2;
 
@@ -122,7 +122,8 @@ struct UIConfig
 	sf::Sprite _moveIconSprite;
 	sf::Vector2f _moveTabSize = { 80,32 };
 
-	bool _menuShowing = false;
+	bool _showMenuOnStart = true;
+	bool _menuShowing = true;
 	bool _advancedMenuShowing = false;
 	bool _showFPS = false;
 	bool _firstMenu = true;

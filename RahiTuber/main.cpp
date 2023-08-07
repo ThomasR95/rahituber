@@ -304,12 +304,18 @@ void menuAdvanced(ImGuiStyle& style)
 	}
 	if (uiConfig->_advancedMenuShowing)
 	{
-		ImVec4 col = ImVec4( (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255, 1.0 );
-		if (ImGui::ColorButton("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel, {120, 20}))
-		{
-			appConfig->_bgColor = sf::Color(int(255.f * col.x), int(255.f * col.y), int(255.f * col.z));
-		}
+		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Start the application with the menu open.");
+		ImGui::PopStyleColor();
+
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		float col[3] = {(float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255};
+		if (ImGui::ColorEdit3("(<- click)", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
+		{
+			appConfig->_bgColor = sf::Color(int(255.f * col[0]), int(255.f * col[1]), int(255.f * col[2]));
+		}
+		
 		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
 		ImGui::PopStyleColor();
 
@@ -346,19 +352,6 @@ void menuAdvanced(ImGuiStyle& style)
 			{
 				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
 				EnableWindow(appConfig->_window.getSystemHandle(), true);
-			}
-			if (!appConfig->_alwaysOnTop)
-			{
-				if (appConfig->_transparent)
-				{
-					HWND hwnd = appConfig->_window.getSystemHandle();
-					SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-				}
-				else
-				{
-					HWND hwnd = appConfig->_window.getSystemHandle();
-					SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-				}
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
@@ -418,7 +411,10 @@ void menuAudio(ImGuiStyle& style)
 	//ImGui::TextColored({ 0.5, 0.5, 0.5, 1.0 }, "Current:\n  %s", gameConfig->deviceList[gameConfig->devIdx].first.c_str());
 	ImGui::PushID("AudImpCombo");
 	ImGui::PushItemWidth(200);
-	if (ImGui::BeginCombo("", audioConfig->_deviceList[audioConfig->_devIdx].first.c_str()))
+	std::string deviceName = "None";
+	if (audioConfig->_deviceList.size() > audioConfig->_devIdx)
+		deviceName = audioConfig->_deviceList[audioConfig->_devIdx].first;
+	if (ImGui::BeginCombo("", deviceName.c_str()))
 	{
 		for (auto& dev : audioConfig->_deviceList)
 		{
@@ -642,7 +638,7 @@ void menu()
 	{
 		uiConfig->_menuShowing = false;
 		if (appConfig->_transparent)
-			SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
+			SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
 	}
 
 	//	FULLSCREEN
@@ -756,22 +752,6 @@ void handleEvents()
 			//close the application
 			appConfig->_currentWindow->close();
 			break;
-		}
-		else if (false && evt.type == evt.GainedFocus && appConfig->_transparent)
-		{
-			//gaining focus when transparent makes it non-transparent again and shows the menu
-			appConfig->_transparent = false;
-			appConfig->_currentWindow->setMouseCursorVisible(true);
-			SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
-			EnableWindow(appConfig->_window.getSystemHandle(), true);
-
-			if (!appConfig->_alwaysOnTop)
-			{
-				HWND hwnd = appConfig->_window.getSystemHandle();
-				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-			}
-
-			uiConfig->_menuShowing = true;
 		}
 		else if (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Left))
 		{
@@ -1077,6 +1057,8 @@ int main()
 	xmlLoader.loadCommon();
 	xmlLoader.loadPresetNames();
 
+	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
+
 	if (appConfig->_startMaximised)
 		appConfig->_isFullScreen = true;
 
@@ -1107,30 +1089,29 @@ int main()
 	double sRate;
 	auto defOutInf = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
 
-	if (audioConfig->_devIdx == -1)
+	if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
 	{
 		//find an audio input
 		for (PaDeviceIndex dI = 0; dI < audioConfig->_nDevices; dI++)
 		{
 			auto info = Pa_GetDeviceInfo(dI);
 			std::string name = info->name;
-			if (name.find("Stereo Mix") != std::string::npos || name.find("Wave Out") != std::string::npos)
+			if (name.find("Microphone") != std::string::npos)
 			{
 				audioConfig->_devIdx = dI;
-				audioConfig->_params.device = audioConfig->_devIdx;
-				audioConfig->_params.channelCount = min(2, info->maxInputChannels);
-				audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
-				audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
-				sRate = info->defaultSampleRate;
 				break;
 			}
 		}
+
+		if (audioConfig->_devIdx == -1)
+			audioConfig->_devIdx = 0;
 	}
-	else
+	
+	if(audioConfig->_nDevices > audioConfig->_devIdx)
 	{
 		auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
 		audioConfig->_params.device = audioConfig->_devIdx;
-		audioConfig->_params.channelCount = min(2, info->maxInputChannels);
+		audioConfig->_params.channelCount = min(1, info->maxInputChannels);
 		audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
 		audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 		sRate = info->defaultSampleRate;
