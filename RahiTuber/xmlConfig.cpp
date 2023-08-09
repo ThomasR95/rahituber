@@ -49,6 +49,9 @@ bool xmlConfigLoader::loadCommon()
 
 			common->QueryAttribute("transparent", &_appConfig->_transparent);
 			common->QueryAttribute("menuOnStart", &_uiConfig->_showMenuOnStart);
+			const char* lastLayers = common->Attribute("lastLayerSet");
+			if (lastLayers != NULL)
+				_appConfig->_lastLayerSet = lastLayers;
 		}
 	}
 	else return false;
@@ -85,6 +88,7 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("transparent", _appConfig->_transparent);
 			common->SetAttribute("menuOnStart", _uiConfig->_showMenuOnStart);
+			common->SetAttribute("lastLayerSet", _appConfig->_lastLayerSet.c_str());
 		}
 	}
 	else return false;

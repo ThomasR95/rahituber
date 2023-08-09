@@ -11,6 +11,8 @@
 
 #include "tinyxml2\tinyxml2.h"
 
+#include <deque>
+
 class TextureManager
 {
 public:
@@ -127,6 +129,7 @@ public:
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
 
 		int _motionParent = -1;
+		float _motionDelay = 0;
 		struct MotionLinkData
 		{
 			sf::Vector2f _scale = { 1.f, 1.f };
@@ -134,7 +137,7 @@ public:
 			float _rot = 0.0;
 		};
 
-		MotionLinkData _motionLinkData;
+		std::deque<MotionLinkData> _motionLinkData;
 
 	};
 
@@ -186,6 +189,9 @@ public:
 	{
 		return _layers;
 	}
+	
+	std::string LastUsedLayerSet() { return _loadedXML; }
+	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
 
 private:
 
@@ -194,6 +200,8 @@ private:
 	std::vector<LayerInfo> _layers;
 
 	std::string _lastSavedLocation = "";
+	std::string _loadedXML = "lastLayers";
+	bool _loadedXMLExists = true;
 
 	bool _hotkeysMenuOpen = false;
 	bool _oldHotkeysMenuOpen = false;

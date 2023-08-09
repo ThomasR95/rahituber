@@ -8,6 +8,10 @@
 #include <iostream>
 
 #include <windows.h>
+
+#include <filesystem>
+namespace fs = std::filesystem;
+
 //#include <shellapi.h>
 
 void OsOpenInShell(const char* path) {
@@ -17,7 +21,7 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
-	if (_activeHotkeyIdx != -1)
+	if (_activeHotkeyIdx != -1 && _activeHotkeyIdx < _hotkeys.size())
 	{
 		HotkeyInfo& hkey = _hotkeys[_activeHotkeyIdx];
 		if (hkey._useTimeout && _hotkeyTimer.getElapsedTime().asSeconds() > hkey._timeout)
@@ -57,22 +61,64 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::PushID("layermanager");
 
-	if (ImGui::Button("Add Layer"))
+	float frameW = ImGui::GetWindowWidth();
+	float buttonW = (frameW / 3) - 12;
+
+	if (ImGui::Button("Add Layer", { buttonW, 20 }))
 		AddLayer();
 
 	ImGui::SameLine();
-	if (ImGui::Button("Remove All"))
+	if (ImGui::Button("Remove All", { buttonW, 20 }))
 		_layers.clear();
 
 	ImGui::SameLine();
-	if (ImGui::Button("Save Layers") && !_lastSavedLocation.empty())
-		SaveLayers(_lastSavedLocation);
+	ImGui::PushID("hotkeysBtn");
+	if (ImGui::Button("Hotkeys", { buttonW, 20 }))
+		_hotkeysMenuOpen = true;
+	ImGui::PopID();
+
+	ImGui::PushID("hotkeysPopup");
+	DrawHotkeysGUI();
+	ImGui::PopID();
+
+	ImGui::PushItemWidth(200);
+	float b4textY = ImGui::GetCursorPosY();
+	ImGui::SetCursorPosY(b4textY + 3);
+	ImGui::Text("Layer Set:");
+	ImGui::SameLine();
+	ImGui::SetCursorPosY(b4textY);
+	ImGui::PushID("layersXMLInput");
+	char inputStr[32] = " ";
+	_loadedXML.copy(inputStr, 32);
+	if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
+	{
+		_loadedXML = inputStr;
+		auto xmlPath = fs::current_path().append(_loadedXML + ".xml");
+		_loadedXMLExists = fs::exists(xmlPath);
+	}
+	ImGui::PopID();
+	ImGui::PopItemWidth();
 
 	ImGui::SameLine();
-	if (ImGui::Button("Hotkeys"))
-		_hotkeysMenuOpen = true;
+	float textMargin = ImGui::GetCursorPosX();
+	float buttonWidth = 0.5 * (frameW - textMargin) - 10;
+	ImGui::PushID("saveXMLBtn");
+	if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { buttonWidth, 20 }) && !_loadedXML.empty())
+	{
+		SaveLayers(_loadedXML + ".xml");
+		auto xmlPath = fs::current_path().append(_loadedXML + ".xml");
+		_loadedXMLExists = fs::exists(xmlPath);
+	}
+	ImGui::PopID();
 
-	DrawHotkeysGUI();
+	if (_loadedXMLExists)
+	{
+		ImGui::SameLine();
+		ImGui::PushID("loadXMLBtn");
+		if (ImGui::Button("Load", { buttonWidth, 20 }) && _loadedXMLExists)
+			LoadLayers(_loadedXML + ".xml");
+		ImGui::PopID();
+	}
 
 	ImGui::Separator();
 
@@ -234,6 +280,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("rot", layer._rot);
 
 		thisLayer->SetAttribute("motionParent", layer._motionParent);
+		thisLayer->SetAttribute("motionDelay", layer._motionDelay);
 	}
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
@@ -363,7 +410,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("rot", &layer._rot);
 
 		thisLayer->QueryAttribute("motionParent", &layer._motionParent);
-
+		thisLayer->QueryAttribute("motionDelay", &layer._motionDelay);
 		thisLayer = thisLayer->NextSiblingElement("layer");
 
 	}
@@ -701,19 +748,45 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + pos.x, windowHeight / 2 + _pos.y + pos.y });
 		_activeSprite->setRotation(_rot);
 
-		_motionLinkData._pos = pos;
-		_motionLinkData._scale = { breathScale, breathScale };
-		_motionLinkData._rot = _rot;
+		MotionLinkData thisFrame;
+		thisFrame._pos = pos;
+		thisFrame._scale = { breathScale, breathScale };
+		thisFrame._rot = _rot;
+		_motionLinkData.push_front(thisFrame);
+		if (_motionLinkData.size() > 11)
+			_motionLinkData.pop_back();
 	}
 	else
 	{
 		LayerInfo* mp = _parent->GetLayer(_motionParent);
 		if (mp)
 		{
-			sf::Vector2f mpScale = mp->_motionLinkData._scale;
-			sf::Vector2f mpPos = mp->_motionLinkData._pos;
-			float mpRot = mp->_motionLinkData._rot;
+			if (_motionDelay < 0) 
+				_motionDelay = 0;
 
+			size_t maxDelay = _motionLinkData.size() - 1;
+			if (_motionDelay > maxDelay)
+				_motionDelay = maxDelay;
+
+			sf::Vector2f mpScale;
+			sf::Vector2f mpPos;
+			float mpRot = 0;
+			if (floor(_motionDelay) == ceil(_motionDelay))
+			{
+				mpScale = mp->_motionLinkData[(size_t)_motionDelay]._scale;
+				mpPos = mp->_motionLinkData[(size_t)_motionDelay]._pos;
+				mpRot = mp->_motionLinkData[(size_t)_motionDelay]._rot;
+			}
+			else
+			{
+				size_t prev = floor(_motionDelay);
+				size_t next = ceil(_motionDelay);
+				float fraction = _motionDelay - prev;
+				mpScale = mp->_motionLinkData[prev]._scale + fraction*(mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
+				mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+				mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+			}
+			
 			_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
 			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
 			_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
@@ -902,6 +975,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 			}
 			ImGui::EndCombo();
+		}
+
+		if (_motionParent != -1)
+		{
+			ImGui::SliderFloat("Motion Delay", &_motionDelay, 0.0, 10.0, "%.1f", 2.f);
 		}
 
 		ImGui::Separator();
