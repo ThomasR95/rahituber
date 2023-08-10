@@ -65,6 +65,8 @@ struct AppConfig
 
 	sf::Clock _timer;
 
+	std::string _lastLayerSet = "lastLayers";
+
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;
 };

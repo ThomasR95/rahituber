@@ -228,7 +228,7 @@ void initWindow(bool firstStart = false)
 		margins.cxLeftWidth = -1;
 
 		HWND hwnd = appConfig->_window.getSystemHandle();
-		SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+		//SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
 		SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
 		DwmExtendFrameIntoClientArea(hwnd, &margins);
@@ -1057,6 +1057,8 @@ int main()
 	xmlLoader.loadCommon();
 	xmlLoader.loadPresetNames();
 
+	layerMan->SetLayerSet(appConfig->_lastLayerSet);
+
 	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
 
 	if (appConfig->_startMaximised)
@@ -1149,6 +1151,8 @@ int main()
 	Pa_StopStream(audioConfig->_audioStr);
 	Pa_CloseStream(audioConfig->_audioStr);
 	Pa_Terminate();
+
+	appConfig->_lastLayerSet = layerMan->LastUsedLayerSet();
 
 	xmlLoader.saveCommon();
 
