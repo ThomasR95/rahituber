@@ -4,19 +4,24 @@ void SpriteSheet::Draw(sf::RenderTarget* target)
 {
 	sf::Time dt = _timer.getElapsedTime();
 
-	if (_playing)
+	const float frametime = 1.0 / _fps;
+
+	if (_playing || _synced)
 	{
-		if (1.0 / _fps < dt.asSeconds())
+		if (!_synced && (frametime < dt.asSeconds()))
 		{
 			_currentFrame++;
 			_timer.restart();
+			for (SpriteSheet* spr : _syncChildren)
+				spr->AdvanceFrame();
 		}
 			
 		_currentFrame = _currentFrame % _frameRects.size();
 		_sprite.setTextureRect(_frameRects[_currentFrame]);
 	}
 	
-	target->draw(_sprite);
+	if(_visible)
+		target->draw(_sprite);
 
 }
 

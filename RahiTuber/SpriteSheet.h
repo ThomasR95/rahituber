@@ -13,29 +13,84 @@ public:
 
 	void SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2i& frameSize = { -1, -1 });
 
-	void setPosition(const sf::Vector2f& pos) { _sprite.setPosition(pos); }
-	void setOrigin(const sf::Vector2f& origin) { _sprite.setOrigin(origin); }
-	void setRotation(const float& rot) { _sprite.setRotation(rot); }
-	void setScale(const sf::Vector2f& scale) { _sprite.setScale(scale); }
+	inline void setPosition(const sf::Vector2f& pos) { _sprite.setPosition(pos); }
+	inline void setOrigin(const sf::Vector2f& origin) { _sprite.setOrigin(origin); }
+	inline void setRotation(const float& rot) { _sprite.setRotation(rot); }
+	inline void setScale(const sf::Vector2f& scale) { _sprite.setScale(scale); }
 
-	sf::Vector2f getPosition() const { return _sprite.getPosition(); }
-	sf::Vector2f getOrigin() const { return _sprite.getOrigin(); }
-	float getRotation() const { return _sprite.getRotation(); }
-	sf::Vector2f getScale() const { return _sprite.getScale(); }
+	inline sf::Vector2f getPosition() const { return _sprite.getPosition(); }
+	inline sf::Vector2f getOrigin() const { return _sprite.getOrigin(); }
+	inline float getRotation() const { return _sprite.getRotation(); }
+	inline sf::Vector2f getScale() const { return _sprite.getScale(); }
 
-	void SetColor(float* col) { _sprite.setColor({ sf::Uint8(255*col[0]), sf::Uint8(255*col[1]),sf::Uint8(255*col[2]),sf::Uint8(255*col[3]) }); }
-	void SetColor(const sf::Color col) { _sprite.setColor(col); }
+	inline void SetColor(float* col) { _sprite.setColor({ sf::Uint8(255*col[0]), sf::Uint8(255*col[1]),sf::Uint8(255*col[2]),sf::Uint8(255*col[3]) }); }
+	inline void SetColor(const sf::Color col) { _sprite.setColor(col); }
 
+	inline sf::Vector2i Size() const { return _spriteSize; }
+	inline sf::Vector2i GridSize() const { return _gridSize; }
+	inline int FrameCount() const { return _frameRects.size(); }
+	inline float FPS() const { return _fps; }
 
-	sf::Vector2i Size() const { return _spriteSize; }
-	sf::Vector2i GridSize() const { return _gridSize; }
-	int FrameCount() const { return _frameRects.size(); }
-	float FPS() const { return _fps; }
+	inline void Play() { _playing = true; }
+	inline void Pause() { _playing = false; }
+	inline void Stop() 
+	{ 
+		_currentFrame = 0; 
+		_playing = false; 
+		for (SpriteSheet* c : _syncChildren)
+			c->Stop();
+	}
+	inline void Restart() 
+	{ 
+		Stop(); 
+		Play();
+		for (SpriteSheet* c : _syncChildren)
+			c->Restart();
+	}
 
-	void Play() { _playing = true; }
-	void Pause() { _playing = false; }
-	void Stop() { _currentFrame = 0; _playing = false; }
-	void Restart() { Stop(); Play(); }
+	inline void AdvanceFrame(int idx = -1)
+	{
+		if (idx == -1)
+			_currentFrame++;
+		else
+			_currentFrame = idx;
+
+		_currentFrame = _currentFrame % _frameRects.size();
+	}
+
+	inline void AddSync(SpriteSheet* spr)
+	{
+		if (spr == nullptr)
+			return;
+
+		if (std::find(_syncChildren.begin(), _syncChildren.end(), spr) == _syncChildren.end())
+		{
+			spr->_synced = true;
+			_syncChildren.push_back(spr);
+		}
+			
+	}
+	inline void RemoveSync(SpriteSheet* spr)
+	{
+		auto at = std::find(_syncChildren.begin(), _syncChildren.end(), spr);
+		if (at != _syncChildren.end())
+		{
+			spr->_synced = false;
+			_syncChildren.erase(at);
+		}
+	}
+
+	inline void ClearSync()
+	{
+		for(SpriteSheet* spr : _syncChildren)
+			spr->_synced = false;
+
+		_syncChildren.clear();
+	}
+
+	inline bool IsSynced() { return _synced; }
+
+	bool _visible = true;
 
 private:
 
@@ -52,6 +107,10 @@ private:
 	bool _playing = false;
 
 	sf::Clock _timer;
+
+	bool _synced = false;
+
+	std::vector<SpriteSheet*> _syncChildren;
 
 };
 
