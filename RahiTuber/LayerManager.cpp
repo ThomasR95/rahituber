@@ -956,6 +956,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushID("blinkimport");
 			sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
+			ImVec2 tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
 			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
 			fileBrowserBlink.SetStartingDir(chosenDir);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
@@ -966,7 +967,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_blinkSprite.LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
 			}
 
-			ImGui::SameLine(116);
+			ImGui::SameLine(blinkBtnSize.x + 16);
 			ImGui::PushID("blinkanimbtn");
 			_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
 			AnimPopup(_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
@@ -981,8 +982,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 			ImGui::PopID();
 
+			auto preTintPos = ImGui::GetCursorPos();
+			if(_blinkWhileTalking) 
+				ImGui::SetCursorPos(tintPos);
 			ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
-
+			ImGui::SetCursorPos(preTintPos);
 			ImGui::PopID();
 
 			if (_blinkWhileTalking)
@@ -991,6 +995,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PushID("talkblinkimport");
 				sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
 				sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
+				tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY()  + 20);
 				_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
 				fileBrowserBlink.SetStartingDir(chosenDir);
 				if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
@@ -1001,11 +1006,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					_talkBlinkSprite.LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
 				}
 
-				ImGui::SameLine(116);
+				ImGui::SameLine(blinkBtnSize.x + 16);
 				ImGui::PushID("talkblinkanimbtn");
 				_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
 				AnimPopup(_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
 				ImGui::PopID();
+
+				
 
 				ImGui::PushID("talkblinkimportfile");
 				char talkblinkbuf[256] = "                           ";
@@ -1016,8 +1023,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				}
 				ImGui::PopID();
 
-				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+				preTintPos = ImGui::GetCursorPos();
+				ImGui::SetCursorPos(tintPos);
 
+				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::SetCursorPos(preTintPos);
 				ImGui::PopID();
 
 

@@ -3,16 +3,151 @@
 #include <limits>
 #include <imgui.h>
 
+#include <Windows.h>
+#include <fileapi.h>
+
 using namespace imgui_ext;
+
+std::vector<std::wstring> GetVolumePaths(
+  __in PWCHAR VolumeName
+)
+{
+  DWORD  CharCount = MAX_PATH + 1;
+  PWCHAR Names = NULL;
+  PWCHAR NameIdx = NULL;
+  BOOL   Success = FALSE;
+
+  std::vector<std::wstring> outNames;
+
+  for (;;)
+  {
+    //  Allocate a buffer to hold the paths.
+    Names = (PWCHAR) new BYTE[CharCount * sizeof(WCHAR)];
+
+    if (!Names)
+    {
+      //  If memory can't be allocated, return.
+      return outNames;
+    }
+
+    //  Obtain all of the paths for this volume.
+    Success = GetVolumePathNamesForVolumeNameW(
+      VolumeName, Names, CharCount, &CharCount
+    );
+
+    if (Success)
+    {
+      break;
+    }
+
+    if (GetLastError() != ERROR_MORE_DATA)
+    {
+      DWORD Error = GetLastError();
+      outNames.push_back(L"GetVolumePathNamesForVolumeNameW failed with error code " + std::to_wstring(Error));
+      break;
+    }
+
+    //  Try again with the new suggested size.
+    delete[] Names;
+    Names = NULL;
+  }
+
+  if (Success)
+  {
+    //  output the various paths.
+    for (NameIdx = Names;
+      NameIdx[0] != L'\0';
+      NameIdx += wcslen(NameIdx) + 1)
+    {
+      outNames.push_back(NameIdx);
+      //wprintf(L"  %s", NameIdx);
+    }
+  }
+
+  if (Names != NULL)
+  {
+    delete[] Names;
+    Names = NULL;
+  }
+
+  return outNames;
+}
 
 static void get_files_in_path(const fs::path& path, std::vector<file>& files) {
   files.clear();
 
-  if (path.has_parent_path()) {
-    files.push_back({
+  if (path.has_parent_path()) 
+  {
+    if (path.parent_path() == path)
+    {
+
+
+      WCHAR  volumeName[MAX_PATH] = L"";
+      WCHAR  deviceName[MAX_PATH] = L"";
+      HANDLE handle = INVALID_HANDLE_VALUE;
+      handle = FindFirstVolumeW(volumeName, ARRAYSIZE(volumeName));
+      if (handle != INVALID_HANDLE_VALUE && handle != nullptr)
+      {
+        bool foundDrive = true;
+        while (foundDrive)
+        {
+          size_t index = wcslen(volumeName) - 1;
+
+          if (volumeName[0] != L'\\' ||
+            volumeName[1] != L'\\' ||
+            volumeName[2] != L'?' ||
+            volumeName[3] != L'\\' ||
+            volumeName[index] != L'\\')
+          {
+            // Bad path
+            break;
+          }
+
+          //
+          //  QueryDosDeviceW does not allow a trailing backslash,
+          //  so temporarily remove it.
+          volumeName[index] = L'\0';
+
+          DWORD CharCount = QueryDosDeviceW(&volumeName[4], deviceName, ARRAYSIZE(deviceName));
+
+          volumeName[index] = L'\\';
+
+          auto paths = GetVolumePaths(volumeName);
+          if (!paths.empty())
+          {
+            std::wstring driveNameString = paths[0];
+            fs::path drive(driveNameString);
+            bool valid = true;
+            try {
+              valid = fs::exists(drive);
+            }
+            catch (fs::filesystem_error err) {
+              valid = false;
+            }
+            
+            if (valid)
+            {
+              files.push_back({
+              "[Switch to " + drive.string() + "]",
+              drive
+                });
+            }
+            
+          }
+          foundDrive = FindNextVolumeW(handle, volumeName, ARRAYSIZE(volumeName));
+        }
+        FindVolumeClose(handle);
+       
+      }
+    }
+    else
+    {
+      files.push_back({
         ".. [go up]",
         path.parent_path()
-      });
+        });
+    }
+    
   }
 
   for (const fs::directory_entry& dirEntry : fs::directory_iterator(path)) {
@@ -62,8 +197,7 @@ static bool vector_file_items_getter(void* data, int idx, const char** out_text)
 static constexpr int modal_flags =
 ImGuiWindowFlags_NoResize |
 ImGuiWindowFlags_NoCollapse |
-ImGuiWindowFlags_NoScrollbar |
-ImGuiWindowFlags_AlwaysAutoResize;
+ImGuiWindowFlags_NoScrollbar;
 
 file_browser_modal::file_browser_modal(const char* title) :
   m_title(title),
@@ -96,6 +230,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       //Update paths based on current path
       get_files_in_path(m_currentPath, m_filesInScope);
 
+      ImGui::SetNextWindowSize({ 400, 460 });
       //Make the modal visible.
       ImGui::OpenPopup(m_title);
     }
@@ -105,6 +240,13 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
   bool isOpen = true;
   if (ImGui::BeginPopupModal(m_title, &isOpen, modal_flags)) {
 
+    std::string dir = m_currentPath.parent_path().string();
+    if(fs::is_directory(m_currentPath))
+      dir = m_currentPath.string();
+
+    ImGui::TextWrapped(dir.data());
+
+    ImGui::PushItemWidth(-1);
     if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, m_filesInScope.size(), 20)) {
 
       //Update current path to the selected list item.
@@ -115,13 +257,13 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       if (m_currentPathIsDir) {
         get_files_in_path(m_currentPath, m_filesInScope);
       }
-
     }
-
-    //Auto resize text wrap to popup width.
-    ImGui::PushItemWidth(-1);
-    ImGui::TextWrapped(m_currentPath.string().data());
     ImGui::PopItemWidth();
+
+    std::string file = "";
+    if (!fs::is_directory(m_currentPath))
+      file = m_currentPath.filename().string();
+    ImGui::TextWrapped(file.data());
 
     ImGui::Spacing();
     ImGui::SameLine(ImGui::GetWindowWidth() - 60);
