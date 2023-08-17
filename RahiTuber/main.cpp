@@ -209,6 +209,11 @@ void initWindow(bool firstStart = false)
 	uiConfig->_resizeBox.setSize({ appConfig->_scrW, appConfig->_scrH });
 	uiConfig->_resizeBox.setOutlineThickness(1);
 	uiConfig->_resizeBox.setFillColor({ 0,0,0,0 });
+	uiConfig->_outlineBox.setPosition(2, 2);
+	uiConfig->_outlineBox.setSize({ appConfig->_scrW-4, appConfig->_scrH-4 });
+	uiConfig->_outlineBox.setOutlineThickness(2);
+	uiConfig->_outlineBox.setFillColor({ 0,0,0,0 });
+	uiConfig->_outlineBox.setOutlineColor(sf::Color(255,255,0,100));
 
 	appConfig->_wasFullScreen = appConfig->_isFullScreen;
 
@@ -865,6 +870,12 @@ void render()
 	{
 		if (!appConfig->_isFullScreen)
 		{
+			if (appConfig->_transparent)
+			{
+				uiConfig->_outlineBox.setSize({ appConfig->_scrW - 4, appConfig->_scrH - 4 });
+				appConfig->_window.draw(uiConfig->_outlineBox);
+			}
+
 			appConfig->_window.draw(uiConfig->_topLeftBox);
 			appConfig->_window.draw(uiConfig->_bottomRightBox);
 		}

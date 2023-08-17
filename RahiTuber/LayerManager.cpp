@@ -876,9 +876,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
 		ImGui::PushID("idleimport");
 
+		float imgBtnWidth = 108;
+
 		sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
 		sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-		_importIdleOpen = ImGui::ImageButton(*idleIcon, { 100,100 }, -1, sf::Color::Transparent, idleCol);
+		_importIdleOpen = ImGui::ImageButton(*idleIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, idleCol);
+		if (_importIdleOpen && _idleImage)
+			fileBrowserIdle.SetStartingDir(_idleImagePath);
 		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 		{
 			if (_idleImage == nullptr)
@@ -887,7 +891,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			_idleSprite.LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 		}
 
-		ImGui::SameLine(116);
+		ImGui::SameLine(imgBtnWidth+16);
 		ImGui::PushID("idleanimbtn");
 		_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
 		AnimPopup(_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
@@ -916,8 +920,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushID("talkimport");
 			sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-			_importTalkOpen = ImGui::ImageButton(*talkIcon, { 100,100 }, -1, sf::Color::Transparent, talkCol);
+			_importTalkOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, talkCol);
 			fileBrowserTalk.SetStartingDir(chosenDir);
+			if (_talkImage)
+				fileBrowserTalk.SetStartingDir(_talkImagePath);
 			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 			{
 				if (_talkImage == nullptr)
@@ -926,7 +932,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_talkSprite.LoadFromTexture(*_talkImage, 1, 1, 1, 1);
 			}
 			
-			ImGui::SameLine(116);
+			ImGui::SameLine(imgBtnWidth+16);
 			ImGui::PushID("talkanimbtn");
 			_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
 			AnimPopup(_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
@@ -950,7 +956,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		if (_useBlinkFrame)
 		{
-			ImVec2 blinkBtnSize = _blinkWhileTalking ? ImVec2(50, 50) : ImVec2(100, 100);
+			ImVec2 blinkBtnSize = _blinkWhileTalking ? ImVec2(48, 48) : ImVec2(imgBtnWidth, imgBtnWidth);
 
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 			ImGui::PushID("blinkimport");
@@ -959,6 +965,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImVec2 tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
 			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
 			fileBrowserBlink.SetStartingDir(chosenDir);
+			if(_blinkImage)
+				fileBrowserBlink.SetStartingDir(_blinkImagePath);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
 				if (_blinkImage == nullptr)
@@ -991,13 +999,15 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			if (_blinkWhileTalking)
 			{
-				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
+				//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
 				ImGui::PushID("talkblinkimport");
 				sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
 				sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
 				tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY()  + 20);
 				_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
 				fileBrowserBlink.SetStartingDir(chosenDir);
+				if (_talkBlinkImage)
+					fileBrowserBlink.SetStartingDir(_talkBlinkImagePath);
 				if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
 				{
 					if (_talkBlinkImage == nullptr)
