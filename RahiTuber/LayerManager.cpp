@@ -2,6 +2,7 @@
 #include "LayerManager.h"
 #include "file_browser_modal.h"
 #include "tinyxml2\tinyxml2.h"
+#include <sstream>
 
 #include "defines.h"
 
@@ -49,8 +50,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		LayerInfo& layer = _layers[l];
 		if (layer._visible)
 		{
-			if (layer._activeSprite)
-				layer._activeSprite->Draw(target);
+			layer._idleSprite.Draw(target);
+			layer._talkSprite.Draw(target);
+			layer._blinkSprite.Draw(target);
+			layer._talkBlinkSprite.Draw(target);
 		}
 	}
 }
@@ -244,6 +247,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
 
 		thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
+		thisLayer->SetAttribute("talkBlink", layer._blinkWhileTalking);
 		thisLayer->SetAttribute("blinkTime", layer._blinkDelay);
 		thisLayer->SetAttribute("blinkDur", layer._blinkDuration);
 		thisLayer->SetAttribute("blinkVar", layer._blinkVariation);
@@ -259,6 +263,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
 		thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
 		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
+		thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
 
 		if (layer._idleSprite.FrameCount() > 1)
 			SaveAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
@@ -269,9 +274,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		if (layer._blinkSprite.FrameCount() > 1)
 			SaveAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
 
+		if (layer._talkBlinkSprite.FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", layer._talkBlinkSprite);
+
+		thisLayer->SetAttribute("syncAnims", layer._animsSynced);
+
 		SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
 		SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
 		SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
+		SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 
 		thisLayer->SetAttribute("scaleX", layer._scale.x);
 		thisLayer->SetAttribute("scaleY", layer._scale.y);
@@ -362,6 +373,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
 
 		thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
+		thisLayer->QueryAttribute("talkBlink", &layer._blinkWhileTalking);
 		thisLayer->QueryAttribute("blinkTime", &layer._blinkDelay);
 		thisLayer->QueryAttribute("blinkDur", &layer._blinkDuration);
 		thisLayer->QueryAttribute("blinkVar", &layer._blinkVariation);
@@ -376,13 +388,19 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("breathHeight", &layer._breathHeight);
 		thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
 
-		layer._idleImagePath = thisLayer->Attribute("idlePath");
-		layer._talkImagePath = thisLayer->Attribute("talkPath");
-		layer._blinkImagePath = thisLayer->Attribute("blinkPath");
+		if(const char* idlePth = thisLayer->Attribute("idlePath"))
+			layer._idleImagePath = idlePth;
+		if (const char* talkPth = thisLayer->Attribute("talkPath"))
+			layer._talkImagePath = talkPth;
+		if (const char* blkPth = thisLayer->Attribute("blinkPath"))
+			layer._blinkImagePath = blkPth;
+		if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
+			layer._talkBlinkImagePath = talkBlkPth;
 
 		layer._idleImage = _textureMan.GetTexture(layer._idleImagePath);
 		layer._talkImage = _textureMan.GetTexture(layer._talkImagePath);
 		layer._blinkImage = _textureMan.GetTexture(layer._blinkImagePath);
+		layer._talkBlinkImage = _textureMan.GetTexture(layer._talkBlinkImagePath);
 
 		if(layer._idleImage)
 			layer._idleSprite.LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -390,14 +408,23 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			layer._talkSprite.LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
 		if(layer._blinkImage)
 			layer._blinkSprite.LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
+		if (layer._talkBlinkImage)
+			layer._talkBlinkSprite.LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
 
 		LoadAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
 		LoadAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
 		LoadAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
+		LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", layer._talkBlinkSprite);
+
+		thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
+
+		if (layer._animsSynced)
+			layer.SyncAnims(layer._animsSynced);
 
 		LoadColor(thisLayer, &doc, "idleTint", layer._idleTint);
 		LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
 		LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
+		LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 
 		layer._blinkTimer.restart();
 		layer._isBlinking = false;
@@ -628,9 +655,13 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	if (!_idleImage)
 		return;
+	
+	_idleSprite._visible = true;
+	_blinkSprite._visible = false;
+	_talkSprite._visible = false;
+	_talkBlinkSprite._visible = false;
 
 	_activeSprite = &_idleSprite;
-
 	_idleSprite.SetColor(_idleTint);
 
 	float talkFactor = talkLevel / talkMax;
@@ -638,8 +669,9 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	bool talking = talkFactor > _talkThreshold;
 
+	bool canStartBlinking = (_blinkWhileTalking || !talking) && !_isBlinking;
 
-	if (_blinkImage && !talking && !_isBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay)
+	if (canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay)
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
@@ -647,11 +679,24 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_blinkVarDelay = GetRandom11() * _blinkVariation;
 	}
 
-	if (_blinkImage && _isBlinking)
+	if (_isBlinking)
 	{
-		_activeSprite = &_blinkSprite;
-
-		_blinkSprite.SetColor(_blinkTint);
+		_talkSprite._visible = false;
+		_idleSprite._visible = false;
+		if (talking && _blinkWhileTalking && _talkBlinkImage)
+		{
+			_activeSprite = &_talkBlinkSprite;
+			_talkBlinkSprite._visible = true;
+			_blinkSprite._visible = false;
+			_talkBlinkSprite.SetColor(_talkBlinkTint);
+		}
+		else if(_blinkImage)
+		{
+			_activeSprite = &_blinkSprite;
+			_blinkSprite._visible = true;
+			_talkBlinkSprite._visible = false;
+			_blinkSprite.SetColor(_blinkTint);
+		}
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
 			_isBlinking = false;
@@ -660,6 +705,9 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
 	{
 		_activeSprite = &_talkSprite;
+		_idleSprite._visible = false;
+		_blinkSprite._visible = false;
+		_talkSprite._visible = true;
 		_talkSprite.SetColor(_talkTint);
 	}
 
@@ -902,11 +950,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		if (_useBlinkFrame)
 		{
+			ImVec2 blinkBtnSize = _blinkWhileTalking ? ImVec2(50, 50) : ImVec2(100, 100);
+
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 			ImGui::PushID("blinkimport");
 			sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
-			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, { 100,100 }, -1, sf::Color::Transparent, blinkCol);
+			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
 			fileBrowserBlink.SetStartingDir(chosenDir);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
@@ -935,6 +985,43 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			ImGui::PopID();
 
+			if (_blinkWhileTalking)
+			{
+				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
+				ImGui::PushID("talkblinkimport");
+				sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
+				sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
+				_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
+				fileBrowserBlink.SetStartingDir(chosenDir);
+				if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
+				{
+					if (_talkBlinkImage == nullptr)
+						_talkBlinkImage = new sf::Texture();
+					_talkBlinkImage = _textureMan.GetTexture(_talkBlinkImagePath);
+					_talkBlinkSprite.LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+				}
+
+				ImGui::SameLine(116);
+				ImGui::PushID("talkblinkanimbtn");
+				_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				AnimPopup(_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
+				ImGui::PopID();
+
+				ImGui::PushID("talkblinkimportfile");
+				char talkblinkbuf[256] = "                           ";
+				_talkBlinkImagePath.copy(talkblinkbuf, 256);
+				if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+				{
+					_talkBlinkImagePath = talkblinkbuf;
+				}
+				ImGui::PopID();
+
+				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+
+				ImGui::PopID();
+
+
+			}
 			
 		}
 		
@@ -951,6 +1038,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::Checkbox("Blinking", &_useBlinkFrame);
 		if (_useBlinkFrame)
 		{
+			ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
 			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
 			AddResetButton("blinkdelay", _blinkDelay, 6.f, &style);
@@ -1122,7 +1210,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		if (open)
 		{
 			ImGui::SetNextWindowPosCenter();
-			ImGui::SetNextWindowSize({ 400, 200 });
+			ImGui::SetNextWindowSize({ 400, 240 });
 			ImGui::OpenPopup("Sprite Sheet Setup");
 
 			auto gridSize = anim.GridSize();
@@ -1163,11 +1251,30 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		AddResetButton("fcountreset", _animFCount, anim.FrameCount());
 		ImGui::InputInt("Frame Count", &_animFCount, 0, 0);
 
-		AddResetButton("fpsreset", _animFPS, anim.FPS());
-		ImGui::InputFloat("FPS", &_animFPS);
+		AddResetButton("fpsreset", _animFPS, anim.FPS(), nullptr, !anim.IsSynced());
+		if(!anim.IsSynced())
+			ImGui::InputFloat("FPS", &_animFPS, 1,1,1);
+		else
+		{
+			std::stringstream ss;
+			ss << _animFPS;
+			ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });
+			ImGui::InputText("FPS", ss.str().data(), ss.str().length(), ImGuiInputTextFlags_ReadOnly );
+			ImGui::PopStyleColor();
+		}
 
 		AddResetButton("framereset", _animFrameSize, { -1, -1 });
 		ImGui::InputInt2("Frame Size (auto = [-1,-1])", _animFrameSize.data());
+
+		bool sync = _animsSynced;
+		if (ImGui::Checkbox("Sync Playback", &sync))
+		{
+			if (sync != _animsSynced)
+			{
+				_animsSynced = sync;
+				SyncAnims(_animsSynced);
+			}
+		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, { 0.1,0.5,0.1,1.0 });
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.2,0.8,0.2,1.0 });
@@ -1184,5 +1291,17 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		ImGui::PopItemWidth();
 	
 		ImGui::EndPopup();
+	}
+}
+
+void LayerManager::LayerInfo::SyncAnims(bool sync)
+{
+	_idleSprite.ClearSync();
+	if (sync)
+	{
+		_idleSprite.AddSync(&_talkSprite);
+		_idleSprite.AddSync(&_blinkSprite);
+		_idleSprite.AddSync(&_talkBlinkSprite);
+		_idleSprite.Restart();
 	}
 }

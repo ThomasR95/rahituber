@@ -53,6 +53,7 @@ public:
 		float _talkThreshold = 0.15f;
 
 		bool _useBlinkFrame = true;
+		bool _blinkWhileTalking = false;
 		float _blinkDuration = 0.2;
 		float _blinkDelay = 6.0;
 		float _blinkVariation = 4.0;
@@ -93,9 +94,14 @@ public:
 		sf::Texture* _blinkImage = nullptr;
 		float _blinkTint[4] = { 1,1,1,1 };
 
+		std::string _talkBlinkImagePath = "";
+		sf::Texture* _talkBlinkImage = nullptr;
+		float _talkBlinkTint[4] = { 1,1,1,1 };
+
 		SpriteSheet _idleSprite;
 		SpriteSheet _talkSprite;
 		SpriteSheet _blinkSprite;
+		SpriteSheet _talkBlinkSprite;
 
 		SpriteSheet* _activeSprite = nullptr;
 
@@ -107,13 +113,16 @@ public:
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;
 		bool _importBlinkOpen = false;
+		bool _importTalkBlinkOpen = false;
 
 		bool _spriteIdleOpen = false;
 		bool _spriteTalkOpen = false;
 		bool _spriteBlinkOpen = false;
+		bool _spriteTalkBlinkOpen = false;
 		bool _oldSpriteIdleOpen = false;
 		bool _oldSpriteTalkOpen = false;
 		bool _oldSpriteBlinkOpen = false;
+		bool _oldSpriteTalkBlinkOpen = false;
 		bool _renamePopupOpen = false;
 		std::string _renamingString = "";
 
@@ -126,7 +135,11 @@ public:
 		float _animFPS = 12;
 		std::vector<int> _animFrameSize = { -1, -1 };
 
+		bool _animsSynced = false;
+
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
+
+		void SyncAnims(bool sync);
 
 		int _motionParent = -1;
 		float _motionDelay = 0;
@@ -282,7 +295,7 @@ static sf::Texture* _dnIcon = nullptr;
 static TextureManager _textureMan;
 
 template <typename T>
-inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* style = nullptr)
+inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* style = nullptr, bool enabled = true)
 {
 	if (_resetIcon == nullptr)
 		_resetIcon = _textureMan.GetTexture("reset.png");
@@ -291,9 +304,13 @@ inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* s
 	if (style)
 		btnColor = style->Colors[ImGuiCol_Text];
 
+	if(!enabled)
+		btnColor = sf::Color(100,100,100);
+
 	ImGui::PushID(id);
 	if (ImGui::ImageButton(*_resetIcon, sf::Vector2f(13, 13), -1, sf::Color::Transparent, btnColor))
-		value = resetValue;
+		if(enabled)
+			value = resetValue;
 	ImGui::PopID();
 	ImGui::SameLine();
 }
