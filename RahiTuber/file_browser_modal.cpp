@@ -225,10 +225,14 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       else
         m_currentPath = m_chosenDir;
 
-      m_currentPathIsDir = true;
+      m_currentPathIsDir = fs::is_directory(m_currentPath);
+
+      fs::path initDirectory = m_currentPath;
+      if (!m_currentPathIsDir)
+        initDirectory = m_currentPath.parent_path();
 
       //Update paths based on current path
-      get_files_in_path(m_currentPath, m_filesInScope);
+      get_files_in_path(initDirectory, m_filesInScope);
 
       ImGui::SetNextWindowSize({ 400, 460 });
       //Make the modal visible.
@@ -244,9 +248,32 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     if(fs::is_directory(m_currentPath))
       dir = m_currentPath.string();
 
-    ImGui::TextWrapped(dir.data());
-
     ImGui::PushItemWidth(-1);
+
+    ImGui::PushID("DirectoryBox");
+    char dirBuf[MAX_PATH] = " ";
+    dir.copy(dirBuf, dir.length());
+    if (ImGui::InputText("", dirBuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
+    {
+      fs::path newPath(dirBuf);
+      bool valid = false;
+      try { valid = fs::exists(newPath); }
+      catch (fs::filesystem_error) { valid = false; }
+      if (valid)
+      {
+        m_currentPath = newPath;
+        m_currentPathIsDir = fs::is_directory(m_currentPath);
+
+        //If the selection is a directory, repopulate the list with the contents of that directory.
+        if (m_currentPathIsDir) {
+          get_files_in_path(m_currentPath, m_filesInScope);
+          m_selection = 0;
+        }
+      }
+    }
+    ImGui::PopID();
+    
+    ImGui::PushID(m_currentPath.string().c_str());
     if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, m_filesInScope.size(), 20)) {
 
       //Update current path to the selected list item.
@@ -256,8 +283,10 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       //If the selection is a directory, repopulate the list with the contents of that directory.
       if (m_currentPathIsDir) {
         get_files_in_path(m_currentPath, m_filesInScope);
+        m_selection = 0;
       }
     }
+    ImGui::PopID();
     ImGui::PopItemWidth();
 
     std::string file = "";

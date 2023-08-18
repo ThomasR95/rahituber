@@ -133,6 +133,7 @@ struct UIConfig
 
 	sf::RectangleShape _topLeftBox;
 	sf::RectangleShape _bottomRightBox;
+	sf::RectangleShape _outlineBox;
 	sf::RectangleShape _resizeBox;
 	std::pair<bool, bool> _cornerGrabbed = { false, false };
 	bool _moveGrabbed = false;
