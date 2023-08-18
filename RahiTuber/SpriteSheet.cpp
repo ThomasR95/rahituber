@@ -15,9 +15,12 @@ void SpriteSheet::Draw(sf::RenderTarget* target)
 			for (SpriteSheet* spr : _syncChildren)
 				spr->AdvanceFrame();
 		}
-			
-		_currentFrame = _currentFrame % _frameRects.size();
-		_sprite.setTextureRect(_frameRects[_currentFrame]);
+		
+		if (!_frameRects.empty())
+		{
+			_currentFrame = _currentFrame % _frameRects.size();
+			_sprite.setTextureRect(_frameRects[_currentFrame]);
+		}
 	}
 	
 	if(_visible)
@@ -25,14 +28,14 @@ void SpriteSheet::Draw(sf::RenderTarget* target)
 
 }
 
-void SpriteSheet::LoadFromTexture(const sf::Texture& tex, int frameCount, int gridX, int gridY, float fps, const sf::Vector2i& size)
+void SpriteSheet::LoadFromTexture(const sf::Texture& tex, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
 {
 	_sprite.setTexture(tex, true);
 
 	SetAttributes(frameCount, gridX, gridY, fps, size);
 }
 
-void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2i& size)
+void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
 {
 	if (_sprite.getTexture() == nullptr)
 		return;
@@ -41,20 +44,20 @@ void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps,
 
 	_gridSize = { gridX, gridY };
 
-	sf::Vector2i frameSize = size;
+	sf::Vector2f frameSize(size);
 	sf::Vector2u texSize = _sprite.getTexture()->getSize();
 
-	if (frameSize == sf::Vector2i(-1, -1))
+	if (frameSize == sf::Vector2f(-1, -1))
 	{
-		frameSize = sf::Vector2i(texSize.x / gridX, texSize.y / gridY);
+		frameSize = sf::Vector2f((float)texSize.x / gridX, (float)texSize.y / gridY);
 	}
 
 	_frameRects.clear();
 
 	int fCount = 0;
-	for (int x = 0; x < gridX && fCount <= frameCount; x++)
+	for (int y = 0; y < gridY && fCount <= frameCount; y++)
 	{
-		for (int y = 0; y < gridY && fCount <= frameCount; y++)
+		for (int x = 0; x < gridX && fCount <= frameCount; x++)
 		{
 			_frameRects.push_back(sf::IntRect(x * frameSize.x, y * frameSize.y, frameSize.x, frameSize.y));
 			fCount++;

@@ -565,15 +565,17 @@ void LayerManager::DrawHotkeysGUI()
 		while (hkeyIdx < _hotkeys.size())
 		{
 			auto& hkeys = _hotkeys[hkeyIdx];
-			ImGui::PushID(hkeyIdx);
 
 			std::string name = g_key_names[hkeys._key];
 			if (hkeys._key == sf::Keyboard::Unknown)
 				name = "Not set";
 			if(hkeys._modifier != sf::Keyboard::Unknown)
 				name = g_key_names[hkeys._modifier] + "," + g_key_names[hkeys._key];
+			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
-			if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
+
+			ImGui::PushID('hkey' + hkeyIdx);
+			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
 				ImGui::Columns(3, 0, false);
 				ImGui::SetColumnWidth(0, 150);
@@ -582,22 +584,24 @@ void LayerManager::DrawHotkeysGUI()
 				std::string btnName = name;
 				if (hkeys._key == sf::Keyboard::Unknown)
 					btnName = " Click to\nrecord key";
-				if (_waitingForHotkey) 
+				if (hkeys._awaitingHotkey)
 					btnName = "(press a key)";
 				ImGui::PushID("recordKeyBtn");
-				if (ImGui::Button(btnName.c_str(), { 140,42 }))
+				if (ImGui::Button(btnName.c_str(), { 140,42 }) && !_waitingForHotkey)
 				{
 					_pendingKey = sf::Keyboard::Unknown;
 					_pendingMod = sf::Keyboard::Unknown;
 					_waitingForHotkey = true;
+					hkeys._awaitingHotkey = true;
 				}
 				ImGui::PopID();
 
-				if (_waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
+				if (hkeys._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
 				{
 					hkeys._key = _pendingKey;
 					hkeys._modifier = _pendingMod;
 					_waitingForHotkey = false;
+					hkeys._awaitingHotkey = false;
 				}
 
 				ImGui::NextColumn();
@@ -625,6 +629,10 @@ void LayerManager::DrawHotkeysGUI()
 				}
 			}
 			ImVec2 endHeaderPos = ImGui::GetCursorPos();
+
+			ImGui::SetCursorPos(headerTxtPos);
+			ImGui::Text(name.c_str());
+
 			ImGui::SetCursorPos(delButtonPos);
 			ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
@@ -664,37 +672,49 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	_activeSprite = &_idleSprite;
 	_idleSprite.SetColor(_idleTint);
 
-	float talkFactor = talkLevel / talkMax;
-	talkFactor = pow(talkFactor, 0.5);
+	float talkFactor = 0;
+	if (talkMax > 0)
+	{
+		talkFactor = talkLevel / talkMax;
+		talkFactor = pow(talkFactor, 0.5);
+		_lastTalkFactor = talkFactor;
+	}
+
 
 	bool talking = talkFactor > _talkThreshold;
 
-	bool canStartBlinking = (_blinkWhileTalking || !talking) && !_isBlinking;
+	bool blinkAvailable = _blinkImage && !talking;
+	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkImage && talking;
+
+	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
 	if (canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay)
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
-		_blinkSprite.Restart();
+		if(!_blinkSprite.IsSynced())
+			_blinkSprite.Restart();
 		_blinkVarDelay = GetRandom11() * _blinkVariation;
 	}
 
 	if (_isBlinking)
 	{
-		_talkSprite._visible = false;
-		_idleSprite._visible = false;
-		if (talking && _blinkWhileTalking && _talkBlinkImage)
+		if (talkBlinkAvailable)
 		{
 			_activeSprite = &_talkBlinkSprite;
 			_talkBlinkSprite._visible = true;
 			_blinkSprite._visible = false;
+			_talkSprite._visible = false;
+			_idleSprite._visible = false;
 			_talkBlinkSprite.SetColor(_talkBlinkTint);
 		}
-		else if(_blinkImage)
+		else if (blinkAvailable)
 		{
 			_activeSprite = &_blinkSprite;
 			_blinkSprite._visible = true;
 			_talkBlinkSprite._visible = false;
+			_talkSprite._visible = false;
+			_idleSprite._visible = false;
 			_blinkSprite.SetColor(_blinkTint);
 		}
 
@@ -1047,12 +1067,35 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		ImGui::Columns();
 
+		ImGui::Separator();
+
 		ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
-		if (_swapWhenTalking)
+
+		AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
+		ImVec2 barPos = ImGui::GetCursorPos();
+		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", 2.f);
+		ImGui::NewLine();
+
+		sf::Color barHighlight(60, 140, 60, 255);
+		sf::Color barBg(20, 60, 20, 255);
+		if (_lastTalkFactor < 0.001 || _lastTalkFactor < _talkThreshold)
 		{
-			AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
-			ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", 2.f);
+			barHighlight = sf::Color(140, 60, 60, 255);
+			barBg = sf::Color(60, 20, 20, 255);
 		}
+
+		sf::Vector2f topLeft = { barPos.x - 2, barPos.y };
+		float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 142;
+		float barHeight = 8;
+		sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
+		ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
+		float activeBarWidth = barWidth * powf(_lastTalkFactor, 0.5);
+		sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
+		ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
+		float rootThresh = powf(_talkThreshold, 0.5);
+		float thresholdPos = barWidth * rootThresh;
+		sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
+		ImGui::DrawRectFilled(thresholdBar, {200,150,80});
 		ImGui::Separator();
 
 		ImGui::Checkbox("Blinking", &_useBlinkFrame);
@@ -1236,8 +1279,13 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			auto gridSize = anim.GridSize();
 			_animGrid = { gridSize.x, gridSize.y };
 			_animFCount = anim.FrameCount();
-			_animFPS = 12;
+			_animFPS = anim.FPS();
 			_animFrameSize = { anim.Size().x, anim.Size().y };
+		}
+		else
+		{
+			//closed
+			SyncAnims(_animsSynced);
 		}
 	}
 
@@ -1284,16 +1332,12 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		}
 
 		AddResetButton("framereset", _animFrameSize, { -1, -1 });
-		ImGui::InputInt2("Frame Size (auto = [-1,-1])", _animFrameSize.data());
+		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", _animFrameSize.data());
 
 		bool sync = _animsSynced;
 		if (ImGui::Checkbox("Sync Playback", &sync))
 		{
-			if (sync != _animsSynced)
-			{
-				_animsSynced = sync;
-				SyncAnims(_animsSynced);
-			}
+			_animsSynced = sync;
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, { 0.1,0.5,0.1,1.0 });

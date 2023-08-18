@@ -102,7 +102,8 @@ struct AudioConfig
 	SAMPLE _midMax = 0.0;
 	SAMPLE _midAverage = 0.0;
 
-	float _smoothAmount = 10;
+	float _smoothAmount = 10.0;
+	float _smoothFactor = 24.0;
 
 	SAMPLE _frameHi = 0.0;
 	PaStreamParameters _params;
