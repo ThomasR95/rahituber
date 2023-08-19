@@ -133,7 +133,7 @@ public:
 		std::vector<int> _animGrid = { 1, 1 };
 		int _animFCount = 1;
 		float _animFPS = 12;
-		std::vector<int> _animFrameSize = { -1, -1 };
+		std::vector<float> _animFrameSize = { -1, -1 };
 
 		bool _animsSynced = false;
 
@@ -152,6 +152,8 @@ public:
 
 		std::deque<MotionLinkData> _motionLinkData;
 
+		float _lastTalkFactor = 0.0;
+
 	};
 
 	struct HotkeyInfo
@@ -162,6 +164,7 @@ public:
 		bool _useTimeout = true;
 		bool _toggle = true;
 		std::map<int, bool> _layerStates;
+		bool _awaitingHotkey = false;
 	};
 
 	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
@@ -271,7 +274,7 @@ private:
 			return;
 
 		std::vector<int> grid = { 1,1 };
-		std::vector<int> frame = { -1,-1 };
+		std::vector<float> frame = { -1,-1 };
 		float fps;
 		int fCount;
 		animElement->QueryAttribute("gridX", &grid[0]);

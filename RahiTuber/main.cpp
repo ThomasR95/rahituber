@@ -314,6 +314,19 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::SameLine(140); ImGui::TextWrapped("Start the application with the menu open.");
 		ImGui::PopStyleColor();
 
+		ImGui::PushItemWidth(50);
+		float percentVal = 1.0 / 60.0;
+		float smooth = (61.0 - audioConfig->_smoothFactor)* percentVal;
+		if(ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.1f", 0.5))
+		{
+			smooth = max(0.0, min(smooth, 1.0));
+			audioConfig->_smoothFactor = 61 - smooth / percentVal;
+		}
+		ImGui::PopItemWidth();
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Let audio level fall slowly.");
+		ImGui::PopStyleColor();
+
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
 		float col[3] = {(float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255};
 		if (ImGui::ColorEdit3("(<- click)", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
@@ -864,7 +877,7 @@ void render()
 	else
 		appConfig->_window.clear(appConfig->_bgColor);
 
- 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage), audioConfig->_midMax);
+ 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage)), audioConfig->_midMax);
 
 	if (uiConfig->_menuShowing)
 	{
@@ -972,7 +985,7 @@ void doAudioAnalysis()
 			audioConfig->_frameHi = magnitude;
 	}
 
-	audioConfig->_smoothAmount = appConfig->_fps / 6;
+	audioConfig->_smoothAmount = appConfig->_fps / audioConfig->_smoothFactor;
 
 	if (audioConfig->_frameHi != 0.0)
 	{
@@ -1069,6 +1082,8 @@ int main()
 	xmlLoader.loadPresetNames();
 
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
+	if(appConfig->_lastLayerSet.empty() == false)
+		layerMan->LoadLayers(appConfig->_lastLayerSet);
 
 	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
 

@@ -52,6 +52,8 @@ bool xmlConfigLoader::loadCommon()
 			const char* lastLayers = common->Attribute("lastLayerSet");
 			if (lastLayers != NULL)
 				_appConfig->_lastLayerSet = lastLayers;
+
+			common->QueryAttribute("softFall", &_audioConfig->_smoothFactor);
 		}
 	}
 	else return false;
@@ -89,6 +91,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("transparent", _appConfig->_transparent);
 			common->SetAttribute("menuOnStart", _uiConfig->_showMenuOnStart);
 			common->SetAttribute("lastLayerSet", _appConfig->_lastLayerSet.c_str());
+			common->SetAttribute("softFall", _audioConfig->_smoothFactor);
 		}
 	}
 	else return false;
