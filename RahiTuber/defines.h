@@ -1,8 +1,129 @@
 #pragma once
 
 #include "SFML/Window/Keyboard.hpp"
+#include <string>
 
 #define PI 3.14159265359
+
+static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {
+
+	{L'\\', sf::Keyboard::Backslash},
+	{L'/', sf::Keyboard::Slash},
+
+	{L'[', sf::Keyboard::LBracket},
+	{L']', sf::Keyboard::RBracket},
+
+	{L'`', sf::Keyboard::Tilde},
+	{L'\'', sf::Keyboard::Quote},
+	{L';', sf::Keyboard::Semicolon},
+};
+
+static std::map<int, sf::Keyboard::Key> g_key_codes = {
+
+	{0x08, sf::Keyboard::Backspace},
+
+	{0x09, sf::Keyboard::Tab},
+	{0x0D, sf::Keyboard::Enter},
+	{0x1B, sf::Keyboard::Escape},
+	{0x1D, sf::Keyboard::Return},
+
+	{0X20, sf::Keyboard::Space},
+	{0X21, sf::Keyboard::PageUp},
+	{0X22, sf::Keyboard::PageDown},
+	{0X23, sf::Keyboard::End},
+	{0X24, sf::Keyboard::Home},
+
+	{0X25, sf::Keyboard::Left},
+	{0X26, sf::Keyboard::Up},
+	{0X27, sf::Keyboard::Right},
+	{0X28, sf::Keyboard::Down},
+
+	{0x2D, sf::Keyboard::Insert},
+	{0x2E, sf::Keyboard::Delete},
+
+	{0x30, sf::Keyboard::Num0},
+	{0x31, sf::Keyboard::Num1},
+	{0x32, sf::Keyboard::Num2},
+	{0x33, sf::Keyboard::Num3},
+	{0x34, sf::Keyboard::Num4},
+	{0x35, sf::Keyboard::Num5},
+	{0x36, sf::Keyboard::Num6},
+	{0x37, sf::Keyboard::Num7},
+	{0x38, sf::Keyboard::Num8},
+	{0x39, sf::Keyboard::Num9},
+
+	{0x41, sf::Keyboard::A},
+	{0x42, sf::Keyboard::B},
+	{0x43, sf::Keyboard::C},
+	{0x44, sf::Keyboard::D},
+	{0x45, sf::Keyboard::E},
+	{0x46, sf::Keyboard::F},
+	{0x47, sf::Keyboard::G},
+	{0x48, sf::Keyboard::H},
+	{0x49, sf::Keyboard::I},
+	{0x4A, sf::Keyboard::J},
+	{0x4B, sf::Keyboard::K},
+	{0x4C, sf::Keyboard::L},
+	{0x4D, sf::Keyboard::M},
+	{0x4E, sf::Keyboard::N},
+	{0x4F, sf::Keyboard::O},
+	{0x50, sf::Keyboard::P},
+	{0x51, sf::Keyboard::Q},
+	{0x52, sf::Keyboard::R},
+	{0x53, sf::Keyboard::S},
+	{0x54, sf::Keyboard::T},
+	{0x55, sf::Keyboard::U},
+	{0x56, sf::Keyboard::V},
+	{0x57, sf::Keyboard::W},
+	{0x58, sf::Keyboard::X},
+	{0x59, sf::Keyboard::Y},
+	{0x5A, sf::Keyboard::Z},
+
+	{0x60, sf::Keyboard::Numpad0},
+	{0x61, sf::Keyboard::Numpad1},
+	{0x62, sf::Keyboard::Numpad2},
+	{0x63, sf::Keyboard::Numpad3},
+	{0x64, sf::Keyboard::Numpad4},
+	{0x65, sf::Keyboard::Numpad5},
+	{0x66, sf::Keyboard::Numpad6},
+	{0x67, sf::Keyboard::Numpad7},
+	{0x68, sf::Keyboard::Numpad8},
+	{0x69, sf::Keyboard::Numpad9},
+
+	{0x6A, sf::Keyboard::Multiply},
+	{0x6B, sf::Keyboard::Add},
+	{0x6D, sf::Keyboard::Subtract},
+	{0x6E, sf::Keyboard::Period},
+	{0x6F, sf::Keyboard::Divide},
+
+	{0x70, sf::Keyboard::F1},
+	{0x71, sf::Keyboard::F2},
+	{0x72, sf::Keyboard::F3},
+	{0x73, sf::Keyboard::F4},
+	{0x74, sf::Keyboard::F5},
+	{0x75, sf::Keyboard::F6},
+	{0x76, sf::Keyboard::F7},
+	{0x77, sf::Keyboard::F8},
+	{0x78, sf::Keyboard::F9},
+	{0x79, sf::Keyboard::F10},
+	{0x7A, sf::Keyboard::F11},
+	{0x7B, sf::Keyboard::F12},
+	{0x7C, sf::Keyboard::F13},
+	{0x7D, sf::Keyboard::F14},
+	{0x7E, sf::Keyboard::F15},
+
+	{0xA0, sf::Keyboard::LShift},
+	{0xA1, sf::Keyboard::RShift},
+	{0xA2, sf::Keyboard::LControl},
+	{0xA3, sf::Keyboard::RControl},
+	{0xA4, sf::Keyboard::LAlt},
+	{0xA5, sf::Keyboard::RAlt},
+
+	{0xBB, sf::Keyboard::Equal },
+	{0xBC, sf::Keyboard::Comma },
+	{0xBD, sf::Keyboard::Hyphen },
+	{0xBE, sf::Keyboard::Period },
+};
 
 static std::map<sf::Keyboard::Key, std::string> g_key_names = {
 	{sf::Keyboard::A, "A"},
@@ -50,23 +171,33 @@ static std::map<sf::Keyboard::Key, std::string> g_key_names = {
 	{sf::Keyboard::LShift, "Shift"},
 	{sf::Keyboard::RShift, "Shift"},
 	{sf::Keyboard::Delete, "Del"},
+	{sf::Keyboard::Backspace, "Backspace"},
 	{sf::Keyboard::Insert, "Ins"},
 	{sf::Keyboard::Home, "Home"},
+	{sf::Keyboard::End, "End"},
 	{sf::Keyboard::PageUp, "PgUp"},
 	{sf::Keyboard::PageDown, "PgDn"},
 	{sf::Keyboard::Tab, "Tab"},
 	{sf::Keyboard::Enter, "Enter"},
+	{sf::Keyboard::Return, "Return"},
 	{sf::Keyboard::Escape, "Escape"},
 	{sf::Keyboard::Space, "Space"},
 
-	{sf::Keyboard::BackSlash, "\\"},
+	{sf::Keyboard::Backslash, "\\"},
 	{sf::Keyboard::Slash, "/"},
 	{sf::Keyboard::Hyphen, "-"},
 	{sf::Keyboard::Equal, "="},
 	{sf::Keyboard::Period, "."},
 	{sf::Keyboard::LBracket, "["},
 	{sf::Keyboard::RBracket, "]"},
-	{sf::Keyboard::Tilde, "~"},
+	{sf::Keyboard::Tilde, "` (backtick)"},
+	{sf::Keyboard::Quote, "\'"},
+	{sf::Keyboard::Comma, ","},
+
+	{sf::Keyboard::Up, "Up"},
+	{sf::Keyboard::Down, "Down"},
+	{sf::Keyboard::Left, "Left"},
+	{sf::Keyboard::Right, "Right"},
 
 	{sf::Keyboard::Subtract, "Num-"},
 	{sf::Keyboard::Multiply, "Num*"},
@@ -96,7 +227,4 @@ static std::map<sf::Keyboard::Key, std::string> g_key_names = {
 	{sf::Keyboard::F10, "F10"},
 	{sf::Keyboard::F11, "F11"},
 	{sf::Keyboard::F12, "F12"},
-
-
-
 };

@@ -34,6 +34,7 @@ bool xmlConfigLoader::loadCommon()
 			common->QueryIntAttribute("lastY", &_appConfig->_scrY);
 			common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 			common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
+			common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
 
 
 			int r = -1;
@@ -84,6 +85,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastY", _appConfig->_scrY);
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
+			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
+
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
 			common->SetAttribute("lastBgCol_b", _appConfig->_bgColor.b);
