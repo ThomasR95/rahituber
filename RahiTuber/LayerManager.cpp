@@ -850,7 +850,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			sf::Vector2f mpScale;
 			sf::Vector2f mpPos;
 			float mpRot = 0;
-			if (floor(_motionDelay) == ceil(_motionDelay))
+			if (floor(_motionDelay) == ceil(_motionDelay) && mp->_motionLinkData.size() > _motionDelay)
 			{
 				mpScale = mp->_motionLinkData[(size_t)_motionDelay]._scale;
 				mpPos = mp->_motionLinkData[(size_t)_motionDelay]._pos;
@@ -860,10 +860,14 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			{
 				size_t prev = floor(_motionDelay);
 				size_t next = ceil(_motionDelay);
-				float fraction = _motionDelay - prev;
-				mpScale = mp->_motionLinkData[prev]._scale + fraction*(mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
-				mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
-				mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+
+				if (mp->_motionLinkData.size() > next)
+				{
+					float fraction = _motionDelay - prev;
+					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
+					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+				}
 			}
 			
 			_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });

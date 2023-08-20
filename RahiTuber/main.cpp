@@ -1086,7 +1086,7 @@ int main()
 
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 	if(appConfig->_lastLayerSet.empty() == false)
-		layerMan->LoadLayers(appConfig->_lastLayerSet);
+		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
 
 	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 
