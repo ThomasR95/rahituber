@@ -159,7 +159,10 @@ public:
 	struct HotkeyInfo
 	{
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
-		sf::Keyboard::Key _modifier = sf::Keyboard::Unknown;
+		bool _ctrl = false;
+		bool _shift = false;
+		bool _alt = false;
+
 		float _timeout = 5.0;
 		bool _useTimeout = true;
 		bool _toggle = true;
@@ -184,12 +187,14 @@ public:
 	bool LoadLayers(const std::string& settingsFileName);
 
 	bool PendingHotkey() { return _waitingForHotkey; }
-	void SetHotkeys(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod)
+	void SetHotkeys(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt)
 	{
 		_pendingKey = key;
-		_pendingMod = mod;
+		_pendingCtrl = ctrl;
+		_pendingShift = shift;
+		_pendingAlt = alt;
 	}
-	void HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod);
+	void HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt);
 	void ResetHotkeys();
 
 	LayerInfo* GetLayer(int id) 
@@ -223,7 +228,11 @@ private:
 	bool _oldHotkeysMenuOpen = false;
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
-	sf::Keyboard::Key _pendingMod = sf::Keyboard::Unknown;
+	bool _pendingCtrl = false;
+	bool _pendingShift = false;
+	bool _pendingAlt = false;
+
+
 	std::map<int, bool> _defaultLayerStates;
 	sf::Clock _hotkeyTimer;
 	int _activeHotkeyIdx = -1;

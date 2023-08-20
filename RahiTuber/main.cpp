@@ -12,6 +12,7 @@
 #include "xmlConfig.h"
 
 #include "LayerManager.h"
+#include "KeyboardTracker.h"
 
 #include <fstream>
 
@@ -23,6 +24,7 @@ AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
 UIConfig* uiConfig = nullptr;
 LayerManager* layerMan = nullptr;
+KeyboardTracker* kbdTrack = nullptr;
 
 float mean(float a, float b) { return a + (b-a)*0.5;}
 float between(float a, float b) { return a*0.5f + b*0.5f; }
@@ -393,6 +395,14 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::SameLine(140); ImGui::TextWrapped("Keeps the app above all other windows on your screen.");
 		ImGui::PopStyleColor();
 
+		if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
+		{
+			kbdTrack->SetHook(appConfig->_useKeyboardHooks);
+		}
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Uses a hook to ensure that hotkeys work while the app is not focused.");
+		ImGui::PopStyleColor();
+
 		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
 		ImGui::SameLine(140); ImGui::TextWrapped("Shows an FPS counter (when menu is inactive).");
@@ -732,7 +742,8 @@ void handleEvents()
 	sf::Event evt;
 	while (appConfig->_currentWindow->pollEvent(evt))
 	{
-		if (evt.type == evt.KeyPressed
+		if (kbdTrack->IsHooked() == false
+			&& evt.type == evt.KeyPressed
 			&& evt.key.code != sf::Keyboard::LControl
 			&& evt.key.code != sf::Keyboard::LShift
 			&& evt.key.code != sf::Keyboard::LAlt
@@ -743,24 +754,14 @@ void handleEvents()
 			&& evt.key.code != sf::Keyboard::RSystem
 			&& evt.key.code != sf::Keyboard::Escape)
 		{
-			sf::Keyboard::Key mod = sf::Keyboard::Unknown;
-			if (evt.key.control)
-				mod = sf::Keyboard::LControl;
-			if (evt.key.shift)
-				mod = sf::Keyboard::LShift;
-			if (evt.key.alt)
-				mod = sf::Keyboard::LAlt;
-			if (evt.key.system)
-				mod = sf::Keyboard::LSystem;
-
 			if (layerMan->PendingHotkey())
 			{
-				layerMan->SetHotkeys(evt.key.code, mod);
+				layerMan->SetHotkeys(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
 				continue;
 			}
 			else
 			{
-				layerMan->HandleHotkey(evt.key.code, mod);
+				layerMan->HandleHotkey(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
 			}
 		}
 
@@ -1065,7 +1066,6 @@ int main()
 
 	std::srand(time(0));
 
-
 	appConfig = new AppConfig();
 	uiConfig = new UIConfig();
 	audioConfig = new AudioConfig();
@@ -1074,6 +1074,9 @@ int main()
 	const std::string lastLayerSettingsFile = "lastLayers.xml";
 	layerMan->LoadLayers(lastLayerSettingsFile);
 
+	kbdTrack = new KeyboardTracker();
+	kbdTrack->_layerMan = layerMan;
+					
 	getWindowSizes();
 
 	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, "config.xml");
@@ -1084,6 +1087,8 @@ int main()
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 	if(appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet);
+
+	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 
 	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
 
@@ -1174,6 +1179,8 @@ int main()
 		sf::sleep(sf::milliseconds(8));
 	}
 
+	kbdTrack->SetHook(false);
+
 	Pa_StopStream(audioConfig->_audioStr);
 	Pa_CloseStream(audioConfig->_audioStr);
 	Pa_Terminate();
@@ -1193,6 +1200,7 @@ int main()
 	delete uiConfig;
 	delete audioConfig;
 	delete layerMan;
+	delete kbdTrack;
 	return 0;
 
 }

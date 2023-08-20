@@ -309,7 +309,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		const auto& hkey = _hotkeys[h];
 
 		thisHotkey->SetAttribute("key", (int)hkey._key);
-		thisHotkey->SetAttribute("mod", (int)hkey._modifier);
+		thisHotkey->SetAttribute("ctrl", hkey._ctrl);
+		thisHotkey->SetAttribute("shift", hkey._shift);
+		thisHotkey->SetAttribute("alt", hkey._alt);
 		thisHotkey->SetAttribute("timeout", hkey._timeout);
 		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
 		thisHotkey->SetAttribute("toggle", hkey._toggle);
@@ -458,8 +460,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		int mod;
 		thisHotkey->QueryAttribute("key", &key);
 		hkey._key = (sf::Keyboard::Key)key;
-		thisHotkey->QueryAttribute("mod", &mod);
-		hkey._modifier = (sf::Keyboard::Key)mod;
+		thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
+		thisHotkey->QueryAttribute("shift", &hkey._shift);
+		thisHotkey->QueryAttribute("alt", &hkey._alt);
 		thisHotkey->QueryAttribute("timeout", &hkey._timeout);
 		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
 		thisHotkey->QueryAttribute("toggle", &hkey._toggle);
@@ -484,7 +487,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	return true;
 }
 
-void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard::Key& mod)
+void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt)
 {
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
@@ -493,7 +496,7 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, const sf::Keyboard
 	for (int h = 0; h < _hotkeys.size(); h++)
 	{
 		auto& hkey = _hotkeys[h];
-		if (hkey._key == key && hkey._modifier == mod)
+		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
 		{
 			if (_activeHotkeyIdx == h && hkey._toggle)
 			{
@@ -569,8 +572,12 @@ void LayerManager::DrawHotkeysGUI()
 			std::string name = g_key_names[hkeys._key];
 			if (hkeys._key == sf::Keyboard::Unknown)
 				name = "Not set";
-			if(hkeys._modifier != sf::Keyboard::Unknown)
-				name = g_key_names[hkeys._modifier] + "," + g_key_names[hkeys._key];
+			if (hkeys._alt)
+				name = "Alt, " + name;
+			if (hkeys._shift)
+				name = "Shift, " + name;
+			if (hkeys._ctrl)
+				name = "Ctrl, " + name;
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
 
@@ -590,7 +597,9 @@ void LayerManager::DrawHotkeysGUI()
 				if (ImGui::Button(btnName.c_str(), { 140,42 }) && !_waitingForHotkey)
 				{
 					_pendingKey = sf::Keyboard::Unknown;
-					_pendingMod = sf::Keyboard::Unknown;
+					_pendingCtrl = false;
+					_pendingShift = false;
+					_pendingAlt = false;
 					_waitingForHotkey = true;
 					hkeys._awaitingHotkey = true;
 				}
@@ -599,7 +608,9 @@ void LayerManager::DrawHotkeysGUI()
 				if (hkeys._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
 				{
 					hkeys._key = _pendingKey;
-					hkeys._modifier = _pendingMod;
+					hkeys._ctrl = _pendingCtrl;
+					hkeys._shift = _pendingShift;
+					hkeys._alt = _pendingAlt;
 					_waitingForHotkey = false;
 					hkeys._awaitingHotkey = false;
 				}

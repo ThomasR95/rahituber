@@ -60,6 +60,7 @@ struct AppConfig
 	bool _isFullScreen = false;
 	bool _wasFullScreen = false;
 	bool _alwaysOnTop = false;
+	bool _useKeyboardHooks = true;
 
 	float _fps = 0;
 
