@@ -73,7 +73,7 @@ std::vector<std::wstring> GetVolumePaths(
   return outNames;
 }
 
-static void get_files_in_path(const fs::path& path, std::vector<file>& files) {
+static void get_files_in_path(const fs::path& path, std::vector<file>& files, std::vector<std::string>& acceptedExt) {
   files.clear();
 
   if (path.has_parent_path()) 
@@ -169,9 +169,12 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files) {
       for (char& c : ext)
         c = tolower(c);
 
-      if(  ext == ".png" 
-        || ext == ".jpg" 
-        || ext == ".bmp")
+      bool accepted = false;
+      for (auto& str : acceptedExt)
+        if (str == ext)
+          accepted = true;
+
+      if(accepted)
       files.push_back({
           " " + dirPath.filename().string(),
           dirPath
@@ -232,7 +235,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
         initDirectory = m_currentPath.parent_path();
 
       //Update paths based on current path
-      get_files_in_path(initDirectory, m_filesInScope);
+      get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
 
       ImGui::SetNextWindowSize({ 400, 460 });
       //Make the modal visible.
@@ -266,7 +269,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
         //If the selection is a directory, repopulate the list with the contents of that directory.
         if (m_currentPathIsDir) {
-          get_files_in_path(m_currentPath, m_filesInScope);
+          get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
           m_selection = 0;
         }
       }
@@ -282,7 +285,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
       //If the selection is a directory, repopulate the list with the contents of that directory.
       if (m_currentPathIsDir) {
-        get_files_in_path(m_currentPath, m_filesInScope);
+        get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
         m_selection = 0;
       }
     }

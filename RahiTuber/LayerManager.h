@@ -13,6 +13,9 @@
 
 #include <deque>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 class TextureManager
 {
 public:
@@ -222,7 +225,10 @@ private:
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";
+	std::string _loadedXMLPath = "";
+	std::string _fullLoadedXMLPath = "";
 	bool _loadedXMLExists = true;
+	bool _loadXMLOpen;
 
 	bool _hotkeysMenuOpen = false;
 	bool _oldHotkeysMenuOpen = false;

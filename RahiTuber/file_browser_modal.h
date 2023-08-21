@@ -44,6 +44,8 @@ namespace imgui_ext {
     fs::path GetLastChosenDir() { return m_chosenDir; }
     void SetStartingDir(fs::path _newDir) { m_chosenDir = _newDir; }
 
+    std::vector<std::string> _acceptedExt = { ".png", ".bmp", ".jpg", ".jpeg" };
+
   };
 
 };
