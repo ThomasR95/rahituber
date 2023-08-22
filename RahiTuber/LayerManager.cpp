@@ -10,9 +10,6 @@
 
 #include <windows.h>
 
-#include <filesystem>
-namespace fs = std::filesystem;
-
 //#include <shellapi.h>
 
 void OsOpenInShell(const char* path) {
@@ -84,23 +81,44 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	DrawHotkeysGUI();
 	ImGui::PopID();
 
-	ImGui::PushItemWidth(200);
+	ImGui::PushItemWidth(188);
 	float b4textY = ImGui::GetCursorPosY();
 	ImGui::SetCursorPosY(b4textY + 3);
 	ImGui::Text("Layer Set:");
 	ImGui::SameLine();
 	ImGui::SetCursorPosY(b4textY);
 	ImGui::PushID("layersXMLInput");
-	char inputStr[32] = " ";
-	_loadedXML.copy(inputStr, 32);
-	if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
+	char inputStr[MAX_PATH] = " ";
+	_loadedXML.copy(inputStr, MAX_PATH);
+	if (ImGui::InputText("", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
 	{
 		_loadedXML = inputStr;
-		auto xmlPath = fs::current_path().append(_loadedXML + ".xml");
+		auto xmlPath = fs::current_path().append(_loadedXML);
+		if (xmlPath.extension().string() != ".xml")
+			xmlPath.replace_extension(".xml");
+
 		_loadedXMLExists = fs::exists(xmlPath);
 	}
 	ImGui::PopID();
 	ImGui::PopItemWidth();
+
+	static imgui_ext::file_browser_modal fileBrowserXML("Load Layer Set");
+	fileBrowserXML._acceptedExt = { ".xml" };
+	ImGui::SameLine();
+	_loadXMLOpen = ImGui::Button("...", { 30,20 });
+	if (_loadXMLOpen)
+		fileBrowserXML.SetStartingDir(_fullLoadedXMLPath);
+	if (fileBrowserXML.render(_loadXMLOpen, _loadedXMLPath))
+	{
+		auto xmlPath = fs::path(_loadedXMLPath);
+		_loadedXMLExists = fs::exists(xmlPath);
+		_fullLoadedXMLPath = xmlPath.string();
+		auto proximateXMLPath = fs::proximate(xmlPath, fs::current_path());
+		_loadedXMLPath = proximateXMLPath.string();
+		_loadedXML = proximateXMLPath.replace_extension("").string();
+		LoadLayers(_loadedXMLPath);
+	}
+
 
 	ImGui::SameLine();
 	float textMargin = ImGui::GetCursorPosX();
@@ -108,9 +126,16 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ImGui::PushID("saveXMLBtn");
 	if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { buttonWidth, 20 }) && !_loadedXML.empty())
 	{
-		SaveLayers(_loadedXML + ".xml");
-		auto xmlPath = fs::current_path().append(_loadedXML + ".xml");
+		auto xmlPath = fs::current_path().append(_loadedXML);
+		if (xmlPath.extension().string() != ".xml")
+			xmlPath.replace_extension(".xml");
+
+		SaveLayers(xmlPath.string());
+
 		_loadedXMLExists = fs::exists(xmlPath);
+		_fullLoadedXMLPath = xmlPath.string();
+		_loadedXMLPath = fs::proximate(xmlPath, fs::current_path()).string();
+		
 	}
 	ImGui::PopID();
 
@@ -512,7 +537,9 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 
 				for (auto& state : hkey._layerStates)
 				{
-					GetLayer(state.first)->_visible = state.second;
+					LayerInfo* layer = GetLayer(state.first);
+					if(layer)
+						layer->_visible = state.second;
 				}
 				_activeHotkeyIdx = h;
 				_hotkeyTimer.restart();

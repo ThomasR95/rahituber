@@ -1,3 +1,3 @@
 <Config>
-    <Common startMaximised="false" lastWidth="1280" lastHeight="720" lastX="615" lastY="565" alwaysOnTop="false" lastAudioDevice="4" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="true" menuOnStart="true" lastLayerSet="Edie_Advanced" softFall="7" useKeyboardHook="true"/>
+    <Common startMaximised="false" lastWidth="1280" lastHeight="720" lastX="615" lastY="565" alwaysOnTop="false" lastAudioDevice="4" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="true" menuOnStart="true" lastLayerSet="Edie_Advanced.xml" softFall="7" useKeyboardHook="true"/>
 </Config>
