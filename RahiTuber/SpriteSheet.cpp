@@ -1,6 +1,6 @@
 #include "SpriteSheet.h"
 
-void SpriteSheet::Draw(sf::RenderTarget* target)
+void SpriteSheet::Draw(sf::RenderTarget* target, const sf::RenderStates& states)
 {
 	sf::Time dt = _timer.getElapsedTime();
 
@@ -24,7 +24,7 @@ void SpriteSheet::Draw(sf::RenderTarget* target)
 	}
 	
 	if(_visible)
-		target->draw(_sprite);
+		target->draw(_sprite, states);
 
 }
 

@@ -199,7 +199,8 @@ void initWindow(bool firstStart = false)
 		}
 	}
 
-	appConfig->_RT.create(appConfig->_scrW, appConfig->_scrH);
+	appConfig->_menuRT.create(appConfig->_scrW, appConfig->_scrH);
+	appConfig->_layersRT.create(appConfig->_scrW, appConfig->_scrH);
 
 	appConfig->_currentWindow = &appConfig->_window;
 
@@ -223,9 +224,10 @@ void initWindow(bool firstStart = false)
 
 	appConfig->_window.setFramerateLimit(appConfig->_enableVSync? 60 : 200);
 
+	HWND hwnd = appConfig->_window.getSystemHandle();
+
 	if (appConfig->_alwaysOnTop)
 	{
-		HWND hwnd = appConfig->_window.getSystemHandle();
 		SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	}
 
@@ -234,12 +236,16 @@ void initWindow(bool firstStart = false)
 		MARGINS margins;
 		margins.cxLeftWidth = -1;
 
-		HWND hwnd = appConfig->_window.getSystemHandle();
-		//SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-
-		SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+		SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
+		SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
 		DwmExtendFrameIntoClientArea(hwnd, &margins);
 	}
+	else
+	{
+		SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
+		SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
+	}
+
 
 	if (uiConfig->_ico.getPixelsPtr())
 	{
@@ -361,12 +367,8 @@ void menuAdvanced(ImGuiStyle& style)
 
 				MARGINS margins;
 				margins.cxLeftWidth = -1;
-				//SetWindowLong(gameConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
-				//EnableWindow(gameConfig->_window.getSystemHandle(), false);
 
 				DwmExtendFrameIntoClientArea(appConfig->_window.getSystemHandle(), &margins);
-
-				//gameConfig->menuShowing = false;
 			}
 			else
 			{
@@ -436,9 +438,8 @@ void menuAudio(ImGuiStyle& style)
 		}
 	}
 
-	//ImGui::TextColored({ 0.5, 0.5, 0.5, 1.0 }, "Current:\n  %s", gameConfig->deviceList[gameConfig->devIdx].first.c_str());
 	ImGui::PushID("AudImpCombo");
-	ImGui::PushItemWidth(200);
+	ImGui::PushItemWidth(-1);
 	std::string deviceName = "None";
 	if (audioConfig->_deviceList.size() > audioConfig->_devIdx)
 		deviceName = audioConfig->_deviceList[audioConfig->_devIdx].first;
@@ -459,7 +460,7 @@ void menuAudio(ImGuiStyle& style)
 				audioConfig->_params.device = audioConfig->_devIdx;
 				audioConfig->_params.channelCount = min(2, info->maxInputChannels);
 				audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
-				audioConfig->_params.hostApiSpecificStreamInfo = nullptr;// (PaHostApiInfo*)Pa_GetHostApiInfo(Pa_GetDefaultHostApi());
+				audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 				sRate = info->defaultSampleRate;
 
 				Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
@@ -664,9 +665,7 @@ void menu()
 
 	if (ImGui::Button("Close Menu (Esc)", { -1,20 }))
 	{
-		uiConfig->_menuShowing = false;
-		if (appConfig->_transparent)
-			SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
+		uiConfig->_menuShowing = false;			
 	}
 
 	//	FULLSCREEN
@@ -718,7 +717,7 @@ void menu()
 
 	ImGui::End();
 	ImGui::EndFrame();
-	ImGui::SFML::Render(appConfig->_window);
+	ImGui::SFML::Render(appConfig->_menuRT);
 
 	uiConfig->_firstMenu = false;
 }
@@ -797,8 +796,6 @@ void handleEvents()
 			uiConfig->_menuShowing = !uiConfig->_menuShowing;
 			if (uiConfig->_menuShowing)
 				uiConfig->_firstMenu = true;
-			else if (appConfig->_transparent)
-				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
 
 			appConfig->_timer.restart();
 
@@ -874,11 +871,19 @@ void render()
 	appConfig->_fps = (1.0 / dt.asSeconds());
 
 	if (appConfig->_transparent)
+	{
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
+		appConfig->_layersRT.clear(sf::Color(1,1,1, 0));
+	}
 	else
+	{
 		appConfig->_window.clear(appConfig->_bgColor);
+		appConfig->_layersRT.clear(appConfig->_bgColor);
+	}
 
- 	layerMan->Draw(&appConfig->_window, appConfig->_scrH, appConfig->_scrW, max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage)), audioConfig->_midMax);
+	appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
+
+ 	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage)), audioConfig->_midMax);
 
 	if (uiConfig->_menuShowing)
 	{
@@ -906,7 +911,7 @@ void render()
 
 		ImGui::End();
 		ImGui::EndFrame();
-		ImGui::SFML::Render(appConfig->_window);
+		ImGui::SFML::Render(appConfig->_menuRT);
 	}
 
 #ifdef _DEBUG
@@ -939,6 +944,20 @@ void render()
 		appConfig->_window.draw(uiConfig->_bottomRightBox);
 		appConfig->_window.draw(uiConfig->_resizeBox);
 	}
+	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
+
+	appConfig->_layersRT.display();
+	appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
+	auto states = sf::RenderStates::Default;
+	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+	appConfig->_window.draw(appConfig->_RTPlane);
+
+	appConfig->_menuRT.display();
+	appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
+	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+																		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+	appConfig->_window.draw(appConfig->_RTPlane, states);
 
 	appConfig->_window.display();
 }
@@ -1095,10 +1114,10 @@ int main()
 	if (appConfig->_startMaximised)
 		appConfig->_isFullScreen = true;
 
-	uiConfig->_ico.loadFromFile("icon.png");
+	uiConfig->_ico.loadFromFile("res/icon.png");
 	uiConfig->_settingsFileBoxName.resize(30);
 
-	uiConfig->_moveIcon.loadFromFile("move.png");
+	uiConfig->_moveIcon.loadFromFile("res/move.png");
 	uiConfig->_moveIconSprite.setTexture(uiConfig->_moveIcon, true);
 
 	initWindow(true);
