@@ -185,7 +185,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
 }
 
 static const int clamp_size_t_to_int(const size_t data) {
-  static const int max_int = std::numeric_limits<int>::max();
+  static const int max_int = (std::numeric_limits<int>::max)();
   return static_cast<int>(data > max_int ? max_int : data);
 }
 

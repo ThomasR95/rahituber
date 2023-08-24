@@ -7,6 +7,7 @@
 
 #include "imgui.h"
 #include "imgui-SFML.h"
+#include "imgui_internal.h"
 
 #include "Config.h"
 #include "xmlConfig.h"
@@ -267,7 +268,7 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::SetNextWindowSize({ 400, h });
 		ImGui::OpenPopup("Help");
 	}
-	ImGui::SetNextWindowPosCenter();
+	ImGui::SetNextWindowPos({ -1,-1 });
 	ImGui::SetNextWindowSize({ 400,-1 });
 	//ImGui::SetNextWindowSizeConstraints({ 400, 400 }, { -1,-1 });
 	if (ImGui::BeginPopup("Help", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
@@ -325,7 +326,7 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::PushItemWidth(50);
 		float percentVal = 1.0 / 60.0;
 		float smooth = (61.0 - audioConfig->_smoothFactor)* percentVal;
-		if(ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.1f", 0.5))
+		if(ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.1f"))
 		{
 			smooth = max(0.0, min(smooth, 1.0));
 			audioConfig->_smoothFactor = 61 - smooth / percentVal;
@@ -612,10 +613,11 @@ void menuPresets(ImGuiStyle& style)
 
 void menu()
 {
+
 	ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 
 	auto& style = ImGui::GetStyle();
-	style.FrameRounding = 4;
+	style.FrameRounding = 3;
 	style.WindowTitleAlign = style.ButtonTextAlign;
 
 	ImVec4 baseColor(1.0, 0.0, 1.0, 1.0);
@@ -629,29 +631,36 @@ void menu()
 	ImVec4 col_light3(mean(baseColor.x,1.f), mean(baseColor.y, 1.f), mean(baseColor.z, 1.f), 1.f);
 	ImVec4 greyoutCol(0.3, 0.3, 0.3, 1.0);
 
-	style.Colors[ImGuiCol_WindowBg] = style.Colors[ImGuiCol_ChildWindowBg] = { 0.05f,0.05f,0.05f, 1.0f };
+	style.Colors[ImGuiCol_WindowBg] = /*style.Colors[ImGuiCol_ChildWindowBg] = */{0.05f,0.05f,0.05f, 1.0f};
 	style.Colors[ImGuiCol_PopupBg] = { 0.08f,0.08f,0.08f, 1.0f };
 	style.Colors[ImGuiCol_ChildBg] = col_dark2;
-	style.Colors[ImGuiCol_FrameBg] = col_dark;
-	style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
-	style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
-	style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = col_light;
+	style.Colors[ImGuiCol_ScrollbarBg] = style.Colors[ImGuiCol_FrameBg] = col_dark;
+	style.Colors[ImGuiCol_FrameBgHovered] = style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = col_light;
 	style.Colors[ImGuiCol_TitleBgActive] = style.Colors[ImGuiCol_TitleBg] = style.Colors[ImGuiCol_TitleBgCollapsed] = col_dark;
-	style.Colors[ImGuiCol_Text] = col_light3;
+	style.Colors[ImGuiCol_CheckMark] = style.Colors[ImGuiCol_Text] = col_light3;
 	style.Colors[ImGuiCol_TextDisabled] = greyoutCol;
 	style.Colors[ImGuiCol_Separator] = col_light2a;
+  style.Colors[ImGuiCol_BorderShadow] = col_dark2;
+	style.Colors[ImGuiCol_Border] = col_dark;
+
+	//style.Colors[ImGuiCol_CloseButton] = { 0.5,0.1,0.1,1.0 };
+	//style.Colors[ImGuiCol_CloseButtonHovered] = { 0.8,0.2,0.2,1.0 };
+	//style.Colors[ImGuiCol_CloseButtonActive] = { 0.8,0.4,0.4,1.0 };
 	 
 	style.WindowTitleAlign = { 0.5f, 0.5f };
 
+	
 	if (!appConfig->_isFullScreen)
 	{
 		// Move tab in the top centre
 		ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 40, 0 });
-		ImGui::SetNextWindowSize(uiConfig->_moveTabSize);
+		ImGui::SetNextWindowSize({uiConfig->_moveTabSize.x, uiConfig->_moveTabSize.y});
 
 		ImGui::Begin("move_tab", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
 		ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12,4 });
-		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24, 24), col_light3);
+		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24, 24), sf::Color(255*col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
 		ImGui::End();
 	}
 
@@ -714,7 +723,6 @@ void menu()
 		appConfig->_window.close();
 	}
 	ImGui::PopStyleColor(3);
-
 	ImGui::End();
 	ImGui::EndFrame();
 	ImGui::SFML::Render(appConfig->_menuRT);
@@ -1122,6 +1130,28 @@ int main()
 
 	initWindow(true);
 	ImGui::SFML::Init(appConfig->_window);
+
+	ImGui::GetStyle().WindowRounding = 4.f;
+
+	ImGuiIO& io = ImGui::GetIO();
+	ImFontConfig cfg;
+	cfg.SizePixels = 10.2f;
+	//ImFont* font1 = io.Fonts->AddFontFromFileTTF("res/nasa21.ttf", 12.f, &cfg, io.Fonts->GetGlyphRangesDefault());
+	//if (!io.Fonts->Build())
+	//	__debugbreak();
+
+	// Retrieve texture in RGBA format
+	unsigned char* tex_pixels = NULL;
+	int tex_width, tex_height;
+	//io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height);
+
+	//static sf::Texture* fontTex = new sf::Texture();
+	//if (!fontTex->loadFromMemory(tex_pixels, tex_width * tex_height))
+	//{
+	//	__debugbreak();
+	//}		
+	
+	//io.Fonts->SetTexID((ImTextureID)fontTex->getNativeHandle());
 
 	//setup debug bars
 	audioConfig->_frames.resize(FRAMES_PER_BUFFER * 3);

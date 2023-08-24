@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "imgui/misc/single_file/imgui_single_file.h"
+
 #include <windows.h>
 
 //#include <shellapi.h>
@@ -640,7 +642,7 @@ void LayerManager::DrawHotkeysGUI()
 
 		if (_hotkeysMenuOpen)
 		{
-			ImGui::SetNextWindowPosCenter();
+			ImGui::SetNextWindowPos({ -1,-1 });
 			ImGui::SetNextWindowSize({ 400, 400 });
 			ImGui::OpenPopup("Hotkey Setup");
 		}
@@ -721,7 +723,7 @@ void LayerManager::DrawHotkeysGUI()
 				if (hkeys._useTimeout)
 				{
 					ImGui::PushID("timeoutSlider");
-					ImGui::SliderFloat("", &hkeys._timeout, 0.0, 30.0, "%.1f s", 2.f);
+					ImGui::SliderFloat("", &hkeys._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ImGui::PopID();
 				}
 
@@ -740,6 +742,7 @@ void LayerManager::DrawHotkeysGUI()
 			ImGui::Text(name.c_str());
 
 			ImGui::SetCursorPos(delButtonPos);
+			auto style = ImGui::GetStyle();
 			ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
@@ -1010,7 +1013,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	_editIcon->setSmooth(true);
 	_emptyIcon->setSmooth(true);
 
-	sf::Color btnColor = style.Colors[ImGuiCol_Text];
+	ImVec4 col = style.Colors[ImGuiCol_Text];
+	sf::Color btnColor = { sf::Uint8(255*col.x), sf::Uint8(255*col.y), sf::Uint8(255*col.z) };
 
 	ImGui::PushID(_id);
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
@@ -1060,7 +1064,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		}
 		ImGui::PopID();
 
-		ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+		ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 		ImGui::PopID();
 
@@ -1100,7 +1104,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 			ImGui::PopID();
 
-			ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+			ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 			ImGui::PopID();
 		}
@@ -1109,7 +1113,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (_useBlinkFrame)
 		{
-			ImVec2 blinkBtnSize = _blinkWhileTalking ? ImVec2(48, 48) : ImVec2(imgBtnWidth, imgBtnWidth);
+			sf::Vector2f blinkBtnSize = _blinkWhileTalking ? sf::Vector2f(48, 48) : sf::Vector2f(imgBtnWidth, imgBtnWidth);
 
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 			ImGui::PushID("blinkimport");
@@ -1147,7 +1151,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			auto preTintPos = ImGui::GetCursorPos();
 			if (_blinkWhileTalking)
 				ImGui::SetCursorPos(tintPos);
-			ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+			ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 			ImGui::SetCursorPos(preTintPos);
 			ImGui::PopID();
 
@@ -1189,7 +1193,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				preTintPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(tintPos);
 
-				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_RGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 				ImGui::SetCursorPos(preTintPos);
 				ImGui::PopID();
 			}
@@ -1231,7 +1235,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
 		ImVec2 barPos = ImGui::GetCursorPos();
-		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", 2.f);
+		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", ImGuiSliderFlags_Logarithmic);
 		ImGui::NewLine();
 
 		sf::Color barHighlight(60, 140, 60, 255);
@@ -1292,7 +1296,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (_motionParent != -1)
 		{
-			ImGui::SliderFloat("Motion Delay", &_motionDelay, 0.0, 10.0, "%.1f", 2.f);
+			ImGui::SliderFloat("Motion Delay", &_motionDelay, 0.0, 10.0, "%.1f", ImGuiSliderFlags_Logarithmic);
 		}
 
 		ImGui::Separator();
@@ -1370,7 +1374,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	auto oldCursorPos = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(headerButtonsPos);
 
-	ImVec2 headerBtnSize(17, 17);
+	sf::Vector2f headerBtnSize(17, 17);
 
 	ImGui::PushID("visible");
 	ImGui::Checkbox("", &_visible);
@@ -1449,7 +1453,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		if (open)
 		{
-			ImGui::SetNextWindowPosCenter();
+			ImGui::SetNextWindowPos({-1,-1});
 			ImGui::SetNextWindowSize({ 400, 240 });
 			ImGui::OpenPopup("Sprite Sheet Setup");
 
@@ -1498,7 +1502,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		AddResetButton("fpsreset", _animFPS, anim.FPS(), nullptr, !anim.IsSynced());
 		if(!anim.IsSynced())
-			ImGui::InputFloat("FPS", &_animFPS, 1,1,1);
+			ImGui::InputFloat("FPS", &_animFPS, 1,1, "%.1f");
 		else
 		{
 			std::stringstream ss;

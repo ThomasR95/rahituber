@@ -160,8 +160,12 @@
   <ItemGroup>
     <ClCompile Include="file_browser_modal.cpp" />
     <ClCompile Include="imgui-sfml\imgui-SFML.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="KeyboardTracker.cpp" />
     <ClCompile Include="LayerManager.cpp" />
     <ClCompile Include="main.cpp" />
@@ -173,7 +177,13 @@
     <ClInclude Include="Config.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="file_browser_modal.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\misc\single_file\imgui_single_file.h" />
     <ClInclude Include="KeyboardTracker.h" />
     <ClInclude Include="LayerManager.h" />
     <ClInclude Include="resource.h" />
