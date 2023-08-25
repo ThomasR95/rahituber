@@ -51,7 +51,9 @@ struct AppConfig
 
 	sf::RenderWindow _window;
 	sf::RenderWindow* _currentWindow = nullptr;
-	sf::RenderTexture _RT;
+	sf::RenderTexture _layersRT;
+	sf::RenderTexture _menuRT;
+	sf::RectangleShape _RTPlane;
 
 	sf::Shader _shader;
 	float _minOpacity = 0.25f;

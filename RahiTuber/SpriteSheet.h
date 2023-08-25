@@ -7,7 +7,7 @@
 class SpriteSheet
 {
 public:
-	void Draw(sf::RenderTarget* target);
+	void Draw(sf::RenderTarget* target, const sf::RenderStates& states = sf::RenderStates::Default);
 
 	void LoadFromTexture(const sf::Texture& tex, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& frameSize = { -1, -1 });
 

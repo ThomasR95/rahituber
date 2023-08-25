@@ -16,6 +16,21 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+static std::map<const char*, sf::BlendMode> g_blendmodes = {
+	{"Normal", sf::BlendAlpha},
+	{"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+	{"Multiply", sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+															sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+	{"Subtract", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::ReverseSubtract,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+	{"Difference", sf::BlendMode(sf::BlendMode::OneMinusDstColor, sf::BlendMode::OneMinusSrcColor, sf::BlendMode::Add,
+															sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
+	{"Overwrite",  sf::BlendNone},
+	{"Erase", sf::BlendMode(sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add,
+												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
+};
+
 class TextureManager
 {
 public:
@@ -113,6 +128,10 @@ public:
 		float _rot = 0.0;
 		bool _keepAspect = true;
 
+		sf::BlendMode _blendMode = sf::BlendAlpha;
+
+		bool _scaleFiltering = false;
+
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;
 		bool _importBlinkOpen = false;
@@ -177,7 +196,7 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
-	void AddLayer();
+	void AddLayer(const LayerInfo* toCopy = nullptr);
 	void RemoveLayer(int toRemove);
 	void MoveLayerUp(int moveUp);
 	void MoveLayerDown(int moveDown);
@@ -238,6 +257,10 @@ private:
 	bool _pendingShift = false;
 	bool _pendingAlt = false;
 
+	sf::Vector2f _globalScale = { 1.f, 1.f };
+	sf::Vector2f _globalPos;
+	float _globalRot = 0.0;
+	bool _globalKeepAspect = true;
 
 	std::map<int, bool> _defaultLayerStates;
 	sf::Clock _hotkeyTimer;
@@ -309,6 +332,10 @@ static sf::Texture* _emptyIcon = nullptr;
 static sf::Texture* _animIcon = nullptr;
 static sf::Texture* _upIcon = nullptr;
 static sf::Texture* _dnIcon = nullptr;
+static sf::Texture* _editIcon = nullptr;
+static sf::Texture* _delIcon = nullptr;
+static sf::Texture* _dupeIcon = nullptr;
+
 
 static TextureManager _textureMan;
 
@@ -316,14 +343,11 @@ template <typename T>
 inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* style = nullptr, bool enabled = true)
 {
 	if (_resetIcon == nullptr)
-		_resetIcon = _textureMan.GetTexture("reset.png");
+		_resetIcon = _textureMan.GetTexture("res/reset.png");
 
-	sf::Color btnColor = sf::Color::White;
-	if (style)
+	sf::Color btnColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+	if(style)
 		btnColor = style->Colors[ImGuiCol_Text];
-
-	if(!enabled)
-		btnColor = sf::Color(100,100,100);
 
 	ImGui::PushID(id);
 	if (ImGui::ImageButton(*_resetIcon, sf::Vector2f(13, 13), -1, sf::Color::Transparent, btnColor))
