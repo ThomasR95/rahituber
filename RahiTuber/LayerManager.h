@@ -13,20 +13,26 @@
 
 #include <deque>
 
+#include "Config.h"
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
-static std::map<const char*, sf::BlendMode> g_blendmodes = {
-	{"Normal", sf::BlendAlpha},
+static std::map<std::string, sf::BlendMode> g_blendmodes = {
+	{"Normal", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+												sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
+	{"Lighten", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Max,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+	{"Darken", sf::BlendMode(sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::One, sf::BlendMode::Min,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Multiply", sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-															sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+												     sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Subtract", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::ReverseSubtract,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
-	{"Difference", sf::BlendMode(sf::BlendMode::OneMinusDstColor, sf::BlendMode::OneMinusSrcColor, sf::BlendMode::Add,
-															sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
-	{"Overwrite",  sf::BlendNone},
+	{"Overwrite", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
+												sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add)},
 	{"Erase", sf::BlendMode(sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add,
 												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 };
@@ -36,18 +42,21 @@ class TextureManager
 public:
 	inline sf::Texture* GetTexture(const std::string& path)
 	{
+		sf::Texture* out = nullptr;
 		if (path.empty())
 			return nullptr;
 
 		if (_textures.count(path))
 		{
-			return &_textures[path];
+			out = &_textures[path];
 		}
 		else
 		{
 			_textures[path].loadFromFile(path);
-			return &_textures[path];
+			out = &_textures[path];
 		}
+
+		return out;
 	}
 
 private:
@@ -128,7 +137,7 @@ public:
 		float _rot = 0.0;
 		bool _keepAspect = true;
 
-		sf::BlendMode _blendMode = sf::BlendAlpha;
+		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
 		bool _scaleFiltering = false;
 
@@ -236,11 +245,15 @@ public:
 	std::string LastUsedLayerSet() { return _loadedXML; }
 	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
 
+	AppConfig* _appConfig = nullptr;
+
 private:
 
 	std::vector<HotkeyInfo> _hotkeys;
 
 	std::vector<LayerInfo> _layers;
+
+	sf::RenderTexture _blendingRT;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";

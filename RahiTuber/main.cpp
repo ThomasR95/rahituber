@@ -5,8 +5,11 @@
 #include <deque>
 #include "wtypes.h"
 
+#define IMGUI_ENABLE_FREETYPE
 #include "imgui.h"
+#include "imgui/misc/freetype/imgui_freetype.h"
 #include "imgui-SFML.h"
+
 #include "imgui_internal.h"
 
 #include "Config.h"
@@ -268,10 +271,10 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::SetNextWindowSize({ 400, h });
 		ImGui::OpenPopup("Help");
 	}
-	ImGui::SetNextWindowPos({ -1,-1 });
+	ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, 80 });
 	ImGui::SetNextWindowSize({ 400,-1 });
 	//ImGui::SetNextWindowSizeConstraints({ 400, 400 }, { -1,-1 });
-	if (ImGui::BeginPopup("Help", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
+	if (ImGui::BeginPopup("Help", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
 	{
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Close Menu:");				ImGui::SameLine(160); ImGui::TextWrapped("Closes the main menu. ");
@@ -281,6 +284,10 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Presets:");				ImGui::SameLine(160); ImGui::TextWrapped("Save and load window settings.");
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Exit RahiTuber:");		ImGui::SameLine(160); ImGui::TextWrapped("Saves the layers and closes the program.");
 		ImGui::NewLine();
+
+		ImGui::TextWrapped("CTRL+click any input field to manually type the value.");
+		ImGui::NewLine();
+
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
 		ImGui::TextWrapped("Drag from the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
 		ImGui::NewLine();
@@ -288,6 +295,7 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::NewLine();
 		ImGui::NewLine();
 		ImGui::PopStyleColor();
+
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.3f,0.3f,0.3f,1.f });
 
 		time_t timeNow = time(0);
@@ -566,26 +574,6 @@ void menuPresets(ImGuiStyle& style)
 		std::string saveCheckBox = "Save";
 		if (overwriting) saveCheckBox = "Update";
 
-		//ImGui::PushID("windowsettings_id");
-		//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Window Settings");
-		//ImGui::SameLine(); ImGui::TextColored(style.Colors[ImGuiCol_Separator], "(Size, position)");
-
-		//if (ImGui::Checkbox(saveCheckBox.c_str(), &uiConfig->_saveWindowInfo))
-		//{
-		//	if (uiConfig->_saveWindowInfo)
-		//		uiConfig->_clearWindowInfo = false;
-		//}
-		//if (overwriting)
-		//{
-		//	ImGui::SameLine();
-		//	if (ImGui::Checkbox("Clear", &uiConfig->_clearWindowInfo))
-		//	{
-		//		if (uiConfig->_clearWindowInfo)
-		//			uiConfig->_saveWindowInfo = false;
-		//	}
-		//}
-		//ImGui::PopID();
-
 		uiConfig->_clearWindowInfo = false;
 		uiConfig->_saveWindowInfo = true;
 		
@@ -613,16 +601,17 @@ void menuPresets(ImGuiStyle& style)
 
 void menu()
 {
-
 	ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 
 	auto& style = ImGui::GetStyle();
-	style.FrameRounding = 3;
+	style.FrameRounding = 4;
+	style.DisabledAlpha = 1.0;
 	style.WindowTitleAlign = style.ButtonTextAlign;
 
 	ImVec4 baseColor(1.0, 0.0, 1.0, 1.0);
 
 	ImVec4 col_dark2(baseColor.x * 0.1f, baseColor.y * 0.1f, baseColor.z * 0.1f, 1.f);
+	ImVec4 col_dark1(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
 	ImVec4 col_dark(baseColor.x*0.3f, baseColor.y*0.3f, baseColor.z*0.3f, 1.f);
 	ImVec4 col_med(baseColor.x*0.5f, baseColor.y*0.5f, baseColor.z*0.5f, 1.f);
 	ImVec4 col_light(baseColor.x*0.8f, baseColor.y*0.8f, baseColor.z*0.8f, 1.f);
@@ -631,25 +620,21 @@ void menu()
 	ImVec4 col_light3(mean(baseColor.x,1.f), mean(baseColor.y, 1.f), mean(baseColor.z, 1.f), 1.f);
 	ImVec4 greyoutCol(0.3, 0.3, 0.3, 1.0);
 
-	style.Colors[ImGuiCol_WindowBg] = /*style.Colors[ImGuiCol_ChildWindowBg] = */{0.05f,0.05f,0.05f, 1.0f};
-	style.Colors[ImGuiCol_PopupBg] = { 0.08f,0.08f,0.08f, 1.0f };
-	style.Colors[ImGuiCol_ChildBg] = col_dark2;
+	style.Colors[ImGuiCol_WindowBg] = style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark2;
+	style.Colors[ImGuiCol_FrameBgHovered] = col_dark1;
 	style.Colors[ImGuiCol_ScrollbarBg] = style.Colors[ImGuiCol_FrameBg] = col_dark;
-	style.Colors[ImGuiCol_FrameBgHovered] = style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
+	style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
 	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
 	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = col_light;
 	style.Colors[ImGuiCol_TitleBgActive] = style.Colors[ImGuiCol_TitleBg] = style.Colors[ImGuiCol_TitleBgCollapsed] = col_dark;
 	style.Colors[ImGuiCol_CheckMark] = style.Colors[ImGuiCol_Text] = col_light3;
 	style.Colors[ImGuiCol_TextDisabled] = greyoutCol;
 	style.Colors[ImGuiCol_Separator] = col_light2a;
-  style.Colors[ImGuiCol_BorderShadow] = col_dark2;
+	style.Colors[ImGuiCol_BorderShadow] = col_dark2;
 	style.Colors[ImGuiCol_Border] = col_dark;
-
-	//style.Colors[ImGuiCol_CloseButton] = { 0.5,0.1,0.1,1.0 };
-	//style.Colors[ImGuiCol_CloseButtonHovered] = { 0.8,0.2,0.2,1.0 };
-	//style.Colors[ImGuiCol_CloseButtonActive] = { 0.8,0.4,0.4,1.0 };
 	 
 	style.WindowTitleAlign = { 0.5f, 0.5f };
+	style.ItemSpacing = { 3,3 };
 
 	
 	if (!appConfig->_isFullScreen)
@@ -668,6 +653,13 @@ void menu()
 	ImGui::SetNextWindowPos(ImVec2(10,10));
 	float windowHeight = appConfig->_scrH - 20;
 	ImGui::SetNextWindowSize({ 480, windowHeight });
+
+	sf::Color backdropCol = { sf::Uint8(255 * col_med.x), sf::Uint8(255 * col_med.y), sf::Uint8(255 * col_med.z) };
+	sf::RectangleShape backdrop({ 474, windowHeight - 6 });
+	backdrop.setPosition(13, 13);
+	backdrop.setFillColor(backdropCol);
+	appConfig->_layersRT.draw(backdrop);
+
 	ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
 
 	ImDrawList* dList = ImGui::GetWindowDrawList();
@@ -723,6 +715,7 @@ void menu()
 		appConfig->_window.close();
 	}
 	ImGui::PopStyleColor(3);
+
 	ImGui::End();
 	ImGui::EndFrame();
 	ImGui::SFML::Render(appConfig->_menuRT);
@@ -881,7 +874,7 @@ void render()
 	if (appConfig->_transparent)
 	{
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
-		appConfig->_layersRT.clear(sf::Color(1,1,1, 0));
+		appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
 	}
 	else
 	{
@@ -893,6 +886,8 @@ void render()
 
  	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage)), audioConfig->_midMax);
 
+	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
+
 	if (uiConfig->_menuShowing)
 	{
 		if (!appConfig->_isFullScreen)
@@ -900,11 +895,11 @@ void render()
 			if (appConfig->_transparent)
 			{
 				uiConfig->_outlineBox.setSize({ appConfig->_scrW - 4, appConfig->_scrH - 4 });
-				appConfig->_window.draw(uiConfig->_outlineBox);
+				appConfig->_menuRT.draw(uiConfig->_outlineBox);
 			}
 
-			appConfig->_window.draw(uiConfig->_topLeftBox);
-			appConfig->_window.draw(uiConfig->_bottomRightBox);
+			appConfig->_menuRT.draw(uiConfig->_topLeftBox);
+			appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
 		}
 		menu();
 	}
@@ -936,23 +931,21 @@ void render()
 			appConfig->bars[bar].setSize({ barW, height });
 			appConfig->bars[bar].setOrigin({ 0.f, height });
 			appConfig->bars[bar].setPosition({ barW*bar, appConfig->_scrH });
-			appConfig->_window.draw(appConfig->bars[bar]);
+			appConfig->_menuRT.draw(appConfig->bars[bar]);
 	}
 }
 #endif
 
-
 	if (uiConfig->_cornerGrabbed.first)
 	{
-		appConfig->_window.draw(uiConfig->_topLeftBox);
-		appConfig->_window.draw(uiConfig->_resizeBox);
+		appConfig->_menuRT.draw(uiConfig->_topLeftBox);
+		appConfig->_menuRT.draw(uiConfig->_resizeBox);
 	}
 	else if (uiConfig->_cornerGrabbed.second)
 	{
-		appConfig->_window.draw(uiConfig->_bottomRightBox);
-		appConfig->_window.draw(uiConfig->_resizeBox);
+		appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
+		appConfig->_menuRT.draw(uiConfig->_resizeBox);
 	}
-	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
 	appConfig->_layersRT.display();
 	appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
@@ -1115,6 +1108,8 @@ int main()
 	if(appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
 
+	layerMan->_appConfig = appConfig;
+
 	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 
 	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
@@ -1126,32 +1121,38 @@ int main()
 	uiConfig->_settingsFileBoxName.resize(30);
 
 	uiConfig->_moveIcon.loadFromFile("res/move.png");
+	uiConfig->_moveIcon.setSmooth(true);
 	uiConfig->_moveIconSprite.setTexture(uiConfig->_moveIcon, true);
 
 	initWindow(true);
 	ImGui::SFML::Init(appConfig->_window);
 
 	ImGui::GetStyle().WindowRounding = 4.f;
+	ImGui::GetStyle().Alpha = 1.0;
 
 	ImGuiIO& io = ImGui::GetIO();
 	ImFontConfig cfg;
-	cfg.SizePixels = 10.2f;
-	//ImFont* font1 = io.Fonts->AddFontFromFileTTF("res/nasa21.ttf", 12.f, &cfg, io.Fonts->GetGlyphRangesDefault());
-	//if (!io.Fonts->Build())
-	//	__debugbreak();
+	cfg.OversampleH = 1;
+	cfg.SizePixels = 13.f;
+	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
+
+	io.FontDefault = io.Fonts->AddFontFromFileTTF("res/monof55.ttf", 13.f, &cfg);
+	if (!io.Fonts->Build())
+		__debugbreak();
 
 	// Retrieve texture in RGBA format
 	unsigned char* tex_pixels = NULL;
-	int tex_width, tex_height;
-	//io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height);
+	int tex_width, tex_height, bpp;
+	io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height, &bpp);
 
-	//static sf::Texture* fontTex = new sf::Texture();
-	//if (!fontTex->loadFromMemory(tex_pixels, tex_width * tex_height))
-	//{
-	//	__debugbreak();
-	//}		
+	static sf::Image* fontimg = new sf::Image();
+	static sf::Texture* fontTex = new sf::Texture();
+	fontimg->create(tex_width, tex_height, tex_pixels);
+	fontTex->loadFromImage(*fontimg);
+	fontTex->setSmooth(false);
 	
-	//io.Fonts->SetTexID((ImTextureID)fontTex->getNativeHandle());
+	io.Fonts->SetTexID((ImTextureID)fontTex->getNativeHandle());
 
 	//setup debug bars
 	audioConfig->_frames.resize(FRAMES_PER_BUFFER * 3);
@@ -1250,6 +1251,9 @@ int main()
 	delete audioConfig;
 	delete layerMan;
 	delete kbdTrack;
+
+	delete fontimg;
+	delete fontTex;
 	return 0;
 
 }
