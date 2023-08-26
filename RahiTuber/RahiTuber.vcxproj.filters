@@ -63,6 +63,12 @@
     <ClCompile Include="imgui\backends\imgui_impl_win32.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="imgui\misc\freetype\imgui_freetype.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_demo.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tinyxml2\tinyxml2.h">
@@ -111,6 +117,9 @@
       <Filter>Source Files\imgui</Filter>
     </ClInclude>
     <ClInclude Include="imgui\misc\single_file\imgui_single_file.h">
+      <Filter>Source Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\misc\freetype\imgui_freetype.h">
       <Filter>Source Files\imgui</Filter>
     </ClInclude>
   </ItemGroup>

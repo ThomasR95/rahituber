@@ -58,10 +58,54 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
 
-			layer._idleSprite.Draw(target, state);
-			layer._talkSprite.Draw(target, state);
-			layer._blinkSprite.Draw(target, state);
-			layer._talkBlinkSprite.Draw(target, state);
+			if (layer._blendMode == g_blendmodes["Multiply"] ||
+				layer._blendMode == g_blendmodes["Lighten"] ||
+				layer._blendMode == g_blendmodes["Darken"])
+			{
+				
+				auto rtSize = layer._activeSprite->Size();
+				auto scale = layer._activeSprite->getScale();
+				rtSize = { rtSize.x * scale.x, rtSize.y * scale.y };
+				_blendingRT.create(rtSize.x, rtSize.y);
+
+				if(layer._blendMode == g_blendmodes["Lighten"])
+					_blendingRT.clear(sf::Color{ 0,0,0,255 });
+				else
+					_blendingRT.clear(sf::Color{255,255,255,255});
+
+				auto pos = layer._activeSprite->getPosition();
+				auto rot = layer._activeSprite->getRotation();
+				
+				sf::RenderStates tmpState = sf::RenderStates::Default;
+				tmpState.blendMode = g_blendmodes["Normal"];
+
+				layer._activeSprite->setPosition({ rtSize.x/2, rtSize.y/2});
+				layer._activeSprite->setRotation(0);
+
+				layer._idleSprite.Draw(&_blendingRT, tmpState);
+				layer._talkSprite.Draw(&_blendingRT, tmpState);
+				layer._blinkSprite.Draw(&_blendingRT, tmpState);
+				layer._talkBlinkSprite.Draw(&_blendingRT, tmpState);
+
+				_blendingRT.display();
+
+				auto rtPlane = sf::RectangleShape(rtSize);
+				rtPlane.setTexture(&_blendingRT.getTexture(), true);
+
+				rtPlane.setOrigin({ rtSize.x / 2, rtSize.y / 2 });
+				rtPlane.setPosition(pos);
+				rtPlane.setRotation(rot);
+
+				target->draw(rtPlane, state);
+
+			}
+			else
+			{
+				layer._idleSprite.Draw(target, state);
+				layer._talkSprite.Draw(target, state);
+				layer._blinkSprite.Draw(target, state);
+				layer._talkBlinkSprite.Draw(target, state);
+			}
 		}
 	}
 }
@@ -74,12 +118,10 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	float frameW = ImGui::GetWindowWidth();
 
-	ImGui::PushItemWidth(188);
-	float b4textY = ImGui::GetCursorPosY();
-	ImGui::SetCursorPosY(b4textY + 3);
+	ImGui::PushItemWidth(202);
+	ImGui::AlignTextToFramePadding();
 	ImGui::Text("Layer Set:");
 	ImGui::SameLine();
-	ImGui::SetCursorPosY(b4textY);
 	ImGui::PushID("layersXMLInput");
 	char inputStr[MAX_PATH] = " ";
 	_loadedXML.copy(inputStr, MAX_PATH);
@@ -114,7 +156,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::SameLine();
 	float textMargin = ImGui::GetCursorPosX();
-	float buttonWidth = 0.5 * (frameW - textMargin) - 10;
+	float buttonWidth = 0.5 * (frameW - textMargin) - style.ItemSpacing.x*2;
 	ImGui::PushID("saveXMLBtn");
 	if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { buttonWidth, 20 }) && !_loadedXML.empty())
 	{
@@ -140,7 +182,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::PopID();
 	}
 
-	float buttonW = (frameW / 3) - 12;
+	float buttonW = (frameW / 3) - style.ItemSpacing.x*2.55;
 
 	if (ImGui::Button("Add Layer", { buttonW, 20 }))
 		AddLayer();
@@ -377,6 +419,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 				bmName = bm.first;
 
 		thisLayer->SetAttribute("blendMode", bmName.c_str());
+
+		thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
 	}
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
@@ -529,10 +573,20 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		layer._blendMode = g_blendmodes["Normal"];
 		if (const char* blend = thisLayer->Attribute("blendMode"))
 		{
-			if (g_blendmodes.count(blend))
+			if (g_blendmodes.find(blend) != g_blendmodes.end())
 				layer._blendMode = g_blendmodes[blend];
 		}
-			
+
+		thisLayer->QueryAttribute("scaleFilter", &layer._scaleFiltering);
+
+		if (layer._idleImage)
+			layer._idleImage->setSmooth(layer._scaleFiltering);
+		if (layer._talkImage)
+			layer._talkImage->setSmooth(layer._scaleFiltering);
+		if (layer._blinkImage)
+			layer._blinkImage->setSmooth(layer._scaleFiltering);
+		if (layer._talkBlinkImage)
+			layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
 
 		thisLayer = thisLayer->NextSiblingElement("layer");
 
@@ -642,7 +696,8 @@ void LayerManager::DrawHotkeysGUI()
 
 		if (_hotkeysMenuOpen)
 		{
-			ImGui::SetNextWindowPos({ -1,-1 });
+			auto size = ImGui::GetWindowSize();
+			ImGui::SetNextWindowPos({ _appConfig->_scrW / 2 - 200, _appConfig->_scrH / 2 - 200 });
 			ImGui::SetNextWindowSize({ 400, 400 });
 			ImGui::OpenPopup("Hotkey Setup");
 		}
@@ -746,7 +801,7 @@ void LayerManager::DrawHotkeysGUI()
 			ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
-			ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
+			ImGui::PushStyleColor(ImGuiCol_Text, { 255.f / 255,200.f / 255,170.f / 255, 1.f });
 			if (ImGui::Button("Delete"))
 			{
 				_hotkeys.erase(_hotkeys.begin() + hkeyIdx);
@@ -1009,7 +1064,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	if (_dupeIcon == nullptr)
 		_dupeIcon = _textureMan.GetTexture("res/duplicate.png");
 
-	_dupeIcon->setSmooth(true);
+	//_dupeIcon->setSmooth(true);
+	_delIcon->setSmooth(true);
 	_editIcon->setSmooth(true);
 	_emptyIcon->setSmooth(true);
 
@@ -1018,7 +1074,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 	ImGui::PushID(_id);
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
-	ImVec2 headerButtonsPos = { ImGui::GetCursorPosX() + 280, ImGui::GetCursorPosY() };
+	sf::Vector2f headerBtnSize(17, 17);
+	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - headerBtnSize.x*8, ImGui::GetCursorPosY()};
 
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
@@ -1210,7 +1267,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			for (auto& bm : g_blendmodes)
 			{
-				if (ImGui::Selectable(bm.first, bm.second == oldBlendMode))
+				if (ImGui::Selectable(bm.first.c_str(), bm.second == oldBlendMode))
 				{
 					_blendMode = bm.second;
 				}
@@ -1374,11 +1431,12 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	auto oldCursorPos = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(headerButtonsPos);
 
-	sf::Vector2f headerBtnSize(17, 17);
-
 	ImGui::PushID("visible");
 	ImGui::Checkbox("", &_visible);
 	ImGui::PopID();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+
 	ImGui::SameLine();
 	ImGui::PushID("upbtn");
 	if (ImGui::ImageButton(*_upIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
@@ -1412,12 +1470,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
-	ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
-	ImGui::PushID("duplicateBtn");
+	ImGui::PushStyleColor(ImGuiCol_Text, { 255/255,200/255,170/255, 1 });
+	ImGui::PushID("deleteBtn");
 	if (ImGui::ImageButton(*_delIcon, headerBtnSize, 1, sf::Color::Transparent, sf::Color(255,200,170)))
 		_parent->RemoveLayer(this);
 	ImGui::PopID();
 	ImGui::PopStyleColor(4);
+	ImGui::PopStyleVar(1);
 
 	if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
 	{
@@ -1453,7 +1512,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		if (open)
 		{
-			ImGui::SetNextWindowPos({-1,-1});
+			ImGui::SetNextWindowPos({ _parent->_appConfig->_scrW / 2 - 200, _parent->_appConfig->_scrH / 2 - 120 });
 			ImGui::SetNextWindowSize({ 400, 240 });
 			ImGui::OpenPopup("Sprite Sheet Setup");
 
@@ -1474,7 +1533,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 	{
 		ImGui::Columns(2, 0, false);
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });
-		ImGui::TextWrapped("If you need help creating a sprite sheet, here's a free tool (Use Padding 0):");
+		ImGui::TextWrapped("If you need help creating a sprite sheet, here's a free tool:");
 		ImGui::PopStyleColor();
 		ImGui::NextColumn();
 		if (ImGui::Button("Leshy SpriteSheet\nTool (web link)"))
