@@ -1,9 +1,21 @@
 #pragma once
 
 #include "SFML/Window/Keyboard.hpp"
+#include "SFML/Graphics/Color.hpp"
+#include "imgui/imgui.h"
 #include <string>
 
 #define PI 3.14159265359
+
+static sf::Color toSFColor(const ImVec4& col)
+{
+	return sf::Color(sf::Uint8(col.x * 255), sf::Uint8(col.y * 255), sf::Uint8(col.z * 255), sf::Uint8(col.w * 255));
+}
+
+static ImVec4 toImColor(const sf::Color& col)
+{
+	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
+}
 
 static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {
 

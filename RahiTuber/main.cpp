@@ -326,6 +326,15 @@ void menuAdvanced(ImGuiStyle& style)
 	}
 	if (uiConfig->_advancedMenuShowing)
 	{
+		if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
+		{
+			for (auto& theme : uiConfig->_themes)
+				if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
+					uiConfig->_theme = theme.first;
+
+			ImGui::EndCombo();
+		}
+
 		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
 		ImGui::SameLine(140); ImGui::TextWrapped("Start the application with the menu open.");
@@ -608,20 +617,26 @@ void menu()
 	style.DisabledAlpha = 1.0;
 	style.WindowTitleAlign = style.ButtonTextAlign;
 
-	ImVec4 baseColor(1.0, 0.0, 1.0, 1.0);
+	ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
 
 	ImVec4 col_dark2(baseColor.x * 0.1f, baseColor.y * 0.1f, baseColor.z * 0.1f, 1.f);
-	ImVec4 col_dark1(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
+	ImVec4 col_dark1a(baseColor.x * 0.16f, baseColor.y * 0.16f, baseColor.z * 0.16f, 1.f);
+	ImVec4 col_dark1(baseColor.x * 0.25f, baseColor.y * 0.25f, baseColor.z * 0.25f, 1.f);
 	ImVec4 col_dark(baseColor.x*0.3f, baseColor.y*0.3f, baseColor.z*0.3f, 1.f);
+	ImVec4 col_med2(baseColor.x * 0.4f, baseColor.y * 0.4f, baseColor.z * 0.4f, 1.f);
 	ImVec4 col_med(baseColor.x*0.5f, baseColor.y*0.5f, baseColor.z*0.5f, 1.f);
+
+	baseColor = uiConfig->_themes[uiConfig->_theme].second;
+
 	ImVec4 col_light(baseColor.x*0.8f, baseColor.y*0.8f, baseColor.z*0.8f, 1.f);
 	ImVec4 col_light2(baseColor);
 	ImVec4 col_light2a(mean(baseColor.x, 0.6f), mean(baseColor.y, 0.6f), mean(baseColor.z, 0.6f), 1.f);
-	ImVec4 col_light3(mean(baseColor.x,1.f), mean(baseColor.y, 1.f), mean(baseColor.z, 1.f), 1.f);
+	ImVec4 col_light3(powf(baseColor.x,.3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
 	ImVec4 greyoutCol(0.3, 0.3, 0.3, 1.0);
 
-	style.Colors[ImGuiCol_WindowBg] = style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark2;
-	style.Colors[ImGuiCol_FrameBgHovered] = col_dark1;
+	style.Colors[ImGuiCol_WindowBg] = col_dark2;
+	style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
+	style.Colors[ImGuiCol_FrameBgHovered] = col_med2;
 	style.Colors[ImGuiCol_ScrollbarBg] = style.Colors[ImGuiCol_FrameBg] = col_dark;
 	style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
 	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
@@ -630,7 +645,7 @@ void menu()
 	style.Colors[ImGuiCol_CheckMark] = style.Colors[ImGuiCol_Text] = col_light3;
 	style.Colors[ImGuiCol_TextDisabled] = greyoutCol;
 	style.Colors[ImGuiCol_Separator] = col_light2a;
-	style.Colors[ImGuiCol_BorderShadow] = col_dark2;
+	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
 	style.Colors[ImGuiCol_Border] = col_dark;
 	 
 	style.WindowTitleAlign = { 0.5f, 0.5f };
