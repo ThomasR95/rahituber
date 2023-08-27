@@ -189,16 +189,26 @@ public:
 
 	struct HotkeyInfo
 	{
+		bool _active = false;
+
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
 		bool _ctrl = false;
 		bool _shift = false;
 		bool _alt = false;
 
+		enum State {
+			Hide = 0,
+			Show = 1,
+			NoChange = 2
+		};
+
 		float _timeout = 5.0;
 		bool _useTimeout = true;
 		bool _toggle = true;
-		std::map<int, bool> _layerStates;
+		std::map<int, State> _layerStates;
 		bool _awaitingHotkey = false;
+
+		sf::Clock _timer;
 	};
 
 	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
@@ -276,9 +286,42 @@ private:
 	bool _globalKeepAspect = true;
 
 	std::map<int, bool> _defaultLayerStates;
+	std::vector<HotkeyInfo*> _hotkeyOrder;
 	sf::Clock _hotkeyTimer;
-	int _activeHotkeyIdx = -1;
 	void DrawHotkeysGUI();
+
+	void AppendHotkey(HotkeyInfo* hkey)
+	{
+		for (HotkeyInfo* searchKey : _hotkeyOrder)
+			if (hkey == searchKey)
+				return;
+
+		_hotkeyOrder.push_back(hkey);
+	}
+
+	void RemoveHotkey(HotkeyInfo* hkey)
+	{
+		auto hkeyIt = _hotkeyOrder.begin();
+		while (hkeyIt != _hotkeyOrder.end())
+		{
+			if (hkey == *hkeyIt)
+			{
+				_hotkeyOrder.erase(hkeyIt);
+				break;
+			}
+			hkeyIt++;
+		}
+	}
+
+	bool AnyHotkeyActive()
+	{
+		for (auto& hkey : _hotkeys)
+			if (hkey._active)
+				return true;
+
+		_hotkeyOrder.clear();
+		return false;
+	}
 
 	inline void SaveColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, const float* col)
 	{

@@ -21,12 +21,34 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
-	if (_activeHotkeyIdx != -1 && _activeHotkeyIdx < _hotkeys.size())
+	for (auto& l : _layers)
 	{
-		HotkeyInfo& hkey = _hotkeys[_activeHotkeyIdx];
-		if (hkey._useTimeout && _hotkeyTimer.getElapsedTime().asSeconds() > hkey._timeout)
-			ResetHotkeys();
+		if (_defaultLayerStates.count(l._id))
+			l._visible = _defaultLayerStates[l._id];
 	}
+
+	auto hkeyOrderCopy = _hotkeyOrder;
+	for (auto hkey : hkeyOrderCopy)
+	{
+		if (hkey->_active && hkey->_useTimeout && hkey->_timer.getElapsedTime().asSeconds() >= hkey->_timeout)
+		{
+			hkey->_active = false;
+			RemoveHotkey(hkey);
+		}
+
+		if (hkey->_active)
+		{
+			for (auto& state : hkey->_layerStates)
+			{
+				LayerInfo* layer = GetLayer(state.first);
+				if (layer && state.second != HotkeyInfo::NoChange)
+				{
+					layer->_visible = state.second;
+				}
+			}
+		}
+	}
+
 
 	std::vector<LayerInfo*> calculateOrder;
 	for (int l = _layers.size()-1; l >= 0; l--)
@@ -240,7 +262,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	float topBarHeight = ImGui::GetCursorPosY() - topBarBegin;
 
-	ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+	ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
 	for (int l = 0; l < _layers.size(); l++)
 	{
@@ -449,7 +471,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		{
 			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
 			thisState->SetAttribute("id", state.first);
-			thisState->SetAttribute("visible", state.second);
+			thisState->SetAttribute("state", state.second);
 		}
 	}
 
@@ -620,11 +642,17 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		while (thisLayerState)
 		{
 			int id;
-			bool vis;
+			bool vis = true;
+			int state = HotkeyInfo::NoChange;
 			thisLayerState->QueryAttribute("id", &id);
-			thisLayerState->QueryAttribute("visible", &vis);
+			if (thisLayerState->QueryAttribute("visible", &vis) == tinyxml2::XML_SUCCESS)
+			{
+				state = (int)vis;
+			}
 
-			hkey._layerStates[id] = vis;
+			thisLayerState->QueryIntAttribute("state", &state);
+
+			hkey._layerStates[id] = (HotkeyInfo::State)state;
 
 			thisLayerState = thisLayerState->NextSiblingElement("state");
 		}
@@ -642,30 +670,39 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 		if (l._renamePopupOpen)
 			return;
 
+	bool anyActive = AnyHotkeyActive();
+	
 	for (int h = 0; h < _hotkeys.size(); h++)
 	{
 		auto& hkey = _hotkeys[h];
 		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
 		{
-			if (_activeHotkeyIdx == h && hkey._toggle)
+			if (hkey._active && hkey._toggle)
 			{
-					ResetHotkeys();
+				hkey._active = false;
+				RemoveHotkey(&hkey);
 			}
-			else if (_activeHotkeyIdx == -1)
+			else if (!hkey._active)
 			{
-				_defaultLayerStates.clear();
-				for (auto& l : _layers)
+				if (!anyActive)
 				{
-					_defaultLayerStates[l._id] = l._visible;
+					for (auto& l : _layers)
+					{
+						_defaultLayerStates[l._id] = l._visible;
+					}
 				}
 
 				for (auto& state : hkey._layerStates)
 				{
 					LayerInfo* layer = GetLayer(state.first);
-					if(layer)
+					if (layer && state.second != HotkeyInfo::NoChange)
+					{
 						layer->_visible = state.second;
+					}
 				}
-				_activeHotkeyIdx = h;
+				AppendHotkey(&hkey);
+				hkey._timer.restart();
+				hkey._active = true;
 				_hotkeyTimer.restart();
 			}
 			break;
@@ -677,15 +714,17 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 
 void LayerManager::ResetHotkeys()
 {
-	if (_activeHotkeyIdx == -1)
+	if (!AnyHotkeyActive())
 		return;
+
+	for (auto& hkey : _hotkeys)
+		hkey._active = false;
 
 	for (auto& l : _layers)
 	{
 		if(_defaultLayerStates.count(l._id))
 			l._visible = _defaultLayerStates[l._id];
 	}
-	_activeHotkeyIdx = -1;
 }
 
 void LayerManager::DrawHotkeysGUI()
@@ -712,28 +751,33 @@ void LayerManager::DrawHotkeysGUI()
 			_hotkeys.push_back(HotkeyInfo());
 			for (auto& l : _layers)
 			{
-				_hotkeys.back()._layerStates[l._id] = l._visible;
+				_hotkeys.back()._layerStates[l._id] = HotkeyInfo::NoChange;
 			}
 		}
 
 		int hkeyIdx = 0;
 		while (hkeyIdx < _hotkeys.size())
 		{
-			auto& hkeys = _hotkeys[hkeyIdx];
+			auto& hkey = _hotkeys[hkeyIdx];
 
-			std::string name = g_key_names[hkeys._key];
-			if (hkeys._key == sf::Keyboard::Unknown)
+			std::string name = g_key_names[hkey._key];
+			if (hkey._key == sf::Keyboard::Unknown)
 				name = "Not set";
-			if (hkeys._alt)
+			if (hkey._alt)
 				name = "Alt, " + name;
-			if (hkeys._shift)
+			if (hkey._shift)
 				name = "Shift, " + name;
-			if (hkeys._ctrl)
+			if (hkey._ctrl)
 				name = "Ctrl, " + name;
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
 
 			ImGui::PushID('hkey' + hkeyIdx);
+
+			auto col = ImGui::GetStyleColorVec4(ImGuiCol_Header);
+			if(hkey._active)
+				col = ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive);
+			ImGui::PushStyleColor(ImGuiCol_Header, col);
 			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
 				ImGui::Columns(3, 0, false);
@@ -741,9 +785,9 @@ void LayerManager::DrawHotkeysGUI()
 				ImGui::SetColumnWidth(1, 100);
 				ImGui::SetColumnWidth(2, 300);
 				std::string btnName = name;
-				if (hkeys._key == sf::Keyboard::Unknown)
+				if (hkey._key == sf::Keyboard::Unknown)
 					btnName = " Click to\nrecord key";
-				if (hkeys._awaitingHotkey)
+				if (hkey._awaitingHotkey)
 					btnName = "(press a key)";
 				ImGui::PushID("recordKeyBtn");
 				if (ImGui::Button(btnName.c_str(), { 140,42 }) && !_waitingForHotkey)
@@ -753,32 +797,32 @@ void LayerManager::DrawHotkeysGUI()
 					_pendingShift = false;
 					_pendingAlt = false;
 					_waitingForHotkey = true;
-					hkeys._awaitingHotkey = true;
+					hkey._awaitingHotkey = true;
 				}
 				ImGui::PopID();
 
-				if (hkeys._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
+				if (hkey._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
 				{
-					hkeys._key = _pendingKey;
-					hkeys._ctrl = _pendingCtrl;
-					hkeys._shift = _pendingShift;
-					hkeys._alt = _pendingAlt;
+					hkey._key = _pendingKey;
+					hkey._ctrl = _pendingCtrl;
+					hkey._shift = _pendingShift;
+					hkey._alt = _pendingAlt;
 					_waitingForHotkey = false;
-					hkeys._awaitingHotkey = false;
+					hkey._awaitingHotkey = false;
 				}
 
 				ImGui::NextColumn();
 
-				ImGui::Checkbox("Toggle", &hkeys._toggle);
-				ImGui::Checkbox("Timeout", &hkeys._useTimeout);
+				ImGui::Checkbox("Toggle", &hkey._toggle);
+				ImGui::Checkbox("Timeout", &hkey._useTimeout);
 
 				ImGui::NextColumn();
 
 				ImGui::SameLine(10);
-				if (hkeys._useTimeout)
+				if (hkey._useTimeout)
 				{
 					ImGui::PushID("timeoutSlider");
-					ImGui::SliderFloat("", &hkeys._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+					ImGui::SliderFloat("", &hkey._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ImGui::PopID();
 				}
 
@@ -786,11 +830,40 @@ void LayerManager::DrawHotkeysGUI()
 
 				ImGui::Separator();
 
+				ImGui::Columns(4, "hotkeystates", true);
+
+				int layerIdx = 0;
 				for (auto& l : _layers)
 				{
-					ImGui::Checkbox(l._name.c_str(), &hkeys._layerStates[l._id]);
+					ImGui::PushID(l._id);
+					ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
+
+					if (++layerIdx % 2)
+						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text(l._name.c_str());
+
+					ImGui::NextColumn();
+					if (layerIdx % 2)
+						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+					ImGui::RadioButton("Show", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::Show);
+					ImGui::NextColumn();
+					if (layerIdx % 2)
+						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+					ImGui::RadioButton("Hide", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::Hide);
+					ImGui::NextColumn();
+					if (layerIdx % 2)
+						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+					ImGui::RadioButton("No Change", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::NoChange);
+					ImGui::NextColumn();
+					ImGui::PopID();
 				}
+
+				ImGui::Columns();
 			}
+			ImGui::PopStyleColor();
+
 			ImVec2 endHeaderPos = ImGui::GetCursorPos();
 
 			ImGui::SetCursorPos(headerTxtPos);
@@ -1292,7 +1365,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
 		ImVec2 barPos = ImGui::GetCursorPos();
-		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
 		ImGui::NewLine();
 
 		sf::Color barHighlight(60, 140, 60, 255);
@@ -1303,15 +1376,15 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			barBg = sf::Color(60, 20, 20, 255);
 		}
 
-		sf::Vector2f topLeft = { barPos.x - 2, barPos.y };
-		float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 142;
-		float barHeight = 8;
+		sf::Vector2f topLeft = { barPos.x + 7, barPos.y };
+		float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
+		float barHeight = 10;
 		sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
 		ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
-		float activeBarWidth = barWidth * powf(_lastTalkFactor, 0.5);
+		float activeBarWidth = barWidth * _lastTalkFactor;
 		sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
 		ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
-		float rootThresh = powf(_talkThreshold, 0.5);
+		float rootThresh = _talkThreshold;
 		float thresholdPos = barWidth * rootThresh;
 		sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
 		ImGui::DrawRectFilled(thresholdBar, {200,150,80});

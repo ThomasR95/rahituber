@@ -152,4 +152,18 @@ struct UIConfig
 	bool _clearVisInfo = false;
 	bool _clearWindowInfo = false;
 	bool _windowSettingsChanged = false;
+
+	std::string _theme = "Default";
+
+	std::map<std::string, std::pair<ImVec4, ImVec4>> _themes = {
+		{"Default", { {0.75, 0.2, 0.7, 1.0}, {0.75, 0.2, 0.7, 1.0} }},
+		{"Sunset",  { {0.7, 0.2, 0.6, 1.0},  {0.6, 0.2, 0.2, 1.0} }},
+		{"Forest",  { {0.3, 0.4, 0.5, 1.0},  {0.2, 0.5, 0.3, 1.0} }},
+		{"Iron",    { {0.3, 0.3, 0.35, 1.0}, {0.75, 0.4, 0.2, 1.0} }},
+		{"Silver",  { {0.75, 0.55, 0.8, 1.0},  {0.55, 0.6, 0.65, 1.0} }},
+		{"Volcano", { {0.7, 0.1, 0.2, 1.0},  {0.9, 0.6, 0.2, 1.0} }},
+		{"Uncouth", { {0.5, 0.7, 0.8, 1.0},  {0.7, 0.2, 0.05, 1.0} }},
+		{"Pretty",  { {1.0, 0.5, 0.9, 1.0},  {0.7, 0.75, 1.0, 1.0} }},
+	};
+
 };
