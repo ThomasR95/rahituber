@@ -326,7 +326,9 @@ void menuAdvanced(ImGuiStyle& style)
 	}
 	if (uiConfig->_advancedMenuShowing)
 	{
-		if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
+		ImGui::PushItemWidth(124);
+		ImGui::PushID("ThemeCombo");
+		if (ImGui::BeginCombo("", uiConfig->_theme.c_str()))
 		{
 			for (auto& theme : uiConfig->_themes)
 				if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
@@ -334,6 +336,33 @@ void menuAdvanced(ImGuiStyle& style)
 
 			ImGui::EndCombo();
 		}
+		ImGui::PopID();
+		ImGui::PopItemWidth();
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Theme");
+		ImGui::PopStyleColor();
+
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		float col[3] = { (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255 };
+		ImVec4 imCol = toImColor(appConfig->_bgColor);
+		bool colBtnClicked = false;
+		ImGui::SetCursorPosX(8);
+		for (int x = 0; x < 11; x++)
+		{
+			ImGui::PushID(x);
+			colBtnClicked |= ImGui::ColorEdit3("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoBorder);
+			ImGui::PopID();
+			ImGui::SameLine(x * 12.5);
+		}
+
+		if (colBtnClicked)
+		{
+			appConfig->_bgColor = sf::Color(int(255.f * col[0]), int(255.f * col[1]), int(255.f * col[2]));
+		}
+
+
+		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
+		ImGui::PopStyleColor();
 
 		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
@@ -343,9 +372,11 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::PushItemWidth(50);
 		float percentVal = 1.0 / 60.0;
 		float smooth = (61.0 - audioConfig->_smoothFactor)* percentVal;
+		smooth = powf(smooth, 2.f);
 		if(ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.1f"))
 		{
 			smooth = max(0.0, min(smooth, 1.0));
+			smooth = powf(smooth, 0.5);
 			audioConfig->_smoothFactor = 61 - smooth / percentVal;
 		}
 		ImGui::PopItemWidth();
@@ -353,14 +384,9 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::SameLine(140); ImGui::TextWrapped("Let audio level fall slowly.");
 		ImGui::PopStyleColor();
 
+		ImGui::Checkbox("Audio Filter", &audioConfig->_doFiltering);
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		float col[3] = {(float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255};
-		if (ImGui::ColorEdit3("(<- click)", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
-		{
-			appConfig->_bgColor = sf::Color(int(255.f * col[0]), int(255.f * col[1]), int(255.f * col[2]));
-		}
-		
-		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
+		ImGui::SameLine(140); ImGui::TextWrapped("Basic low-latency filtering to cancel keyboard and mouse noise frequencies.");
 		ImGui::PopStyleColor();
 
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
@@ -615,7 +641,11 @@ void menu()
 	auto& style = ImGui::GetStyle();
 	style.FrameRounding = 4;
 	style.DisabledAlpha = 1.0;
-	style.WindowTitleAlign = style.ButtonTextAlign;
+	style.WindowTitleAlign = style.ButtonTextAlign = { 0.5f, 0.5f };
+	style.ItemSpacing = { 3,3 };
+	style.FrameBorderSize = 0;
+	style.AntiAliasedLines = true;
+	style.AntiAliasedFill = true;
 
 	ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
 
@@ -648,8 +678,6 @@ void menu()
 	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
 	style.Colors[ImGuiCol_Border] = col_dark;
 	 
-	style.WindowTitleAlign = { 0.5f, 0.5f };
-	style.ItemSpacing = { 3,3 };
 
 	
 	if (!appConfig->_isFullScreen)
@@ -899,7 +927,11 @@ void render()
 
 	appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
 
- 	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.3*audioConfig->_bassAverage)), audioConfig->_midMax);
+	float audioLevel = audioConfig->_midAverage;
+	if (audioConfig->_doFiltering)
+		audioLevel = max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2 * audioConfig->_bassAverage));
+
+ 	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
 	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
@@ -920,10 +952,12 @@ void render()
 	}
 	else if(uiConfig->_showFPS)
 	{
-		
+		if (dt <= sf::Time::Zero)
+			dt = sf::milliseconds(1);
+
 		ImGui::SFML::Update(appConfig->_window, dt);
 
-		ImGui::Begin("", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
+		ImGui::Begin("FPS", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
 
 		ImGui::Text("FPS: %d", (int)appConfig->_fps);
 

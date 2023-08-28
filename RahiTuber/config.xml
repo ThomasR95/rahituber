@@ -1,3 +1,3 @@
 <Config>
-    <Common startMaximised="false" lastWidth="854" lastHeight="714" lastX="823" lastY="425" alwaysOnTop="false" lastAudioDevice="4" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="false" menuOnStart="true" lastLayerSet="blendmodes_test" softFall="7" useKeyboardHook="true" theme="Forest"/>
+    <Common startMaximised="false" lastWidth="854" lastHeight="714" lastX="823" lastY="425" alwaysOnTop="false" lastAudioDevice="4" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="false" menuOnStart="true" lastLayerSet="blendmodes_test" softFall="7" useKeyboardHook="true" theme="Forest" audioFilter="false"/>
 </Config>

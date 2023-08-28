@@ -15,6 +15,10 @@
 #include <SFML/Window/Touch.hpp>
 #include <SFML/Window/Window.hpp>
 
+#include <gl/GLU.h>
+#include "GL/glext.h"
+#include "GL/wglext.h"
+
 #include <cassert>
 #include <cmath> // abs
 #include <cstddef> // offsetof, NULL, size_t
@@ -24,6 +28,7 @@
 #include <algorithm>
 #include <memory>
 #include <vector>
+#include <functional>
 
 #if defined(__APPLE__)
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -1133,8 +1138,15 @@ void SetupRenderState(ImDrawData* draw_data, int fb_width, int fb_height) {
     // Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor
     // enabled, vertex/texcoord/color pointers, polygon fill.
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA); //
+    
+    PFNGLBLENDFUNCSEPARATEEXTPROC p_glblendFuncSeparate = (PFNGLBLENDFUNCSEPARATEEXTPROC)wglGetProcAddress("glBlendFuncSeparate");
+    if (p_glblendFuncSeparate != NULL)
+    {
+        p_glblendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    }
+    else
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // In order to composite our output buffer we need to preserve alpha
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);

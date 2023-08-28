@@ -56,6 +56,8 @@ bool xmlConfigLoader::loadCommon()
 
 			common->QueryAttribute("softFall", &_audioConfig->_smoothFactor);
 
+			common->QueryAttribute("audioFilter", &_audioConfig->_doFiltering);
+
 			const char* theme = common->Attribute("theme");
 			if (theme != NULL)
 				_uiConfig->_theme = theme;
@@ -99,6 +101,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("menuOnStart", _uiConfig->_showMenuOnStart);
 			common->SetAttribute("lastLayerSet", _appConfig->_lastLayerSet.c_str());
 			common->SetAttribute("softFall", _audioConfig->_smoothFactor);
+
+			common->SetAttribute("audioFilter", _audioConfig->_doFiltering);
 
 			common->SetAttribute("theme", _uiConfig->_theme.c_str());
 		}
