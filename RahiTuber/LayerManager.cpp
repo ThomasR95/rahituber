@@ -21,10 +21,14 @@ void OsOpenInShell(const char* path) {
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
-	for (auto& l : _layers)
+	if (_hotkeysDirty)
 	{
-		if (_defaultLayerStates.count(l._id))
-			l._visible = _defaultLayerStates[l._id];
+		for (auto& l : _layers)
+		{
+			if (_defaultLayerStates.count(l._id))
+				l._visible = _defaultLayerStates[l._id];
+		}
+		_hotkeysDirty = false;
 	}
 
 	auto hkeyOrderCopy = _hotkeyOrder;
@@ -38,6 +42,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 		if (hkey->_active)
 		{
+			_hotkeysDirty = true;
 			for (auto& state : hkey->_layerStates)
 			{
 				LayerInfo* layer = GetLayer(state.first);
@@ -204,6 +209,11 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::PopID();
 	}
 
+	if (_errorMessage.empty() == false)
+	{
+		ImGui::TextWrapped(_errorMessage.c_str());
+	}
+
 	float buttonW = (frameW / 3) - style.ItemSpacing.x*2.55;
 
 	if (ImGui::Button("Add Layer", { buttonW, 20 }))
@@ -352,6 +362,8 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 
 bool LayerManager::SaveLayers(const std::string& settingsFileName)
 {
+	_errorMessage = "";
+
 	tinyxml2::XMLDocument doc;
 
 	doc.LoadFile(settingsFileName.c_str());
@@ -361,14 +373,20 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		root = doc.InsertFirstChild(doc.NewElement("Config"))->ToElement();
 
 	if (!root)
+	{
+		_errorMessage = "Could not save config element: " + settingsFileName;
 		return false;
+	}
 
 	auto layers = root->FirstChildElement("layers");
 	if (!layers) 
 		layers = root->InsertFirstChild(doc.NewElement("layers"))->ToElement();
 
 	if (!layers)
+	{
+		_errorMessage = "Could not save layers element: " + settingsFileName;
 		return false;
+	}
 
 	layers->DeleteChildren();
 
@@ -445,12 +463,21 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
 	}
 
+	root->SetAttribute("globalScaleX", _globalScale.x);
+	root->SetAttribute("globalScaleY", _globalScale.y);
+	root->SetAttribute("globalPosX", _globalPos.x);
+	root->SetAttribute("globalPosY", _globalPos.y);
+	root->SetAttribute("globalRot", _globalRot);
+
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
 		hotkeys = root->InsertFirstChild(doc.NewElement("hotkeys"))->ToElement();
 
 	if (!hotkeys)
+	{
+		_errorMessage = "Could not save hotkeys element: " + settingsFileName;
 		return false;
+	}
 
 	hotkeys->DeleteChildren();
 
@@ -475,8 +502,14 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		}
 	}
 
-
 	doc.SaveFile(settingsFileName.c_str());
+
+	if (doc.Error())
+	{
+		_errorMessage = "Failed to save document: " + settingsFileName;
+		return false;
+	}
+
 	_lastSavedLocation = settingsFileName;
 
 	return true;
@@ -484,17 +517,30 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 bool LayerManager::LoadLayers(const std::string& settingsFileName)
 {
+	_errorMessage = "";
 	tinyxml2::XMLDocument doc;
 
 	doc.LoadFile(settingsFileName.c_str());
 
+	if (doc.Error())
+	{
+		_errorMessage = "Could not read document: " + settingsFileName;
+		return false;
+	}
+
 	auto root = doc.FirstChildElement("Config");
 	if (!root)
+	{
+		_errorMessage = "Invalid config element: " + settingsFileName;
 		return false;
+	}
 
 	auto layers = root->FirstChildElement("layers");
 	if (!layers)
+	{
+		_errorMessage = "Invalid layers element: " + settingsFileName;
 		return false;
+	}
 
 	_layers.clear();
 
@@ -611,13 +657,20 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
 
 		thisLayer = thisLayer->NextSiblingElement("layer");
-
-
 	}
+
+	root->QueryAttribute("globalScaleX", &_globalScale.x);
+	root->QueryAttribute("globalScaleY", &_globalScale.y);
+	root->QueryAttribute("globalPosX", &_globalPos.x);
+	root->QueryAttribute("globalPosY", &_globalPos.y);
+	root->QueryAttribute("globalRot", &_globalRot);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
+	{
+		_errorMessage = "Invalid hotkeys element: " + settingsFileName;
 		return false;
+	}
 
 	_hotkeys.clear();
 
@@ -1066,30 +1119,31 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		LayerInfo* mp = _parent->GetLayer(_motionParent);
 		if (mp)
 		{
-			if (_motionDelay < 0) 
-				_motionDelay = 0;
+			float motionDelayNow = _motionDelay;
+			if (motionDelayNow < 0)
+				motionDelayNow = 0;
 
 			size_t maxDelay = _motionLinkData.size() - 1;
-			if (_motionDelay > maxDelay)
-				_motionDelay = maxDelay;
+			if (motionDelayNow > maxDelay)
+				motionDelayNow = maxDelay;
 
 			sf::Vector2f mpScale;
 			sf::Vector2f mpPos;
 			float mpRot = 0;
-			if (floor(_motionDelay) == ceil(_motionDelay) && mp->_motionLinkData.size() > _motionDelay)
+			if (floor(motionDelayNow) == ceil(motionDelayNow) && mp->_motionLinkData.size() > motionDelayNow)
 			{
-				mpScale = mp->_motionLinkData[(size_t)_motionDelay]._scale;
-				mpPos = mp->_motionLinkData[(size_t)_motionDelay]._pos;
-				mpRot = mp->_motionLinkData[(size_t)_motionDelay]._rot;
+				mpScale = mp->_motionLinkData[(size_t)motionDelayNow]._scale;
+				mpPos = mp->_motionLinkData[(size_t)motionDelayNow]._pos;
+				mpRot = mp->_motionLinkData[(size_t)motionDelayNow]._rot;
 			}
 			else
 			{
-				size_t prev = floor(_motionDelay);
-				size_t next = ceil(_motionDelay);
+				size_t prev = floor(motionDelayNow);
+				size_t next = ceil(motionDelayNow);
 
 				if (mp->_motionLinkData.size() > next)
 				{
-					float fraction = _motionDelay - prev;
+					float fraction = motionDelayNow - prev;
 					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
 					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
 					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
@@ -1426,7 +1480,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (_motionParent != -1)
 		{
-			ImGui::SliderFloat("Motion Delay", &_motionDelay, 0.0, 10.0, "%.1f", ImGuiSliderFlags_Logarithmic);
+			float md = _motionDelay;
+			if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 10.0, "%.2f", ImGuiSliderFlags_Logarithmic))
+			{
+				_motionDelay = md;
+			}
 		}
 
 		ImGui::Separator();

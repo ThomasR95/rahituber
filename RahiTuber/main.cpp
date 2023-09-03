@@ -1149,9 +1149,56 @@ int main()
 	getWindowSizes();
 
 	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, "config.xml");
-	appConfig->_loader = &xmlLoader;
-	xmlLoader.loadCommon();
-	xmlLoader.loadPresetNames();
+
+	bool retry = true;
+	while (retry)
+	{
+		retry = false;
+		bool loadValid = false;
+		appConfig->_loader = &xmlLoader;
+		loadValid |= xmlLoader.loadCommon();
+		loadValid |= xmlLoader.loadPresetNames();
+
+		if (loadValid == false)
+		{
+			std::wstring message(L"Failed to load config.xml.");
+			if (xmlLoader._errorMessage.empty() == false())
+			{
+				message += L"\n\nMessage: ";
+				message += std::wstring(xmlLoader._errorMessage.begin(), xmlLoader._errorMessage.end());
+			}
+			message += L"\n\nPress OK to recreate config.xml and try again. Press Cancel to try manually fixing the config.xml file.";
+
+			int result = MessageBox(NULL, message.c_str(), L"Load failed", MB_ICONERROR | MB_OKCANCEL);
+			if (result == IDOK)
+			{
+				retry = true;
+				int ret = remove("config.xml");
+
+				if (ret == 0 || errno == ENOENT) 
+				{
+					printf("File deleted successfully");
+					xmlLoader.saveCommon();
+					break;
+				}
+				else 
+				{
+					int result = MessageBox(NULL, L"Could not delete config.xml. Stopping.", L"Error", MB_ICONERROR | MB_OK);
+					retry = false;
+				}
+			}
+
+			if(retry == false)
+			{
+				delete appConfig;
+				delete uiConfig;
+				delete audioConfig;
+				delete layerMan;
+				delete kbdTrack;
+				return 1;
+			}
+		}
+	}
 
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 	if(appConfig->_lastLayerSet.empty() == false)

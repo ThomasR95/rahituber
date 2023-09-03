@@ -17,53 +17,72 @@ xmlConfigLoader::~xmlConfigLoader()
 
 bool xmlConfigLoader::loadCommon()
 {
+	_errorMessage = "";
 	XMLDocument doc;
 
 	doc.LoadFile(_settingsFileName.c_str());
 
-	auto root = doc.FirstChildElement("Config");
-	if (root)
+	if (doc.Error())
 	{
-		auto common = root->FirstChildElement("Common");
-		if (common)
+		if (doc.ErrorID() == XML_ERROR_FILE_NOT_FOUND)
 		{
-			common->QueryBoolAttribute("startMaximised", &_appConfig->_startMaximised);
-			common->QueryFloatAttribute("lastWidth", &_appConfig->_minScrW);
-			common->QueryFloatAttribute("lastHeight", &_appConfig->_minScrH);
-			common->QueryIntAttribute("lastX", &_appConfig->_scrX);
-			common->QueryIntAttribute("lastY", &_appConfig->_scrY);
-			common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
-			common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
-			common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
-
-
-			int r = -1;
-			int g = -1; 
-			int b = -1;
-			common->QueryIntAttribute("lastBgCol_r", &r);
-			common->QueryIntAttribute("lastBgCol_g", &g);
-			common->QueryIntAttribute("lastBgCol_b", &b);
-			if (r >= 0 && g >= 0 && b >= 0)
-			{
-				_appConfig->_bgColor = sf::Color(r, g, b);
-			}
-
-			common->QueryAttribute("transparent", &_appConfig->_transparent);
-			common->QueryAttribute("menuOnStart", &_uiConfig->_showMenuOnStart);
-			const char* lastLayers = common->Attribute("lastLayerSet");
-			if (lastLayers != NULL)
-				_appConfig->_lastLayerSet = lastLayers;
-
-			common->QueryAttribute("softFall", &_audioConfig->_smoothFactor);
-
-			common->QueryAttribute("audioFilter", &_audioConfig->_doFiltering);
-
-			const char* theme = common->Attribute("theme");
-			if (theme != NULL)
-				_uiConfig->_theme = theme;
+			saveCommon();
+			return true;
+		}
+		else
+		{
+			_errorMessage = "Failed to open document: " + _settingsFileName;
+			return false;
 		}
 	}
-	else return false;
+
+	auto root = doc.FirstChildElement("Config");
+	if (!root)
+	{
+		_errorMessage = "Could not find config element \"Config\": " + _settingsFileName;
+		return false;
+	}
+
+	auto common = root->FirstChildElement("Common");
+	if (!common)
+	{
+		_errorMessage = "Could not find config element \"Common\": " + _settingsFileName;
+		return false;
+	}
+
+	common->QueryBoolAttribute("startMaximised", &_appConfig->_startMaximised);
+	common->QueryFloatAttribute("lastWidth", &_appConfig->_minScrW);
+	common->QueryFloatAttribute("lastHeight", &_appConfig->_minScrH);
+	common->QueryIntAttribute("lastX", &_appConfig->_scrX);
+	common->QueryIntAttribute("lastY", &_appConfig->_scrY);
+	common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
+	common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
+	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
+
+	int r = -1;
+	int g = -1; 
+	int b = -1;
+	common->QueryIntAttribute("lastBgCol_r", &r);
+	common->QueryIntAttribute("lastBgCol_g", &g);
+	common->QueryIntAttribute("lastBgCol_b", &b);
+	if (r >= 0 && g >= 0 && b >= 0)
+	{
+		_appConfig->_bgColor = sf::Color(r, g, b);
+	}
+
+	common->QueryAttribute("transparent", &_appConfig->_transparent);
+	common->QueryAttribute("menuOnStart", &_uiConfig->_showMenuOnStart);
+	const char* lastLayers = common->Attribute("lastLayerSet");
+	if (lastLayers != NULL)
+		_appConfig->_lastLayerSet = lastLayers;
+
+	common->QueryAttribute("softFall", &_audioConfig->_smoothFactor);
+
+	common->QueryAttribute("audioFilter", &_audioConfig->_doFiltering);
+
+	const char* theme = common->Attribute("theme");
+	if (theme != NULL)
+		_uiConfig->_theme = theme;
 
 
 	return true;
@@ -71,6 +90,7 @@ bool xmlConfigLoader::loadCommon()
 
 bool xmlConfigLoader::saveCommon()
 {
+	_errorMessage = "";
 	XMLDocument doc;
 
 	doc.LoadFile(_settingsFileName.c_str());
@@ -110,6 +130,12 @@ bool xmlConfigLoader::saveCommon()
 	else return false;
 	
 	doc.SaveFile(_settingsFileName.c_str());
+
+	if (doc.Error())
+	{
+		_errorMessage = "Failed to save document: " + _settingsFileName;
+		return false;
+	}
 
 	return true;
 }

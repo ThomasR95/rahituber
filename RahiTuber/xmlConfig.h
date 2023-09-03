@@ -19,6 +19,8 @@ public:
 
 	std::string getSettingsFilePath() { return _settingsFileName; }
 
+	std::string _errorMessage = "";
+
 private:
 
 	AppConfig* _appConfig = nullptr;
