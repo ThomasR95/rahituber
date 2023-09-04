@@ -288,7 +288,10 @@ private:
 	std::map<int, bool> _defaultLayerStates;
 	std::vector<HotkeyInfo*> _hotkeyOrder;
 	sf::Clock _hotkeyTimer;
+	bool _hotkeysDirty = false;
 	void DrawHotkeysGUI();
+
+	std::string _errorMessage = "";
 
 	void AppendHotkey(HotkeyInfo* hkey)
 	{
