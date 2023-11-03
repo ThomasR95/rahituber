@@ -30,7 +30,7 @@ UIConfig* uiConfig = nullptr;
 LayerManager* layerMan = nullptr;
 KeyboardTracker* kbdTrack = nullptr;
 
-float mean(float a, float b) { return a + (b-a)*0.5;}
+float mean(float a, float b) { return a + (b-a)*0.5f;}
 float between(float a, float b) { return a*0.5f + b*0.5f; }
 
 void four1(float* data, unsigned long nn)
@@ -547,7 +547,7 @@ void menuPresets(ImGuiStyle& style)
 		if (uiConfig->_presetNames.size()) prevName = uiConfig->_presetNames[uiConfig->_presetIdx];
 		if (ImGui::BeginCombo("Preset", prevName.c_str()))
 		{
-			for (int p = 0; p < uiConfig->_presetNames.size(); p++)
+			for (UINT p = 0; p < uiConfig->_presetNames.size(); p++)
 			{
 				bool selected = uiConfig->_presetIdx == p;
 				if (ImGui::Selectable(uiConfig->_presetNames[p].c_str(), &selected))
@@ -662,7 +662,7 @@ void menu()
 	ImVec4 col_light2(baseColor);
 	ImVec4 col_light2a(mean(baseColor.x, 0.6f), mean(baseColor.y, 0.6f), mean(baseColor.z, 0.6f), 1.f);
 	ImVec4 col_light3(powf(baseColor.x,.3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
-	ImVec4 greyoutCol(0.3, 0.3, 0.3, 1.0);
+	ImVec4 greyoutCol(0.3f, 0.3f, 0.3f, 1.0f);
 
 	style.Colors[ImGuiCol_WindowBg] = col_dark2;
 	style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
@@ -887,7 +887,7 @@ void handleEvents()
 			else if (uiConfig->_moveGrabbed)
 			{
 				auto mousePos = sf::Mouse::getPosition();
-				auto windowPos = mousePos - sf::Vector2i(appConfig->_scrW / 2, uiConfig->_moveTabSize.y / 2);
+				auto windowPos = mousePos - sf::Vector2i(appConfig->_scrW / 2.f, uiConfig->_moveTabSize.y / 2.f);
 				appConfig->_scrX = windowPos.x;
 				appConfig->_scrY = windowPos.y;
 				appConfig->_window.setPosition(windowPos);
@@ -912,7 +912,7 @@ void handleEvents()
 void render()
 {
 	auto dt = appConfig->_timer.restart();
-	appConfig->_fps = (1.0 / dt.asSeconds());
+	appConfig->_fps = (1.0f / dt.asSeconds());
 
 	if (appConfig->_transparent)
 	{
@@ -929,7 +929,7 @@ void render()
 
 	float audioLevel = audioConfig->_midAverage;
 	if (audioConfig->_doFiltering)
-		audioLevel = max(0, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2 * audioConfig->_bassAverage));
+		audioLevel = max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
 
  	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
@@ -974,7 +974,7 @@ void render()
 		auto frames = audioConfig->_frequencyData;
 		float barW = appConfig->_scrW / (frames.size() / 2);
 
-		for (int bar = 0; bar < frames.size() / 2; bar++)
+		for (UINT bar = 0; bar < frames.size() / 2; bar++)
 		{
 			float height = (frames[bar] / audioConfig->_bassMax)*appConfig->_scrH;
 			appConfig->bars[bar].setSize({ barW, height });
@@ -1027,16 +1027,16 @@ void doAudioAnalysis()
 	float factor = 50;
 	audioConfig->_frequencyData.clear();
 
-	for (int it = 0; it < halfSize; it++)
+	for (UINT it = 0; it < halfSize; it++)
 	{
 		auto re = audioConfig->_fftData[it];
 		auto im = audioConfig->_fftData[it + 1];
 		auto magnitude = std::sqrt(re * re + im * im);
 
 		//Compensations for the fact my FFT implementation is probably wrong
-		float point = it / factor + 0.3;
+		float point = it / factor + 0.3f;
 		magnitude = magnitude * atan(point);
-		if (it == 0) magnitude *= 0.7;
+		if (it == 0) magnitude *= 0.7f;
 
 		//Store the magnitude
 		audioConfig->_frequencyData.push_back(magnitude);
@@ -1107,24 +1107,24 @@ void doAudioAnalysis()
 	{
 		//if the quietTimer reaches 1.5s, start reducing the max
 
-		float maxFallSpeed = 0.005;
+		float maxFallSpeed = 0.005f;
 
 		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_midMax -= (audioConfig->_midMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_trebleMax -= (audioConfig->_trebleMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 
-		if (audioConfig->_frameMax < 0.2)
-			audioConfig->_frameMax = 0.2;
+		if (audioConfig->_frameMax < 0.2f)
+			audioConfig->_frameMax = 0.2f;
 
-		if (audioConfig->_bassMax < 0.2)
-			audioConfig->_bassMax = 0.2;
+		if (audioConfig->_bassMax < 0.2f)
+			audioConfig->_bassMax = 0.2f;
 
-		if (audioConfig->_midMax < 0.2)
-			audioConfig->_midMax = 0.2;
+		if (audioConfig->_midMax < 0.2f)
+			audioConfig->_midMax = 0.2f;
 
-		if (audioConfig->_trebleMax < 0.2)
-			audioConfig->_trebleMax = 0.2;
+		if (audioConfig->_trebleMax < 0.2f)
+			audioConfig->_trebleMax = 0.2f;
 	}
 }
 
@@ -1162,7 +1162,7 @@ int main()
 		if (loadValid == false)
 		{
 			std::wstring message(L"Failed to load config.xml.");
-			if (xmlLoader._errorMessage.empty() == false())
+			if (xmlLoader._errorMessage.empty() == false)
 			{
 				message += L"\n\nMessage: ";
 				message += std::wstring(xmlLoader._errorMessage.begin(), xmlLoader._errorMessage.end());
@@ -1265,7 +1265,7 @@ int main()
 	err = Pa_Initialize();
 	audioConfig->_nDevices = Pa_GetDeviceCount();
 	audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
-	double sRate;
+	double sRate = 44100;
 	auto defOutInf = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
 
 	if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
@@ -1337,6 +1337,8 @@ int main()
 
 	layerMan->SaveLayers(lastLayerSettingsFile);
 
+	delete layerMan;
+
 	ImGui::SFML::Shutdown();
 
 	if (appConfig->_currentWindow->isOpen())
@@ -1345,7 +1347,7 @@ int main()
 	delete appConfig;
 	delete uiConfig;
 	delete audioConfig;
-	delete layerMan;
+	
 	delete kbdTrack;
 
 	delete fontimg;

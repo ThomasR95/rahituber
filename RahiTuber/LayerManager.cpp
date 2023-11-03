@@ -12,6 +12,10 @@
 
 #include <windows.h>
 
+// For UUID
+#include <Rpc.h>
+#pragma comment(lib, "Rpcrt4.lib")
+
 //#include <shellapi.h>
 
 void OsOpenInShell(const char* path) {
@@ -19,34 +23,57 @@ void OsOpenInShell(const char* path) {
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
 }
 
+LayerManager::~LayerManager()
+{
+	_textureMan.Reset();
+}
+
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
-	if (_hotkeysDirty)
+	// reset to default states
+	if (_statesDirty)
 	{
 		for (auto& l : _layers)
 		{
 			if (_defaultLayerStates.count(l._id))
 				l._visible = _defaultLayerStates[l._id];
 		}
-		_hotkeysDirty = false;
+		_statesDirty = false;
 	}
 
-	auto hkeyOrderCopy = _hotkeyOrder;
-	for (auto hkey : hkeyOrderCopy)
+	// activate timed states
+	for (UINT stateIdx = 0; stateIdx < _states.size(); stateIdx++)
 	{
-		if (hkey->_active && hkey->_useTimeout && hkey->_timer.getElapsedTime().asSeconds() >= hkey->_timeout)
+		auto& state = _states[stateIdx];
+		if (!state._active && state._timedInterval && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
 		{
-			hkey->_active = false;
-			RemoveHotkey(hkey);
+			SaveDefaultStates();
+
+			state._active = true;
+			state._currentIntervalTime = state._intervalTime + GetRandom11() * state._intervalVariation;
+			state._timer.restart();
+			_statesOrder.push_back(&_states[stateIdx]);
+		}
+	}
+
+	// progressively display the states in order of activation
+	auto statesOrderCopy = _statesOrder;
+	for (auto state : statesOrderCopy)
+	{
+		if (state->_active && (state->_useTimeout || state->_timedInterval) && state->_timer.getElapsedTime().asSeconds() >= state->_timeout)
+		{
+			state->_active = false;
+			RemoveStateFromOrder(state);
+			state->_timer.restart();
 		}
 
-		if (hkey->_active)
+		if (state->_active)
 		{
-			_hotkeysDirty = true;
-			for (auto& state : hkey->_layerStates)
+			_statesDirty = true;
+			for (auto& state : state->_layerStates)
 			{
 				LayerInfo* layer = GetLayer(state.first);
-				if (layer && state.second != HotkeyInfo::NoChange)
+				if (layer && state.second != StatesInfo::NoChange)
 				{
 					layer->_visible = state.second;
 				}
@@ -66,7 +93,27 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 	for (auto layer : calculateOrder)
 	{
-		if(layer->_visible)
+		bool calculate = layer->_visible;
+
+		if (!calculate)
+		{
+			for (int l = _layers.size() - 1; l >= 0; l--)
+			{
+				LayerInfo& checkLayer = _layers[l];
+				//check if any layer relies on it as a parent
+				if (!checkLayer._visible) 
+					continue;
+				if (checkLayer._motionParent != layer->_id) 
+					continue;
+				if (checkLayer._hideWithParent)
+					continue;
+
+				// layer relies on this one to move
+				calculate = true;
+			}
+		}
+
+		if(calculate)
 			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax);
 	}
 		
@@ -74,7 +121,18 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (int l = _layers.size() - 1; l >= 0; l--)
 	{
 		LayerInfo& layer = _layers[l];
-		if (layer._visible)
+
+		bool visible = layer._visible;
+		if (layer._hideWithParent)
+		{
+			LayerInfo* mp = GetLayer(layer._motionParent);
+			if (mp)
+			{
+				visible &= mp->_visible;
+			}
+		}
+
+		if (visible)
 		{
 			sf::RenderStates state = sf::RenderStates::Default;
 			state.blendMode = layer._blendMode;
@@ -183,7 +241,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::SameLine();
 	float textMargin = ImGui::GetCursorPosX();
-	float buttonWidth = 0.5 * (frameW - textMargin) - style.ItemSpacing.x*2;
+	float buttonWidth = 0.5f * (frameW - textMargin) - style.ItemSpacing.x*2.f;
 	ImGui::PushID("saveXMLBtn");
 	if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { buttonWidth, 20 }) && !_loadedXML.empty())
 	{
@@ -224,13 +282,13 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		_layers.clear();
 
 	ImGui::SameLine();
-	ImGui::PushID("hotkeysBtn");
-	if (ImGui::Button("Hotkeys", { buttonW, 20 }))
-		_hotkeysMenuOpen = true;
+	ImGui::PushID("statesBtn");
+	if (ImGui::Button("States", { buttonW, 20 }))
+		_statesMenuOpen = true;
 	ImGui::PopID();
 
-	ImGui::PushID("hotkeysPopup");
-	DrawHotkeysGUI();
+	ImGui::PushID("statesPopup");
+	DrawStatesGUI();
 	ImGui::PopID();
 
 	ImGui::Separator();
@@ -303,7 +361,23 @@ void LayerManager::AddLayer(const LayerInfo* toCopy)
 	layer._isBlinking = false;
 	layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
 	layer._parent = this;
-	layer._id = time(0);
+
+	UUID uuid = { 0 };
+	std::string guid;
+
+	// Create uuid or load from a string by UuidFromString() function
+	::UuidCreate(&uuid);
+
+	// If you want to convert uuid to string, use UuidToString() function
+	RPC_CSTR szUuid = NULL;
+	if (::UuidToStringA(&uuid, &szUuid) == RPC_S_OK)
+	{
+		guid = (char*)szUuid;
+		::RpcStringFreeA(&szUuid);
+	}
+
+	layer._id = guid;
+	
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -390,7 +464,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	layers->DeleteChildren();
 
-	ResetHotkeys();
+	ResetStates();
 	
 	for (int l = 0; l < _layers.size(); l++)
 	{
@@ -398,7 +472,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 		const auto& layer = _layers[l];
 
-		thisLayer->SetAttribute("id", layer._id);
+		thisLayer->SetAttribute("id", layer._id.c_str());
 
 		thisLayer->SetAttribute("name", layer._name.c_str());
 		thisLayer->SetAttribute("visible", layer._visible);
@@ -450,8 +524,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("posY", layer._pos.y);
 		thisLayer->SetAttribute("rot", layer._rot);
 
-		thisLayer->SetAttribute("motionParent", layer._motionParent);
+		thisLayer->SetAttribute("motionParent", layer._motionParent.c_str());
 		thisLayer->SetAttribute("motionDelay", layer._motionDelay);
+		thisLayer->SetAttribute("hideWithParent", layer._hideWithParent);
 
 		std::string bmName = "Normal";
 		for (auto& bm : g_blendmodes)
@@ -481,10 +556,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	hotkeys->DeleteChildren();
 
-	for (int h = 0; h < _hotkeys.size(); h++)
+	for (int h = 0; h < _states.size(); h++)
 	{
 		auto thisHotkey = hotkeys->InsertEndChild(doc.NewElement("hotkey"))->ToElement();
-		const auto& hkey = _hotkeys[h];
+		const auto& hkey = _states[h];
 
 		thisHotkey->SetAttribute("key", (int)hkey._key);
 		thisHotkey->SetAttribute("ctrl", hkey._ctrl);
@@ -494,10 +569,14 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
 		thisHotkey->SetAttribute("toggle", hkey._toggle);
 
+		thisHotkey->SetAttribute("schedule", hkey._timedInterval);
+		thisHotkey->SetAttribute("interval", hkey._intervalTime);
+		thisHotkey->SetAttribute("variation", hkey._intervalVariation);
+
 		for (auto& state : hkey._layerStates)
 		{
 			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
-			thisState->SetAttribute("id", state.first);
+			thisState->SetAttribute("id", state.first.c_str());
 			thisState->SetAttribute("state", state.second);
 		}
 	}
@@ -557,9 +636,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 		layer._parent = this;
 
-		thisLayer->QueryAttribute("id", &layer._id);
-		if (layer._id == 0)
-			layer._id = time(0) + layerCount;
+		const char* guid = thisLayer->Attribute("id");
+		if (!guid)
+			break;
+		layer._id = guid;
 
 		const char* name = thisLayer->Attribute("name");
 		if (!name)
@@ -635,8 +715,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("posY", &layer._pos.y);
 		thisLayer->QueryAttribute("rot", &layer._rot);
 
-		thisLayer->QueryAttribute("motionParent", &layer._motionParent);
+		const char* mpguid = thisLayer->Attribute("motionParent");
+		if (mpguid)
+			layer._motionParent = mpguid;
+
 		thisLayer->QueryAttribute("motionDelay", &layer._motionDelay);
+		thisLayer->QueryAttribute("hideWithParent", &layer._hideWithParent);
 
 		layer._blendMode = g_blendmodes["Normal"];
 		if (const char* blend = thisLayer->Attribute("blendMode"))
@@ -672,16 +756,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		return false;
 	}
 
-	_hotkeys.clear();
+	_states.clear();
 
 	auto thisHotkey = hotkeys->FirstChildElement("hotkey");
 	while (thisHotkey)
 	{
-		_hotkeys.emplace_back(HotkeyInfo());
-		HotkeyInfo& hkey = _hotkeys.back();
+		_states.emplace_back(StatesInfo());
+		StatesInfo& hkey = _states.back();
 
 		int key;
-		int mod;
 		thisHotkey->QueryAttribute("key", &key);
 		hkey._key = (sf::Keyboard::Key)key;
 		thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
@@ -691,13 +774,21 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
 		thisHotkey->QueryAttribute("toggle", &hkey._toggle);
 
+		thisHotkey->QueryAttribute("schedule", &hkey._timedInterval);
+		thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
+		thisHotkey->QueryAttribute("variation", &hkey._intervalVariation);
+
 		auto thisLayerState = thisHotkey->FirstChildElement("state");
 		while (thisLayerState)
 		{
-			int id;
+			std::string id;
 			bool vis = true;
-			int state = HotkeyInfo::NoChange;
-			thisLayerState->QueryAttribute("id", &id);
+			int state = StatesInfo::NoChange;
+
+			const char* stateguid = thisLayerState->Attribute("id");
+			if (stateguid)
+				id = stateguid;
+
 			if (thisLayerState->QueryAttribute("visible", &vis) == tinyxml2::XML_SUCCESS)
 			{
 				state = (int)vis;
@@ -705,7 +796,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			thisLayerState->QueryIntAttribute("state", &state);
 
-			hkey._layerStates[id] = (HotkeyInfo::State)state;
+			hkey._layerStates[id] = (StatesInfo::State)state;
 
 			thisLayerState = thisLayerState->NextSiblingElement("state");
 		}
@@ -722,41 +813,33 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
-
-	bool anyActive = AnyHotkeyActive();
 	
-	for (int h = 0; h < _hotkeys.size(); h++)
+	for (int h = 0; h < _states.size(); h++)
 	{
-		auto& hkey = _hotkeys[h];
+		auto& hkey = _states[h];
 		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
 		{
 			if (hkey._active && hkey._toggle)
 			{
 				hkey._active = false;
-				RemoveHotkey(&hkey);
+				RemoveStateFromOrder(&hkey);
 			}
 			else if (!hkey._active)
 			{
-				if (!anyActive)
-				{
-					for (auto& l : _layers)
-					{
-						_defaultLayerStates[l._id] = l._visible;
-					}
-				}
+				SaveDefaultStates();
 
 				for (auto& state : hkey._layerStates)
 				{
 					LayerInfo* layer = GetLayer(state.first);
-					if (layer && state.second != HotkeyInfo::NoChange)
+					if (layer && state.second != StatesInfo::NoChange)
 					{
 						layer->_visible = state.second;
 					}
 				}
-				AppendHotkey(&hkey);
+				AppendStateToOrder(&hkey);
 				hkey._timer.restart();
 				hkey._active = true;
-				_hotkeyTimer.restart();
+				_statesTimer.restart();
 			}
 			break;
 		}
@@ -765,12 +848,12 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 	return;
 }
 
-void LayerManager::ResetHotkeys()
+void LayerManager::ResetStates()
 {
-	if (!AnyHotkeyActive())
+	if (!AnyStateActive())
 		return;
 
-	for (auto& hkey : _hotkeys)
+	for (auto& hkey : _states)
 		hkey._active = false;
 
 	for (auto& l : _layers)
@@ -780,55 +863,73 @@ void LayerManager::ResetHotkeys()
 	}
 }
 
-void LayerManager::DrawHotkeysGUI()
+void LayerManager::DrawStatesGUI()
 {
-	if (_hotkeysMenuOpen != _oldHotkeysMenuOpen)
+	if (_statesMenuOpen != _oldStatesMenuOpen)
 	{
-		_oldHotkeysMenuOpen = _hotkeysMenuOpen;
+		_oldStatesMenuOpen = _statesMenuOpen;
 
-		if (_hotkeysMenuOpen)
+		if (_statesMenuOpen)
 		{
 			auto size = ImGui::GetWindowSize();
 			ImGui::SetNextWindowPos({ _appConfig->_scrW / 2 - 200, _appConfig->_scrH / 2 - 200 });
 			ImGui::SetNextWindowSize({ 400, 400 });
-			ImGui::OpenPopup("Hotkey Setup");
+			ImGui::OpenPopup("States Setup");
 		}
 	}
 
-	if (ImGui::BeginPopupModal("Hotkey Setup", &_hotkeysMenuOpen, ImGuiWindowFlags_NoResize))
+	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen, ImGuiWindowFlags_NoResize))
 	{
-		ImGui::TextWrapped("Use Hotkeys to instantly set the visibility of multiple layers");
+		ImGui::TextWrapped("Use Hotkeys or Timers to instantly set the visibility of multiple layers");
 
 		if (ImGui::Button("Add"))
 		{
-			_hotkeys.push_back(HotkeyInfo());
+			_states.push_back(StatesInfo());
 			for (auto& l : _layers)
 			{
-				_hotkeys.back()._layerStates[l._id] = HotkeyInfo::NoChange;
+				_states.back()._layerStates[l._id] = StatesInfo::NoChange;
 			}
 		}
 
-		int hkeyIdx = 0;
-		while (hkeyIdx < _hotkeys.size())
+		int stateIdx = 0;
+		while (stateIdx < _states.size())
 		{
-			auto& hkey = _hotkeys[hkeyIdx];
+			auto& state = _states[stateIdx];
 
-			std::string name = g_key_names[hkey._key];
-			if (hkey._key == sf::Keyboard::Unknown)
-				name = "Not set";
-			if (hkey._alt)
+			std::string name = g_key_names[state._key];
+			if (state._key == sf::Keyboard::Unknown)
+			{
+				if (state._timedInterval)
+					name = "";
+				else
+					name = "No hotkey";
+			}
+			if (state._timedInterval)
+			{
+				std::stringstream ss;
+				
+				if (state._intervalVariation > 0)
+					ss << std::fixed << std::setprecision(1) << state._intervalTime - state._intervalVariation 
+						<< " - " << state._intervalTime + state._intervalVariation << "s interval";
+				else
+					ss << std::fixed << std::setprecision(1) << state._intervalTime << "s interval";
+
+				name += ss.str();
+			}
+				
+			if (state._alt)
 				name = "Alt, " + name;
-			if (hkey._shift)
+			if (state._shift)
 				name = "Shift, " + name;
-			if (hkey._ctrl)
+			if (state._ctrl)
 				name = "Ctrl, " + name;
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
 
-			ImGui::PushID('hkey' + hkeyIdx);
+			ImGui::PushID('id' + stateIdx);
 
 			auto col = ImGui::GetStyleColorVec4(ImGuiCol_Header);
-			if(hkey._active)
+			if(state._active)
 				col = ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive);
 			ImGui::PushStyleColor(ImGuiCol_Header, col);
 			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
@@ -838,9 +939,9 @@ void LayerManager::DrawHotkeysGUI()
 				ImGui::SetColumnWidth(1, 100);
 				ImGui::SetColumnWidth(2, 300);
 				std::string btnName = name;
-				if (hkey._key == sf::Keyboard::Unknown)
+				if (state._key == sf::Keyboard::Unknown)
 					btnName = " Click to\nrecord key";
-				if (hkey._awaitingHotkey)
+				if (state._awaitingHotkey)
 					btnName = "(press a key)";
 				ImGui::PushID("recordKeyBtn");
 				if (ImGui::Button(btnName.c_str(), { 140,42 }) && !_waitingForHotkey)
@@ -850,35 +951,62 @@ void LayerManager::DrawHotkeysGUI()
 					_pendingShift = false;
 					_pendingAlt = false;
 					_waitingForHotkey = true;
-					hkey._awaitingHotkey = true;
+					state._awaitingHotkey = true;
 				}
+
+				if (ImGui::Button("Clear", {140,20}))
+				{
+					state._key = sf::Keyboard::Unknown;
+					_waitingForHotkey = false;
+					state._awaitingHotkey = false;
+				}
+
 				ImGui::PopID();
 
-				if (hkey._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
+				if (state._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
 				{
-					hkey._key = _pendingKey;
-					hkey._ctrl = _pendingCtrl;
-					hkey._shift = _pendingShift;
-					hkey._alt = _pendingAlt;
+					state._key = _pendingKey;
+					state._ctrl = _pendingCtrl;
+					state._shift = _pendingShift;
+					state._alt = _pendingAlt;
 					_waitingForHotkey = false;
-					hkey._awaitingHotkey = false;
+					state._awaitingHotkey = false;
 				}
 
 				ImGui::NextColumn();
 
-				ImGui::Checkbox("Toggle", &hkey._toggle);
-				ImGui::Checkbox("Timeout", &hkey._useTimeout);
+				ImGui::Checkbox("Toggle", &state._toggle);
+				float timeoutpos = ImGui::GetCursorPosY();
+
+				bool timeoutActive = state._useTimeout || state._timedInterval;
+				if(ImGui::Checkbox("Timeout", &timeoutActive) && !state._timedInterval)
+				{
+					state._useTimeout = timeoutActive;
+				}
+				ImGui::Checkbox("Schedule", &state._timedInterval);
+				float scheduleIndent = ImGui::GetCursorPosX();
 
 				ImGui::NextColumn();
 
-				ImGui::SameLine(10);
-				if (hkey._useTimeout)
+				ImGui::SetCursorPosY(timeoutpos);
+				if (state._useTimeout)
 				{
 					ImGui::PushID("timeoutSlider");
-					ImGui::SliderFloat("", &hkey._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+					ImGui::SliderFloat("", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ImGui::PopID();
 				}
 
+				ImGui::Columns();
+
+				ImGui::Columns(2, 0, false);
+				ImGui::SetColumnWidth(0, 150);
+				ImGui::SetColumnWidth(1, 400);
+				ImGui::NextColumn();
+				if (state._timedInterval)
+				{
+					ImGui::SliderFloat("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+					ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+				}
 				ImGui::Columns();
 
 				ImGui::Separator();
@@ -888,7 +1016,7 @@ void LayerManager::DrawHotkeysGUI()
 				int layerIdx = 0;
 				for (auto& l : _layers)
 				{
-					ImGui::PushID(l._id);
+					ImGui::PushID(l._id.c_str());
 					ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
 
 					if (++layerIdx % 2)
@@ -900,15 +1028,15 @@ void LayerManager::DrawHotkeysGUI()
 					ImGui::NextColumn();
 					if (layerIdx % 2)
 						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
-					ImGui::RadioButton("Show", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::Show);
+					ImGui::RadioButton("Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
 					ImGui::NextColumn();
 					if (layerIdx % 2)
 						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
-					ImGui::RadioButton("Hide", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::Hide);
+					ImGui::RadioButton("Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
 					ImGui::NextColumn();
 					if (layerIdx % 2)
 						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
-					ImGui::RadioButton("No Change", (int*)&hkey._layerStates[l._id], (int)HotkeyInfo::NoChange);
+					ImGui::RadioButton("No Change", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
 					ImGui::NextColumn();
 					ImGui::PopID();
 				}
@@ -923,24 +1051,25 @@ void LayerManager::DrawHotkeysGUI()
 			ImGui::Text(name.c_str());
 
 			ImGui::SetCursorPos(delButtonPos);
-			auto style = ImGui::GetStyle();
+			ImGuiStyle& style = ImGui::GetStyle();
 			ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
 			ImGui::PushStyleColor(ImGuiCol_Text, { 255.f / 255,200.f / 255,170.f / 255, 1.f });
 			if (ImGui::Button("Delete"))
 			{
-				_hotkeys.erase(_hotkeys.begin() + hkeyIdx);
+				RemoveStateFromOrder(&state);
+				_states.erase(_states.begin() + stateIdx);
 			}
 			ImGui::PopStyleColor(4);
 			ImGui::PopID();
 
 			ImGui::SetCursorPos(endHeaderPos);
 
-			if (hkeyIdx >= _hotkeys.size())
+			if (stateIdx >= _states.size())
 				break;
 
-			hkeyIdx++;
+			stateIdx++;
 		}
 
 		ImGui::EndPopup();
@@ -1021,7 +1150,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_talkSprite.SetColor(_talkTint);
 	}
 
-	if (_motionParent == -1)
+	if (_motionParent == "" || _motionParent == "-1")
 	{
 
 		sf::Vector2f pos;
@@ -1037,7 +1166,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			if (talking)
 			{
 				_isBouncing = true;
-				newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0 - _talkThreshold));
+				newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold));
 			}
 			break;
 		case LayerManager::LayerInfo::BounceRegular:
@@ -1097,7 +1226,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			breathScale = breathHeight / origHeight;
 		}
 
-		_motionHeight += (newMotionHeight - _motionHeight) * 0.3;
+		_motionHeight += (newMotionHeight - _motionHeight) * 0.3f;
 
 		pos.y -= _motionHeight;
 
@@ -1123,7 +1252,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			if (motionDelayNow < 0)
 				motionDelayNow = 0;
 
-			size_t maxDelay = _motionLinkData.size() - 1;
+			size_t maxDelay = mp->_motionLinkData.size() - 1;
 			if (motionDelayNow > maxDelay)
 				motionDelayNow = maxDelay;
 
@@ -1199,7 +1328,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImVec4 col = style.Colors[ImGuiCol_Text];
 	sf::Color btnColor = { sf::Uint8(255*col.x), sf::Uint8(255*col.y), sf::Uint8(255*col.z) };
 
-	ImGui::PushID(_id);
+	ImGui::PushID(_id.c_str());
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
 	sf::Vector2f headerBtnSize(17, 17);
 	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - headerBtnSize.x*8, ImGui::GetCursorPosY()};
@@ -1224,8 +1353,6 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			fileBrowserIdle.SetStartingDir(_idleImagePath);
 		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 		{
-			if (_idleImage == nullptr)
-				_idleImage = new sf::Texture();
 			_idleImage = _textureMan.GetTexture(_idleImagePath);
 			_idleImage->setSmooth(_scaleFiltering);
 			_idleSprite.LoadFromTexture(*_idleImage, 1, 1, 1, 1);
@@ -1266,8 +1393,6 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				fileBrowserTalk.SetStartingDir(_talkImagePath);
 			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 			{
-				if (_talkImage == nullptr)
-					_talkImage = new sf::Texture();
 				_talkImage = _textureMan.GetTexture(_talkImagePath);
 				_talkImage->setSmooth(_scaleFiltering);
 				_talkSprite.LoadFromTexture(*_talkImage, 1, 1, 1, 1);
@@ -1310,8 +1435,6 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				fileBrowserBlink.SetStartingDir(_blinkImagePath);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
-				if (_blinkImage == nullptr)
-					_blinkImage = new sf::Texture();
 				_blinkImage = _textureMan.GetTexture(_blinkImagePath);
 				_blinkImage->setSmooth(_scaleFiltering);
 				_blinkSprite.LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
@@ -1465,7 +1588,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		std::string mpName = oldMp ? oldMp->_name : "Off";
 		if (ImGui::BeginCombo("Motion Inherit", mpName.c_str()))
 		{
-			if (ImGui::Selectable("Off", _motionParent == -1))
+			if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
 				_motionParent = -1;
 			for (auto& layer : _parent->GetLayers())
 			{
@@ -1478,7 +1601,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::EndCombo();
 		}
 
-		if (_motionParent != -1)
+		if (_motionParent != "")
 		{
 			float md = _motionDelay;
 			if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 10.0, "%.2f", ImGuiSliderFlags_Logarithmic))
@@ -1487,9 +1610,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 		}
 
+		ImGui::Checkbox("Hide with Parent", &_hideWithParent);
+
 		ImGui::Separator();
 
-		if (_motionParent == -1)
+		if (_motionParent == "" || _motionParent == "-1")
 		{
 			std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
 			if (ImGui::BeginCombo("Bouncing", bobOptions[_bounceType]))
@@ -1740,3 +1865,37 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 		_idleSprite.Restart();
 	}
 }
+
+sf::Texture* TextureManager::GetTexture(const std::string& path)
+{
+	sf::Texture* out = nullptr;
+	if (path.empty())
+		return nullptr;
+
+	if (_textures.count(path))
+	{
+		out = _textures[path].get();
+	}
+	else
+	{
+		_textures[path] = std::make_unique<sf::Texture>();
+		if(_textures[path]->loadFromFile(path))
+			out = _textures[path].get();
+	}
+
+	return out;
+}
+
+void TextureManager::Reset()
+{
+	for (auto& tex : _textures)
+	{
+		if (tex.second)
+		{
+			delete tex.second.get();
+			tex.second = std::unique_ptr<sf::Texture>(nullptr);
+		}
+	}
+	_textures.clear();
+}
+

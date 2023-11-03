@@ -40,36 +40,24 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 class TextureManager
 {
 public:
-	inline sf::Texture* GetTexture(const std::string& path)
-	{
-		sf::Texture* out = nullptr;
-		if (path.empty())
-			return nullptr;
 
-		if (_textures.count(path))
-		{
-			out = &_textures[path];
-		}
-		else
-		{
-			_textures[path].loadFromFile(path);
-			out = &_textures[path];
-		}
+	sf::Texture* GetTexture(const std::string& path);
 
-		return out;
-	}
+	void Reset();
 
 private:
-	std::map<std::string, sf::Texture> _textures;
+	std::map<std::string, std::unique_ptr<sf::Texture>> _textures;
 };
 
 class LayerManager
 {
 public:
 
+	~LayerManager();
+
 	struct LayerInfo 
 	{
-		int _id = 0;
+		std::string _id = "";
 
 		LayerManager* _parent = nullptr;
 
@@ -172,7 +160,7 @@ public:
 
 		void SyncAnims(bool sync);
 
-		int _motionParent = -1;
+		std::string _motionParent = "";
 		float _motionDelay = 0;
 		struct MotionLinkData
 		{
@@ -180,6 +168,7 @@ public:
 			sf::Vector2f _pos = { 0,0 };
 			float _rot = 0.0;
 		};
+		bool _hideWithParent = true;
 
 		std::deque<MotionLinkData> _motionLinkData;
 
@@ -187,7 +176,7 @@ public:
 
 	};
 
-	struct HotkeyInfo
+	struct StatesInfo
 	{
 		bool _active = false;
 
@@ -205,7 +194,11 @@ public:
 		float _timeout = 5.0;
 		bool _useTimeout = true;
 		bool _toggle = true;
-		std::map<int, State> _layerStates;
+		bool _timedInterval = false;
+		float _intervalTime = 2.0;
+		float _intervalVariation = 0.0;
+		float _currentIntervalTime = 0.0;
+		std::map<std::string, State> _layerStates;
 		bool _awaitingHotkey = false;
 
 		sf::Clock _timer;
@@ -236,9 +229,9 @@ public:
 		_pendingAlt = alt;
 	}
 	void HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt);
-	void ResetHotkeys();
+	void ResetStates();
 
-	LayerInfo* GetLayer(int id) 
+	LayerInfo* GetLayer(std::string id) 
 	{
 		for (auto& layer : _layers)
 			if (layer._id == id)
@@ -259,7 +252,7 @@ public:
 
 private:
 
-	std::vector<HotkeyInfo> _hotkeys;
+	std::vector<StatesInfo> _states;
 
 	std::vector<LayerInfo> _layers;
 
@@ -270,10 +263,10 @@ private:
 	std::string _loadedXMLPath = "";
 	std::string _fullLoadedXMLPath = "";
 	bool _loadedXMLExists = true;
-	bool _loadXMLOpen;
+	bool _loadXMLOpen = false;
 
-	bool _hotkeysMenuOpen = false;
-	bool _oldHotkeysMenuOpen = false;
+	bool _statesMenuOpen = false;
+	bool _oldStatesMenuOpen = false;
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
 	bool _pendingCtrl = false;
@@ -285,44 +278,57 @@ private:
 	float _globalRot = 0.0;
 	bool _globalKeepAspect = true;
 
-	std::map<int, bool> _defaultLayerStates;
-	std::vector<HotkeyInfo*> _hotkeyOrder;
-	sf::Clock _hotkeyTimer;
-	bool _hotkeysDirty = false;
-	void DrawHotkeysGUI();
+	std::map<std::string, bool> _defaultLayerStates;
+	std::vector<StatesInfo*> _statesOrder;
+	sf::Clock _statesTimer;
+	bool _statesDirty = false;
+	void DrawStatesGUI();
 
 	std::string _errorMessage = "";
 
-	void AppendHotkey(HotkeyInfo* hkey)
+	void AppendStateToOrder(StatesInfo* state)
 	{
-		for (HotkeyInfo* searchKey : _hotkeyOrder)
-			if (hkey == searchKey)
+		for (StatesInfo* searchKey : _statesOrder)
+			if (state == searchKey)
 				return;
 
-		_hotkeyOrder.push_back(hkey);
+		_statesOrder.push_back(state);
 	}
 
-	void RemoveHotkey(HotkeyInfo* hkey)
+	void RemoveStateFromOrder(StatesInfo* state)
 	{
-		auto hkeyIt = _hotkeyOrder.begin();
-		while (hkeyIt != _hotkeyOrder.end())
+		auto stateIt = _statesOrder.begin();
+		while (stateIt != _statesOrder.end())
 		{
-			if (hkey == *hkeyIt)
+			if (state == *stateIt)
 			{
-				_hotkeyOrder.erase(hkeyIt);
+				_statesOrder.erase(stateIt);
 				break;
 			}
-			hkeyIt++;
+			stateIt++;
 		}
 	}
 
-	bool AnyHotkeyActive()
+	void SaveDefaultStates()
 	{
-		for (auto& hkey : _hotkeys)
-			if (hkey._active)
+		bool anyActive = AnyStateActive();
+		AnyStateActive();
+		if (!anyActive)
+		{
+			for (auto& l : _layers)
+			{
+				_defaultLayerStates[l._id] = l._visible;
+			}
+		}
+	}
+
+	bool AnyStateActive()
+	{
+		for (auto& state : _states)
+			if (state._active)
 				return true;
 
-		_hotkeyOrder.clear();
+		_statesOrder.clear();
 		return false;
 	}
 
@@ -420,9 +426,9 @@ inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* s
 
 inline float GetRandom01()
 {
-	return (0.002 * (rand() % 500));
+	return (0.002f * (rand() % 500));
 }
 inline float GetRandom11()
 {
-	return (0.002 * (rand() % 500 - 250));
+	return (0.002f * (rand() % 500 - 250));
 }

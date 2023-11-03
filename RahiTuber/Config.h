@@ -31,7 +31,7 @@ class xmlConfigLoader;
 
 struct AppConfig
 {
-	xmlConfigLoader* _loader;
+	xmlConfigLoader* _loader = nullptr;
 
 	bool _transparent = false;
 
@@ -82,33 +82,33 @@ paTestData;
 
 struct AudioConfig
 {
-	float _cutoff = 0.0006;
+	float _cutoff = 0.0006f;
 
-	SAMPLE _frame = 0;
-	SAMPLE _runningAverage = 0.0001;
-	SAMPLE _runningMax = 0.0001;
-	SAMPLE _frameMax = 0.0001;
+	SAMPLE _frame = 0.f;
+	SAMPLE _runningAverage = 0.0001f;
+	SAMPLE _runningMax = 0.0001f;
+	SAMPLE _frameMax = 0.0001f;
 
 	std::vector<SAMPLE> _frames;
 	std::vector<SAMPLE> _fftData;
 	std::vector<SAMPLE> _frequencyData;
 	std::mutex _freqDataMutex;
-	SAMPLE _bassHi = 0.0;
-	SAMPLE _bassMax = 0.0;
-	SAMPLE _bassAverage = 0.0;
+	SAMPLE _bassHi = 0.0f;
+	SAMPLE _bassMax = 0.0f;
+	SAMPLE _bassAverage = 0.0f;
 
-	SAMPLE _trebleHi = 0.0;
-	SAMPLE _trebleMax = 0.0;
-	SAMPLE _trebleAverage = 0.0;
+	SAMPLE _trebleHi = 0.0f;
+	SAMPLE _trebleMax = 0.0f;
+	SAMPLE _trebleAverage = 0.0f;
 
-	SAMPLE _midHi = 0.0;
-	SAMPLE _midMax = 0.0;
-	SAMPLE _midAverage = 0.0;
+	SAMPLE _midHi = 0.0f;
+	SAMPLE _midMax = 0.0f;
+	SAMPLE _midAverage = 0.0f;
 
-	float _smoothAmount = 10.0;
-	float _smoothFactor = 24.0;
+	float _smoothAmount = 10.0f;
+	float _smoothFactor = 24.0f;
 
-	SAMPLE _frameHi = 0.0;
+	SAMPLE _frameHi = 0.0f;
 	PaStreamParameters _params;
 	PaDeviceIndex _devIdx = -1;
 	int _nDevices = 0;
@@ -147,7 +147,7 @@ struct UIConfig
 
 	std::string _settingsFile;
 	std::vector<std::string> _presetNames;
-	int _presetIdx;
+	int _presetIdx = 0;
 	std::vector<char> _settingsFileBoxName;
 	bool _saveVisInfo = true;
 	bool _saveWindowInfo = false;
@@ -158,14 +158,14 @@ struct UIConfig
 	std::string _theme = "Default";
 
 	std::map<std::string, std::pair<ImVec4, ImVec4>> _themes = {
-		{"Default", { {0.75, 0.2, 0.7, 1.0}, {0.75, 0.2, 0.7, 1.0} }},
-		{"Sunset",  { {0.7, 0.2, 0.6, 1.0},  {0.6, 0.2, 0.2, 1.0} }},
-		{"Forest",  { {0.3, 0.4, 0.5, 1.0},  {0.2, 0.5, 0.3, 1.0} }},
-		{"Iron",    { {0.3, 0.3, 0.35, 1.0}, {0.75, 0.4, 0.2, 1.0} }},
-		{"Silver",  { {0.75, 0.55, 0.8, 1.0},  {0.55, 0.6, 0.65, 1.0} }},
-		{"Volcano", { {0.7, 0.1, 0.2, 1.0},  {0.9, 0.6, 0.2, 1.0} }},
-		{"Oxide",   { {0.5, 0.7, 0.8, 1.0},  {0.7, 0.2, 0.05, 1.0} }},
-		{"Pretty",  { {1.0, 0.5, 0.9, 1.0},  {0.7, 0.75, 1.0, 1.0} }},
+		{"Default", { {0.75f, 0.2f, 0.7f, 1.0f}, {0.75f, 0.2f, 0.7f, 1.0f} }},
+		{"Sunset",  { {0.7f, 0.2f, 0.6f, 1.0f},  {0.6f, 0.2f, 0.2f, 1.0f} }},
+		{"Forest",  { {0.3f, 0.4f, 0.5f, 1.0f},  {0.2f, 0.5f, 0.3f, 1.0f} }},
+		{"Iron",    { {0.3f, 0.3f, 0.35f, 1.0f}, {0.75f, 0.4f, 0.2f, 1.0f} }},
+		{"Silver",  { {0.75f, 0.55f, 0.8f, 1.0f},  {0.55f, 0.6f, 0.65f, 1.0f} }},
+		{"Volcano", { {0.7f, 0.1f, 0.2f, 1.0f},  {0.9f, 0.6f, 0.2f, 1.0f} }},
+		{"Oxide",   { {0.5f, 0.7f, 0.8f, 1.0f},  {0.7f, 0.2f, 0.05f, 1.0f} }},
+		{"Pretty",  { {1.0f, 0.5f, 0.9f, 1.0f},  {0.7f, 0.75f, 1.0f, 1.0f} }},
 	};
 
 };
