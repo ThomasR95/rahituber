@@ -4,7 +4,7 @@ void SpriteSheet::Draw(sf::RenderTarget* target, const sf::RenderStates& states)
 {
 	sf::Time dt = _timer.getElapsedTime();
 
-	const float frametime = 1.0 / _fps;
+	const float frametime = 1.0f / _fps;
 
 	if (_playing || _synced)
 	{
