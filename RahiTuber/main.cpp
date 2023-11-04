@@ -800,6 +800,8 @@ void handleEvents()
 			if (layerMan->PendingHotkey())
 			{
 				layerMan->SetHotkeys(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
+				if (uiConfig->_menuShowing)
+					ImGui::SFML::ProcessEvent(evt);
 				continue;
 			}
 			else
