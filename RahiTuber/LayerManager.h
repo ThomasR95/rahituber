@@ -46,7 +46,7 @@ public:
 	void Reset();
 
 private:
-	std::map<std::string, std::unique_ptr<sf::Texture>> _textures;
+	std::map<std::string, sf::Texture*> _textures;
 };
 
 class LayerManager
@@ -113,10 +113,10 @@ public:
 		sf::Texture* _talkBlinkImage = nullptr;
 		float _talkBlinkTint[4] = { 1,1,1,1 };
 
-		SpriteSheet _idleSprite;
-		SpriteSheet _talkSprite;
-		SpriteSheet _blinkSprite;
-		SpriteSheet _talkBlinkSprite;
+		std::shared_ptr<SpriteSheet> _idleSprite = std::make_shared<SpriteSheet>();
+		std::shared_ptr<SpriteSheet> _talkSprite = std::make_shared<SpriteSheet>();
+		std::shared_ptr<SpriteSheet> _blinkSprite = std::make_shared<SpriteSheet>();
+		std::shared_ptr<SpriteSheet> _talkBlinkSprite = std::make_shared<SpriteSheet>();
 
 		SpriteSheet* _activeSprite = nullptr;
 

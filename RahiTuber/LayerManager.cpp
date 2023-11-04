@@ -167,10 +167,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._activeSprite->setPosition({ rtSize.x/2, rtSize.y/2});
 				layer._activeSprite->setRotation(0);
 
-				layer._idleSprite.Draw(&_blendingRT, tmpState);
-				layer._talkSprite.Draw(&_blendingRT, tmpState);
-				layer._blinkSprite.Draw(&_blendingRT, tmpState);
-				layer._talkBlinkSprite.Draw(&_blendingRT, tmpState);
+				layer._idleSprite->Draw(&_blendingRT, tmpState);
+				layer._talkSprite->Draw(&_blendingRT, tmpState);
+				layer._blinkSprite->Draw(&_blendingRT, tmpState);
+				layer._talkBlinkSprite->Draw(&_blendingRT, tmpState);
 
 				_blendingRT.display();
 
@@ -186,10 +186,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			}
 			else
 			{
-				layer._idleSprite.Draw(target, state);
-				layer._talkSprite.Draw(target, state);
-				layer._blinkSprite.Draw(target, state);
-				layer._talkBlinkSprite.Draw(target, state);
+				layer._idleSprite->Draw(target, state);
+				layer._talkSprite->Draw(target, state);
+				layer._blinkSprite->Draw(target, state);
+				layer._talkBlinkSprite->Draw(target, state);
 			}
 		}
 	}
@@ -499,17 +499,17 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
 		thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
 
-		if (layer._idleSprite.FrameCount() > 1)
-			SaveAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
+		if (layer._idleSprite->FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
 
-		if (layer._talkSprite.FrameCount() > 1)
-			SaveAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
+		if (layer._talkSprite->FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
 
-		if (layer._blinkSprite.FrameCount() > 1)
-			SaveAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
+		if (layer._blinkSprite->FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
 
-		if (layer._talkBlinkSprite.FrameCount() > 1)
-			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", layer._talkBlinkSprite);
+		if (layer._talkBlinkSprite->FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
 
 		thisLayer->SetAttribute("syncAnims", layer._animsSynced);
 
@@ -682,18 +682,18 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		layer._talkBlinkImage = _textureMan.GetTexture(layer._talkBlinkImagePath);
 
 		if(layer._idleImage)
-			layer._idleSprite.LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
+			layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
 		if (layer._talkImage)
-			layer._talkSprite.LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
+			layer._talkSprite->LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
 		if(layer._blinkImage)
-			layer._blinkSprite.LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
+			layer._blinkSprite->LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
 		if (layer._talkBlinkImage)
-			layer._talkBlinkSprite.LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
+			layer._talkBlinkSprite->LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
 
-		LoadAnimInfo(thisLayer, &doc, "idleAnim", layer._idleSprite);
-		LoadAnimInfo(thisLayer, &doc, "talkAnim", layer._talkSprite);
-		LoadAnimInfo(thisLayer, &doc, "blinkAnim", layer._blinkSprite);
-		LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", layer._talkBlinkSprite);
+		LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
+		LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
+		LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
+		LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
 
 		thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
 
@@ -903,26 +903,32 @@ void LayerManager::DrawStatesGUI()
 					name = "";
 				else
 					name = "No hotkey";
-			}
-			if (state._timedInterval)
-			{
-				std::stringstream ss;
-				
-				if (state._intervalVariation > 0)
-					ss << std::fixed << std::setprecision(1) << state._intervalTime - state._intervalVariation 
-						<< " - " << state._intervalTime + state._intervalVariation << "s interval";
-				else
-					ss << std::fixed << std::setprecision(1) << state._intervalTime << "s interval";
-
-				name += ss.str();
-			}
-				
+			}				
 			if (state._alt)
 				name = "Alt, " + name;
 			if (state._shift)
 				name = "Shift, " + name;
 			if (state._ctrl)
 				name = "Ctrl, " + name;
+
+			std::string keyName = name;
+
+			if (state._timedInterval)
+			{
+				std::stringstream ss;
+
+				if (name != "")
+					ss << ", ";
+
+				if (state._intervalVariation > 0)
+					ss << std::fixed << std::setprecision(1) << state._intervalTime - state._intervalVariation
+					<< " - " << state._intervalTime + state._intervalVariation << "s interval";
+				else
+					ss << std::fixed << std::setprecision(1) << state._intervalTime << "s interval";
+
+				name += ss.str();
+			}
+
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
 
@@ -938,7 +944,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::SetColumnWidth(0, 150);
 				ImGui::SetColumnWidth(1, 100);
 				ImGui::SetColumnWidth(2, 300);
-				std::string btnName = name;
+				std::string btnName = keyName;
 				if (state._key == sf::Keyboard::Unknown)
 					btnName = " Click to\nrecord key";
 				if (state._awaitingHotkey)
@@ -1083,13 +1089,13 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	if (!_idleImage)
 		return;
 	
-	_idleSprite._visible = true;
-	_blinkSprite._visible = false;
-	_talkSprite._visible = false;
-	_talkBlinkSprite._visible = false;
+	_idleSprite->_visible = true;
+	_blinkSprite->_visible = false;
+	_talkSprite->_visible = false;
+	_talkBlinkSprite->_visible = false;
 
-	_activeSprite = &_idleSprite;
-	_idleSprite.SetColor(_idleTint);
+	_activeSprite = _idleSprite.get();
+	_idleSprite->SetColor(_idleTint);
 
 	float talkFactor = 0;
 	if (talkMax > 0)
@@ -1111,8 +1117,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
-		if(!_blinkSprite.IsSynced())
-			_blinkSprite.Restart();
+		if(!_blinkSprite->IsSynced())
+			_blinkSprite->Restart();
 		_blinkVarDelay = GetRandom11() * _blinkVariation;
 	}
 
@@ -1120,21 +1126,21 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	{
 		if (talkBlinkAvailable)
 		{
-			_activeSprite = &_talkBlinkSprite;
-			_talkBlinkSprite._visible = true;
-			_blinkSprite._visible = false;
-			_talkSprite._visible = false;
-			_idleSprite._visible = false;
-			_talkBlinkSprite.SetColor(_talkBlinkTint);
+			_activeSprite = _talkBlinkSprite.get();
+			_talkBlinkSprite->_visible = true;
+			_blinkSprite->_visible = false;
+			_talkSprite->_visible = false;
+			_idleSprite->_visible = false;
+			_talkBlinkSprite->SetColor(_talkBlinkTint);
 		}
 		else if (blinkAvailable)
 		{
-			_activeSprite = &_blinkSprite;
-			_blinkSprite._visible = true;
-			_talkBlinkSprite._visible = false;
-			_talkSprite._visible = false;
-			_idleSprite._visible = false;
-			_blinkSprite.SetColor(_blinkTint);
+			_activeSprite = _blinkSprite.get();
+			_blinkSprite->_visible = true;
+			_talkBlinkSprite->_visible = false;
+			_talkSprite->_visible = false;
+			_idleSprite->_visible = false;
+			_blinkSprite->SetColor(_blinkTint);
 		}
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
@@ -1143,11 +1149,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
 	{
-		_activeSprite = &_talkSprite;
-		_idleSprite._visible = false;
-		_blinkSprite._visible = false;
-		_talkSprite._visible = true;
-		_talkSprite.SetColor(_talkTint);
+		_activeSprite = _talkSprite.get();
+		_idleSprite->_visible = false;
+		_blinkSprite->_visible = false;
+		_talkSprite->_visible = true;
+		_talkSprite->SetColor(_talkTint);
 	}
 
 	if (_motionParent == "" || _motionParent == "-1")
@@ -1355,13 +1361,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			_idleImage = _textureMan.GetTexture(_idleImagePath);
 			_idleImage->setSmooth(_scaleFiltering);
-			_idleSprite.LoadFromTexture(*_idleImage, 1, 1, 1, 1);
+			_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 		}
 
 		ImGui::SameLine(imgBtnWidth + 16);
 		ImGui::PushID("idleanimbtn");
 		_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-		AnimPopup(_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
+		AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
 		ImGui::PopID();
 
 		fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
@@ -1395,13 +1401,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_talkImage = _textureMan.GetTexture(_talkImagePath);
 				_talkImage->setSmooth(_scaleFiltering);
-				_talkSprite.LoadFromTexture(*_talkImage, 1, 1, 1, 1);
+				_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
 			}
 
 			ImGui::SameLine(imgBtnWidth + 16);
 			ImGui::PushID("talkanimbtn");
 			_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			AnimPopup(_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
+			AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
 			ImGui::PopID();
 
 			ImGui::PushID("talkimportfile");
@@ -1437,13 +1443,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_blinkImage = _textureMan.GetTexture(_blinkImagePath);
 				_blinkImage->setSmooth(_scaleFiltering);
-				_blinkSprite.LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
+				_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
 			}
 
 			ImGui::SameLine(blinkBtnSize.x + 16);
 			ImGui::PushID("blinkanimbtn");
 			_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			AnimPopup(_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
+			AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
 			ImGui::PopID();
 
 			ImGui::PushID("blinkimportfile");
@@ -1479,13 +1485,13 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						_talkBlinkImage = new sf::Texture();
 					_talkBlinkImage = _textureMan.GetTexture(_talkBlinkImagePath);
 					_talkBlinkImage->setSmooth(_scaleFiltering);
-					_talkBlinkSprite.LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+					_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
 				}
 
 				ImGui::SameLine(blinkBtnSize.x + 16);
 				ImGui::PushID("talkblinkanimbtn");
 				_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-				AnimPopup(_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
+				AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
 				ImGui::PopID();
 
 				ImGui::PushID("talkblinkimportfile");
@@ -1687,9 +1693,27 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	auto oldCursorPos = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(headerButtonsPos);
 
-	ImGui::PushID("visible");
-	ImGui::Checkbox("", &_visible);
-	ImGui::PopID();
+	if (ImGui::Checkbox("##visible", &_visible))
+	{
+		bool safe = true;
+		// if any active state changes this layer's visibility, it's not safe to update the default
+		for (auto& state : _parent->_states)
+		{
+			if (state._active == false)
+				continue;
+
+			if (state._layerStates.count(_id) == 0u)
+				continue;
+
+			if (state._layerStates[_id] != StatesInfo::NoChange)
+			{
+				safe = false;
+				break;
+			}
+		}
+		if(safe)
+			_parent->_defaultLayerStates[_id] = _visible;
+	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 
@@ -1738,7 +1762,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	{
 		char inputStr[32] = " ";
 		_renamingString.copy(inputStr, 32);
-		if (ImGui::InputText("", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+		if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
 		{
 			_renamingString = inputStr;
 		}
@@ -1856,13 +1880,13 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 void LayerManager::LayerInfo::SyncAnims(bool sync)
 {
-	_idleSprite.ClearSync();
+	_idleSprite->ClearSync();
 	if (sync)
 	{
-		_idleSprite.AddSync(&_talkSprite);
-		_idleSprite.AddSync(&_blinkSprite);
-		_idleSprite.AddSync(&_talkBlinkSprite);
-		_idleSprite.Restart();
+		_idleSprite->AddSync(_talkSprite.get());
+		_idleSprite->AddSync(_blinkSprite.get());
+		_idleSprite->AddSync(_talkBlinkSprite.get());
+		_idleSprite->Restart();
 	}
 }
 
@@ -1874,13 +1898,13 @@ sf::Texture* TextureManager::GetTexture(const std::string& path)
 
 	if (_textures.count(path))
 	{
-		out = _textures[path].get();
+		out = _textures[path];
 	}
 	else
 	{
-		_textures[path] = std::make_unique<sf::Texture>();
+		_textures[path] = new sf::Texture();
 		if(_textures[path]->loadFromFile(path))
-			out = _textures[path].get();
+			out = _textures[path];
 	}
 
 	return out;
@@ -1888,13 +1912,11 @@ sf::Texture* TextureManager::GetTexture(const std::string& path)
 
 void TextureManager::Reset()
 {
-	for (auto& tex : _textures)
+	auto it = _textures.begin();
+	for (; it == _textures.end(); it++)
 	{
-		if (tex.second)
-		{
-			delete tex.second.get();
-			tex.second = std::unique_ptr<sf::Texture>(nullptr);
-		}
+		delete (*it).second;
+		(*it).second = nullptr;
 	}
 	_textures.clear();
 }
