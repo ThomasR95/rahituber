@@ -1109,7 +1109,7 @@ void doAudioAnalysis()
 	{
 		//if the quietTimer reaches 1.5s, start reducing the max
 
-		float maxFallSpeed = 0.005f;
+		float maxFallSpeed = 0.000f;
 
 		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;

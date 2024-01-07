@@ -26,6 +26,7 @@ void OsOpenInShell(const char* path) {
 LayerManager::~LayerManager()
 {
 	_textureMan.Reset();
+	//_chatReader.Cleanup();
 }
 
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
@@ -171,6 +172,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._talkSprite->Draw(&_blendingRT, tmpState);
 				layer._blinkSprite->Draw(&_blendingRT, tmpState);
 				layer._talkBlinkSprite->Draw(&_blendingRT, tmpState);
+				layer._screamSprite->Draw(&_blendingRT, tmpState);
 
 				_blendingRT.display();
 
@@ -190,6 +192,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._talkSprite->Draw(target, state);
 				layer._blinkSprite->Draw(target, state);
 				layer._talkBlinkSprite->Draw(target, state);
+				layer._screamSprite->Draw(target, state);
 			}
 		}
 	}
@@ -327,6 +330,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		}
 		ImGui::Checkbox("Constrain", &_globalKeepAspect);
 	}
+
+	ImGui::Separator();
 
 	float topBarHeight = ImGui::GetCursorPosY() - topBarBegin;
 
@@ -598,6 +603,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 {
 	_errorMessage = "";
 	tinyxml2::XMLDocument doc;
+
+	//_chatReader.Cleanup();
+	//_chatReader.Init();
+	//_chatReader.SetUsername("rahisaurus");
+
+	//_chatReader.Refresh();
 
 	doc.LoadFile(settingsFileName.c_str());
 
@@ -1093,6 +1104,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	_blinkSprite->_visible = false;
 	_talkSprite->_visible = false;
 	_talkBlinkSprite->_visible = false;
+	_screamSprite->_visible = false;
 
 	_activeSprite = _idleSprite.get();
 	_idleSprite->SetColor(_idleTint);
@@ -1105,11 +1117,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_lastTalkFactor = talkFactor;
 	}
 
+	bool screaming = _scream && talkFactor > _screamThreshold;
+	bool talking = !screaming && talkFactor > _talkThreshold;
 
-	bool talking = talkFactor > _talkThreshold;
-
-	bool blinkAvailable = _blinkImage && !talking;
-	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkImage && talking;
+	bool blinkAvailable = _blinkImage && !talking && !screaming;
+	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkImage && talking && !screaming;
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
@@ -1131,6 +1143,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_blinkSprite->_visible = false;
 			_talkSprite->_visible = false;
 			_idleSprite->_visible = false;
+			_screamSprite->_visible = false;
 			_talkBlinkSprite->SetColor(_talkBlinkTint);
 		}
 		else if (blinkAvailable)
@@ -1140,6 +1153,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_talkBlinkSprite->_visible = false;
 			_talkSprite->_visible = false;
 			_idleSprite->_visible = false;
+			_screamSprite->_visible = false;
 			_blinkSprite->SetColor(_blinkTint);
 		}
 
@@ -1150,10 +1164,20 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
 	{
 		_activeSprite = _talkSprite.get();
+		_screamSprite->_visible = false;
 		_idleSprite->_visible = false;
 		_blinkSprite->_visible = false;
 		_talkSprite->_visible = true;
 		_talkSprite->SetColor(_talkTint);
+	}
+	else if (_screamImage && screaming)
+	{
+		_activeSprite = _screamSprite.get();
+		_screamSprite->_visible = true;
+		_idleSprite->_visible = false;
+		_blinkSprite->_visible = false;
+		_talkSprite->_visible = false;
+		_screamSprite->SetColor(_screamTint);
 	}
 
 	if (_motionParent == "" || _motionParent == "-1")
@@ -1235,6 +1259,23 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_motionHeight += (newMotionHeight - _motionHeight) * 0.3f;
 
 		pos.y -= _motionHeight;
+
+		if (screaming && _screamVibrate)
+		{
+			if (!_isScreaming)
+			{
+				_motionTimer.restart();
+				_isScreaming = true;
+			}
+
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			pos.y += sin(motionTime / 0.02) * _activeSprite->Size().x / 100;
+			pos.x += sin(motionTime / 0.05) * _activeSprite->Size().x / 100;
+		}
+		else
+		{
+			_isScreaming = false;
+		}
 
 		_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
 		_activeSprite->setScale(_scale * breathScale);
@@ -1574,10 +1615,79 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
 
-		ImGui::Separator();
+		ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+		if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
+		{
+			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
+			ImGui::PushID("screamimport");
+			sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
+			sf::Texture* talkIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
+			_importScreamOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, screamCol);
+			fileBrowserTalk.SetStartingDir(chosenDir);
+			if (_screamImage)
+				fileBrowserTalk.SetStartingDir(_screamImagePath);
+			if (fileBrowserTalk.render(_importScreamOpen, _screamImagePath))
+			{
+				_screamImage = _textureMan.GetTexture(_screamImagePath);
+				_screamImage->setSmooth(_scaleFiltering);
+				_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
+			}
 
-		ImGui::Checkbox("Blinking", &_useBlinkFrame);
-		if (_useBlinkFrame)
+			ImGui::SameLine(imgBtnWidth + 16);
+			ImGui::PushID("screamanimbtn");
+			_spriteScreamOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+			AnimPopup(*_screamSprite, _spriteScreamOpen, _oldSpriteScreamOpen);
+			ImGui::PopID();
+
+			ImGui::PushID("screamimportfile");
+			char screambuf[256] = "                           ";
+			_screamImagePath.copy(screambuf, 256);
+			if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+			{
+				_screamImagePath = screambuf;
+			}
+			ImGui::PopID();
+
+			ImGui::ColorEdit4("Tint", _screamTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+
+			ImGui::PopID();
+
+
+			AddResetButton("screamThresh", _screamThreshold, 0.15f, &style);
+			ImVec2 barPos = ImGui::GetCursorPos();
+			ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
+			ImGui::NewLine();
+
+			sf::Color barHighlight(60, 140, 60, 255);
+			sf::Color barBg(20, 60, 20, 255);
+			if (_lastTalkFactor < 0.001 || _lastTalkFactor < _screamThreshold)
+			{
+				barHighlight = sf::Color(140, 60, 60, 255);
+				barBg = sf::Color(60, 20, 20, 255);
+			}
+
+			sf::Vector2f topLeft = { barPos.x + 7, barPos.y };
+			float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
+			float barHeight = 10;
+			sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
+			ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
+			float activeBarWidth = barWidth * _lastTalkFactor;
+			sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
+			ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
+			float rootThresh = _screamThreshold;
+			float thresholdPos = barWidth * rootThresh;
+			sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
+			ImGui::DrawRectFilled(thresholdBar, { 200,150,80 });
+
+			ImGui::Checkbox("Vibrate", &_screamVibrate);
+		}
+		auto oldCursorPos = ImGui::GetCursorPos();
+		ImGui::SetCursorPos(subHeaderBtnPos);
+		ImGui::Checkbox("##Scream", &_scream);
+		ImGui::SetCursorPos(oldCursorPos);
+
+		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+		if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
 			ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
@@ -1587,12 +1697,31 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			AddResetButton("blinkvar", _blinkVariation, 4.f, &style);
 			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
 		}
-		
-		ImGui::Separator();
+		oldCursorPos = ImGui::GetCursorPos();
+		ImGui::SetCursorPos(subHeaderBtnPos);
+		ImGui::Checkbox("##Blink", &_useBlinkFrame);
+		ImGui::SetCursorPos(oldCursorPos);
 
+		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+		if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
+		{
+			if (_motionParent != "")
+			{
+				float md = _motionDelay;
+				if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 10.0, "%.2f", ImGuiSliderFlags_Logarithmic))
+				{
+					_motionDelay = md;
+				}
+			}
+
+			ImGui::Checkbox("Hide with Parent", &_hideWithParent);
+		}
+		oldCursorPos = ImGui::GetCursorPos();
+		ImGui::SetCursorPos(subHeaderBtnPos);
 		LayerInfo* oldMp = _parent->GetLayer(_motionParent);
 		std::string mpName = oldMp ? oldMp->_name : "Off";
-		if (ImGui::BeginCombo("Motion Inherit", mpName.c_str()))
+		ImGui::PushItemWidth(headerBtnSize.x * 7);
+		if (ImGui::BeginCombo("##MotionInherit", mpName.c_str()))
 		{
 			if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
 				_motionParent = -1;
@@ -1606,24 +1735,30 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 			ImGui::EndCombo();
 		}
-
-		if (_motionParent != "")
-		{
-			float md = _motionDelay;
-			if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 10.0, "%.2f", ImGuiSliderFlags_Logarithmic))
-			{
-				_motionDelay = md;
-			}
-		}
-
-		ImGui::Checkbox("Hide with Parent", &_hideWithParent);
-
-		ImGui::Separator();
+		ImGui::SetCursorPos(oldCursorPos);
+		ImGui::PopItemWidth();
 
 		if (_motionParent == "" || _motionParent == "-1")
 		{
+			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader("Bouncing", ImGuiTreeNodeFlags_AllowItemOverlap))
+			{
+				if (_bounceType != BounceNone)
+				{
+					AddResetButton("bobheight", _bounceHeight, 80.f, &style);
+					ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
+					if (_bounceType == BounceRegular)
+					{
+						AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
+						ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+					}
+				}
+			}
+			oldCursorPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(subHeaderBtnPos);
 			std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
-			if (ImGui::BeginCombo("Bouncing", bobOptions[_bounceType]))
+			ImGui::PushItemWidth(headerBtnSize.x * 7);
+			if (ImGui::BeginCombo("##BounceType", bobOptions[_bounceType]))
 			{
 				if (ImGui::Selectable("None", _bounceType == BounceNone))
 					_bounceType = BounceNone;
@@ -1633,60 +1768,59 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					_bounceType = BounceRegular;
 				ImGui::EndCombo();
 			}
-			if (_bounceType != BounceNone)
+			ImGui::SetCursorPos(oldCursorPos);
+			ImGui::PopItemWidth();
+
+			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader("Breathing", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
-				AddResetButton("bobheight", _bounceHeight, 80.f, &style);
-				ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
-				if (_bounceType == BounceRegular)
+				if (_doBreathing)
 				{
-					AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
-					ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+					AddResetButton("breathheight", _breathHeight, 30.f, &style);
+					ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
+					AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
+					ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
 				}
 			}
-			ImGui::Separator();
-
-			ImGui::Checkbox("Breathing", &_doBreathing);
-			if (_doBreathing)
-			{
-				AddResetButton("breathheight", _breathHeight, 30.f, &style);
-				ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
-				AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
-				ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
-			}
-			ImGui::Separator();
+			oldCursorPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(subHeaderBtnPos);
+			ImGui::Checkbox("##Breathing", &_doBreathing);
+			ImGui::SetCursorPos(oldCursorPos);
 		}
 
-		AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), &style);
-		float pos[2] = { _pos.x, _pos.y };
-		if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
+		if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
-			_pos.x = pos[0];
-			_pos.y = pos[1];
+			AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), &style);
+			float pos[2] = { _pos.x, _pos.y };
+			if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
+			{
+				_pos.x = pos[0];
+				_pos.y = pos[1];
+			}
+
+			AddResetButton("rot", _rot, 0.f, &style);
+			ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f);
+
+			AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), &style);
+			float scale[2] = { _scale.x, _scale.y };
+			if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
+			{
+				if (!_keepAspect)
+				{
+					_scale.x = scale[0];
+					_scale.y = scale[1];
+				}
+				else if (scale[0] != _scale.x)
+				{
+					_scale = { scale[0] , scale[0] };
+				}
+				else if (scale[1] != _scale.y)
+				{
+					_scale = { scale[1] , scale[1] };
+				}
+			}
+			ImGui::Checkbox("Constrain", &_keepAspect);
 		}
-
-		AddResetButton("rot", _rot, 0.f, &style);
-		ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f);
-
-		AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), &style);
-		float scale[2] = {_scale.x, _scale.y};
-		if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
-		{
-			if (!_keepAspect)
-			{
-				_scale.x = scale[0];
-				_scale.y = scale[1];
-			}
-			else if (scale[0] != _scale.x)
-			{
-				_scale = { scale[0] , scale[0] };
-			}
-			else if (scale[1] != _scale.y)
-			{
-				_scale = { scale[1] , scale[1] };
-			}
-		}
-		ImGui::Checkbox("Constrain", &_keepAspect);
-
 		ImGui::Separator();
 	}
 
@@ -1886,6 +2020,7 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 		_idleSprite->AddSync(_talkSprite.get());
 		_idleSprite->AddSync(_blinkSprite.get());
 		_idleSprite->AddSync(_talkBlinkSprite.get());
+		_idleSprite->AddSync(_screamSprite.get());
 		_idleSprite->Restart();
 	}
 }
@@ -1920,4 +2055,3 @@ void TextureManager::Reset()
 	}
 	_textures.clear();
 }
-
