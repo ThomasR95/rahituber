@@ -15,6 +15,8 @@
 
 #include "Config.h"
 
+#include "ChatReader.h"
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -97,6 +99,11 @@ public:
 		float _motionHeight = 0;
 		sf::Clock _motionTimer;
 
+		bool _scream = false;
+		float _screamThreshold = 0.85;
+		bool _isScreaming = false;
+		bool _screamVibrate = true;
+
 		std::string _idleImagePath = "";
 		sf::Texture* _idleImage = nullptr;
 		float _idleTint[4] = { 1,1,1,1 };
@@ -113,10 +120,16 @@ public:
 		sf::Texture* _talkBlinkImage = nullptr;
 		float _talkBlinkTint[4] = { 1,1,1,1 };
 
+		std::string _screamImagePath = "";
+		sf::Texture* _screamImage = nullptr;
+		float _screamTint[4] = { 1,1,1,1 };
+
 		std::shared_ptr<SpriteSheet> _idleSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _talkSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _blinkSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _talkBlinkSprite = std::make_shared<SpriteSheet>();
+		std::shared_ptr<SpriteSheet> _screamSprite = std::make_shared<SpriteSheet>();
+
 
 		SpriteSheet* _activeSprite = nullptr;
 
@@ -133,17 +146,21 @@ public:
 		bool _importTalkOpen = false;
 		bool _importBlinkOpen = false;
 		bool _importTalkBlinkOpen = false;
+		bool _importScreamOpen = false;
 
 		bool _spriteIdleOpen = false;
 		bool _spriteTalkOpen = false;
 		bool _spriteBlinkOpen = false;
 		bool _spriteTalkBlinkOpen = false;
+		bool _spriteScreamOpen = false;
 		bool _oldSpriteIdleOpen = false;
 		bool _oldSpriteTalkOpen = false;
 		bool _oldSpriteBlinkOpen = false;
 		bool _oldSpriteTalkBlinkOpen = false;
+		bool _oldSpriteScreamOpen = false;
 		bool _renamePopupOpen = false;
 		std::string _renamingString = "";
+
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
@@ -257,6 +274,8 @@ private:
 	std::vector<LayerInfo> _layers;
 
 	sf::RenderTexture _blendingRT;
+
+	ChatReader _chatReader;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";
