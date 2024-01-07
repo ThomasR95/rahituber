@@ -499,10 +499,16 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("breathHeight", layer._breathHeight);
 		thisLayer->SetAttribute("breathTime", layer._breathFrequency);
 
+		thisLayer->SetAttribute("screaming", layer._scream);
+		thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
+		thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
+		thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
+
 		thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
 		thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
 		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
 		thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
+		thisLayer->SetAttribute("screamPath", layer._screamImagePath.c_str());
 
 		if (layer._idleSprite->FrameCount() > 1)
 			SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
@@ -516,12 +522,16 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		if (layer._talkBlinkSprite->FrameCount() > 1)
 			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
 
+		if (layer._screamSprite->FrameCount() > 1)
+			SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
+
 		thisLayer->SetAttribute("syncAnims", layer._animsSynced);
 
 		SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
 		SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
 		SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 		SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
+		SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
 		thisLayer->SetAttribute("scaleX", layer._scale.x);
 		thisLayer->SetAttribute("scaleY", layer._scale.y);
@@ -678,6 +688,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("breathHeight", &layer._breathHeight);
 		thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
 
+		thisLayer->QueryAttribute("screaming", &layer._scream);
+		thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
+		thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
+		thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
+
 		if(const char* idlePth = thisLayer->Attribute("idlePath"))
 			layer._idleImagePath = idlePth;
 		if (const char* talkPth = thisLayer->Attribute("talkPath"))
@@ -686,11 +701,14 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			layer._blinkImagePath = blkPth;
 		if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
 			layer._talkBlinkImagePath = talkBlkPth;
+		if (const char* screamPth = thisLayer->Attribute("screamPath"))
+			layer._screamImagePath = screamPth;
 
 		layer._idleImage = _textureMan.GetTexture(layer._idleImagePath);
 		layer._talkImage = _textureMan.GetTexture(layer._talkImagePath);
 		layer._blinkImage = _textureMan.GetTexture(layer._blinkImagePath);
 		layer._talkBlinkImage = _textureMan.GetTexture(layer._talkBlinkImagePath);
+		layer._screamImage = _textureMan.GetTexture(layer._screamImagePath);
 
 		if(layer._idleImage)
 			layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -700,11 +718,14 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			layer._blinkSprite->LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
 		if (layer._talkBlinkImage)
 			layer._talkBlinkSprite->LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
+		if (layer._screamImage)
+			layer._screamSprite->LoadFromTexture(*layer._screamImage, 1, 1, 1, 1);
 
 		LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
 		LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
 		LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
 		LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
+		LoadAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
 
 		thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
 
@@ -715,6 +736,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
 		LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 		LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
+		LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
 		layer._blinkTimer.restart();
 		layer._isBlinking = false;
@@ -1269,8 +1291,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			}
 
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			pos.y += sin(motionTime / 0.02) * _activeSprite->Size().x / 100;
-			pos.x += sin(motionTime / 0.05) * _activeSprite->Size().x / 100;
+			pos.y += sin(motionTime / 0.02) * _screamVibrateAmount;
+			pos.x += sin(motionTime / 0.05) * _screamVibrateAmount;
 		}
 		else
 		{
@@ -1680,6 +1702,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::DrawRectFilled(thresholdBar, { 200,150,80 });
 
 			ImGui::Checkbox("Vibrate", &_screamVibrate);
+			ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f");
 		}
 		auto oldCursorPos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(subHeaderBtnPos);

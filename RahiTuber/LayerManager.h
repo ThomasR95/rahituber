@@ -103,6 +103,7 @@ public:
 		float _screamThreshold = 0.85;
 		bool _isScreaming = false;
 		bool _screamVibrate = true;
+		float _screamVibrateAmount = 5;
 
 		std::string _idleImagePath = "";
 		sf::Texture* _idleImage = nullptr;
