@@ -381,7 +381,19 @@ void menuAdvanced(ImGuiStyle& style)
 		}
 		ImGui::PopItemWidth();
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Let audio level fall slowly.");
+		ImGui::SameLine(140); ImGui::TextWrapped("Let audio level fall slowly after speaking.");
+		ImGui::PopStyleColor();
+
+		ImGui::PushItemWidth(50);
+		ImGui::SliderFloat("Max Level", &audioConfig->_fixedMax, 0.0, 2.0, "%.1f");
+		ImGui::PopItemWidth();
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("The maximum volume used in audio analysis.");
+		ImGui::PopStyleColor();
+
+		ImGui::Checkbox("Soft Max", &audioConfig->_softMaximum);
+		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::SameLine(140); ImGui::TextWrapped("Allow the Max Level to increase temporarily if exceeded.");
 		ImGui::PopStyleColor();
 
 		ImGui::Checkbox("Audio Filter", &audioConfig->_doFiltering);
@@ -510,15 +522,19 @@ void menuAudio(ImGuiStyle& style)
 				Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
 				Pa_StartStream(audioConfig->_audioStr);
 
-				audioConfig->_frameMax = audioConfig->_cutoff;
+				audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
 				audioConfig->_frameHi = 0;
 				audioConfig->_runningAverage = 0;
 
-				audioConfig->_bassMax = audioConfig->_cutoff;
+				audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+				audioConfig->_midHi = 0;
+				audioConfig->_midAverage = 0;
+
+				audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
 				audioConfig->_bassHi = 0;
 				audioConfig->_bassAverage = 0;
 
-				audioConfig->_trebleMax = audioConfig->_cutoff;
+				audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
 				audioConfig->_trebleHi = 0;
 				audioConfig->_trebleAverage = 0;
 
@@ -1069,7 +1085,8 @@ void doAudioAnalysis()
 		audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
 		if (audioConfig->_frame > audioConfig->_runningAverage)
 			audioConfig->_runningAverage = audioConfig->_frame;
-		if (audioConfig->_frame > audioConfig->_frameMax)
+
+		if (audioConfig->_frame > audioConfig->_frameMax && audioConfig->_softMaximum)
 			audioConfig->_frameMax = audioConfig->_frame;
 
 		if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
@@ -1078,7 +1095,8 @@ void doAudioAnalysis()
 		audioConfig->_bassAverage += audioConfig->_bassHi / audioConfig->_smoothAmount;
 		if (audioConfig->_bassHi > audioConfig->_bassAverage)
 			audioConfig->_bassAverage = audioConfig->_bassHi;
-		if (audioConfig->_bassHi > audioConfig->_bassMax)
+
+		if (audioConfig->_bassHi > audioConfig->_bassMax && audioConfig->_softMaximum)
 			audioConfig->_bassMax = audioConfig->_bassHi;
 
 		if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
@@ -1087,7 +1105,8 @@ void doAudioAnalysis()
 		audioConfig->_midAverage += audioConfig->_midHi / audioConfig->_smoothAmount;
 		if (audioConfig->_midHi > audioConfig->_midAverage)
 			audioConfig->_midAverage = audioConfig->_midHi;
-		if (audioConfig->_midHi > audioConfig->_midMax)
+
+		if (audioConfig->_midHi > audioConfig->_midMax && audioConfig->_softMaximum)
 			audioConfig->_midMax = audioConfig->_midHi;
 
 		if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
@@ -1096,7 +1115,8 @@ void doAudioAnalysis()
 		audioConfig->_trebleAverage += audioConfig->_trebleHi / audioConfig->_smoothAmount;
 		if (audioConfig->_trebleHi > audioConfig->_trebleAverage)
 			audioConfig->_trebleAverage = audioConfig->_trebleHi;
-		if (audioConfig->_trebleHi > audioConfig->_trebleMax)
+
+		if (audioConfig->_trebleHi > audioConfig->_trebleMax && audioConfig->_softMaximum)
 			audioConfig->_trebleMax = audioConfig->_trebleHi;
 	}
 
@@ -1108,25 +1128,26 @@ void doAudioAnalysis()
 	else if (audioConfig->_quietTimer.getElapsedTime().asSeconds() > 0.3)
 	{
 		//if the quietTimer reaches 1.5s, start reducing the max
-
-		float maxFallSpeed = 0.000f;
+		
+		float maxFallSpeed = 0.005f;
 
 		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_midMax -= (audioConfig->_midMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_trebleMax -= (audioConfig->_trebleMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 
-		if (audioConfig->_frameMax < 0.2f)
-			audioConfig->_frameMax = 0.2f;
+		if (audioConfig->_frameMax < audioConfig->_fixedMax)
+			audioConfig->_frameMax = audioConfig->_fixedMax;
 
-		if (audioConfig->_bassMax < 0.2f)
-			audioConfig->_bassMax = 0.2f;
+		if (audioConfig->_bassMax < audioConfig->_fixedMax)
+			audioConfig->_bassMax = audioConfig->_fixedMax;
 
-		if (audioConfig->_midMax < 0.2f)
-			audioConfig->_midMax = 0.2f;
+		if (audioConfig->_midMax < audioConfig->_fixedMax)
+			audioConfig->_midMax = audioConfig->_fixedMax;
 
-		if (audioConfig->_trebleMax < 0.2f)
-			audioConfig->_trebleMax = 0.2f;
+		if (audioConfig->_trebleMax < audioConfig->_fixedMax)
+			audioConfig->_trebleMax = audioConfig->_fixedMax;
+		
 	}
 }
 
@@ -1296,6 +1317,22 @@ int main()
 		audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
 		audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 		sRate = info->defaultSampleRate;
+
+		audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
+		audioConfig->_frameHi = 0;
+		audioConfig->_runningAverage = 0;
+
+		audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_midHi = 0;
+		audioConfig->_midAverage = 0;
+
+		audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_bassHi = 0;
+		audioConfig->_bassAverage = 0;
+
+		audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_trebleHi = 0;
+		audioConfig->_trebleAverage = 0;
 	}
 
 	err = Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);

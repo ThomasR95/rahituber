@@ -118,6 +118,9 @@ struct AudioConfig
 	bool _leftChannel = true;
 	int _numChannels = 2;
 
+	SAMPLE _fixedMax = 1.0;
+	bool _softMaximum = false;
+
 	sf::Clock _quietTimer;
 
 	bool _doFiltering = false;
