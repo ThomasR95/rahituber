@@ -1215,14 +1215,14 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			break;
 		case LayerManager::LayerInfo::BounceLoudness:
 			_isBouncing = false;
-			if (talking)
+			if (talking || screaming)
 			{
 				_isBouncing = true;
 				newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold));
 			}
 			break;
 		case LayerManager::LayerInfo::BounceRegular:
-			if (talking && _bounceFrequency > 0)
+			if ((talking || screaming) && _bounceFrequency > 0)
 			{
 				if (!_isBouncing)
 				{
