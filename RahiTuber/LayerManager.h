@@ -425,20 +425,20 @@ static sf::Texture* _dupeIcon = nullptr;
 static TextureManager _textureMan;
 
 template <typename T>
-inline void AddResetButton(const char* id, T& value, T resetValue, ImGuiStyle* style = nullptr, bool enabled = true)
+inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true)
 {
 	if (_resetIcon == nullptr)
-		_resetIcon = _textureMan.GetTexture("res/reset.png");
+		_resetIcon = _textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
 
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-		if(style)
+	if (style)
 		col = style->Colors[ImGuiCol_Text];
 
 	sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
 
 	ImGui::PushID(id);
 	if (ImGui::ImageButton(*_resetIcon, sf::Vector2f(13, 13), -1, sf::Color::Transparent, btnColor))
-		if(enabled)
+		if (enabled)
 			value = resetValue;
 	ImGui::PopID();
 	ImGui::SameLine();

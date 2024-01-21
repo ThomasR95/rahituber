@@ -21,8 +21,10 @@
 #include <fstream>
 
 #include <Windows.h>
+#include <fileapi.h>
 #include <Dwmapi.h>
 #pragma comment (lib, "Dwmapi.lib")
+
 
 AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
@@ -1086,8 +1088,10 @@ void doAudioAnalysis()
 		if (audioConfig->_frame > audioConfig->_runningAverage)
 			audioConfig->_runningAverage = audioConfig->_frame;
 
-		if (audioConfig->_frame > audioConfig->_frameMax && audioConfig->_softMaximum)
+		if (audioConfig->_frame > audioConfig->_fixedMax && audioConfig->_softMaximum)
 			audioConfig->_frameMax = audioConfig->_frame;
+		else
+			audioConfig->_frameMax = audioConfig->_fixedMax;
 
 		if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
 
@@ -1096,8 +1100,10 @@ void doAudioAnalysis()
 		if (audioConfig->_bassHi > audioConfig->_bassAverage)
 			audioConfig->_bassAverage = audioConfig->_bassHi;
 
-		if (audioConfig->_bassHi > audioConfig->_bassMax && audioConfig->_softMaximum)
+		if (audioConfig->_bassHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
 			audioConfig->_bassMax = audioConfig->_bassHi;
+		else
+			audioConfig->_bassMax = audioConfig->_fixedMax;
 
 		if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
 
@@ -1106,8 +1112,10 @@ void doAudioAnalysis()
 		if (audioConfig->_midHi > audioConfig->_midAverage)
 			audioConfig->_midAverage = audioConfig->_midHi;
 
-		if (audioConfig->_midHi > audioConfig->_midMax && audioConfig->_softMaximum)
+		if (audioConfig->_midHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
 			audioConfig->_midMax = audioConfig->_midHi;
+		else
+			audioConfig->_midMax = audioConfig->_fixedMax;
 
 		if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
 
@@ -1116,8 +1124,10 @@ void doAudioAnalysis()
 		if (audioConfig->_trebleHi > audioConfig->_trebleAverage)
 			audioConfig->_trebleAverage = audioConfig->_trebleHi;
 
-		if (audioConfig->_trebleHi > audioConfig->_trebleMax && audioConfig->_softMaximum)
+		if (audioConfig->_trebleHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
 			audioConfig->_trebleMax = audioConfig->_trebleHi;
+		else
+			audioConfig->_trebleMax = audioConfig->_fixedMax;
 	}
 
 	//As long as the music is loud enough the current max is good
@@ -1129,7 +1139,7 @@ void doAudioAnalysis()
 	{
 		//if the quietTimer reaches 1.5s, start reducing the max
 		
-		float maxFallSpeed = 0.005f;
+		float maxFallSpeed = 0.001f;
 
 		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
 		audioConfig->_bassMax -= (audioConfig->_bassMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
@@ -1159,11 +1169,21 @@ int main()
 	std::srand(time(0));
 
 	appConfig = new AppConfig();
+
+	CHAR fname[512];
+	GetModuleFileNameA(NULL, fname, 512);
+	if (GetLastError() == ERROR_SUCCESS)
+	{
+		fs::path exe = fname;
+		appConfig->_appLocation = exe.parent_path().string() + "\\";
+	}
+
 	uiConfig = new UIConfig();
 	audioConfig = new AudioConfig();
 
 	layerMan = new LayerManager();
-	const std::string lastLayerSettingsFile = "lastLayers.xml";
+	layerMan->_appConfig = appConfig;
+	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
 	layerMan->LoadLayers(lastLayerSettingsFile);
 
 	kbdTrack = new KeyboardTracker();
@@ -1171,7 +1191,7 @@ int main()
 					
 	getWindowSizes();
 
-	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, "config.xml");
+	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
 
 	bool retry = true;
 	while (retry)
@@ -1196,7 +1216,7 @@ int main()
 			if (result == IDOK)
 			{
 				retry = true;
-				int ret = remove("config.xml");
+				int ret = remove((appConfig->_appLocation + "config.xml").c_str());
 
 				if (ret == 0 || errno == ENOENT) 
 				{
@@ -1223,11 +1243,10 @@ int main()
 		}
 	}
 
+	layerMan->_appConfig = appConfig;
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 	if(appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
-
-	layerMan->_appConfig = appConfig;
 
 	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 
@@ -1236,10 +1255,10 @@ int main()
 	if (appConfig->_startMaximised)
 		appConfig->_isFullScreen = true;
 
-	uiConfig->_ico.loadFromFile("res/icon.png");
+	uiConfig->_ico.loadFromFile(appConfig->_appLocation + "res/icon.png");
 	uiConfig->_settingsFileBoxName.resize(30);
 
-	uiConfig->_moveIcon.loadFromFile("res/move.png");
+	uiConfig->_moveIcon.loadFromFile(appConfig->_appLocation + "res/move.png");
 	uiConfig->_moveIcon.setSmooth(true);
 	uiConfig->_moveIconSprite.setTexture(uiConfig->_moveIcon, true);
 
@@ -1256,7 +1275,7 @@ int main()
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
 
-	io.FontDefault = io.Fonts->AddFontFromFileTTF("res/monof55.ttf", 13.f, &cfg);
+	io.FontDefault = io.Fonts->AddFontFromFileTTF((appConfig->_appLocation + "res/monof55.ttf").c_str(), 13.f, &cfg);
 	if (!io.Fonts->Build())
 		__debugbreak();
 
