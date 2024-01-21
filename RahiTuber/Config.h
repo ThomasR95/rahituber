@@ -72,6 +72,9 @@ struct AppConfig
 
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;
+
+
+	std::string _appLocation = "";
 };
 
 typedef struct

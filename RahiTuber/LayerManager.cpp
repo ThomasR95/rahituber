@@ -216,7 +216,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	if (ImGui::InputText("", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
 	{
 		_loadedXML = inputStr;
-		auto xmlPath = fs::current_path().append(_loadedXML);
+		fs::path appFolder = _appConfig->_appLocation;
+		fs::path xmlPath = appFolder.append(_loadedXML);
 		if (xmlPath.extension().string() != ".xml")
 			xmlPath.replace_extension(".xml");
 
@@ -233,10 +234,11 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		fileBrowserXML.SetStartingDir(_fullLoadedXMLPath);
 	if (fileBrowserXML.render(_loadXMLOpen, _loadedXMLPath))
 	{
-		auto xmlPath = fs::path(_loadedXMLPath);
+		fs::path appFolder = _appConfig->_appLocation;
+		fs::path xmlPath = fs::path(_loadedXMLPath);
 		_loadedXMLExists = fs::exists(xmlPath);
 		_fullLoadedXMLPath = xmlPath.string();
-		auto proximateXMLPath = fs::proximate(xmlPath, fs::current_path());
+		fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
 		_loadedXMLPath = proximateXMLPath.string();
 		_loadedXML = proximateXMLPath.replace_extension("").string();
 		LoadLayers(_loadedXMLPath);
@@ -248,7 +250,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ImGui::PushID("saveXMLBtn");
 	if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { buttonWidth, 20 }) && !_loadedXML.empty())
 	{
-		auto xmlPath = fs::current_path().append(_loadedXML);
+		fs::path appFolder = _appConfig->_appLocation;
+		fs::path xmlPath = appFolder.append(_loadedXML);
 		if (xmlPath.extension().string() != ".xml")
 			xmlPath.replace_extension(".xml");
 
@@ -256,7 +259,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		_loadedXMLExists = fs::exists(xmlPath);
 		_fullLoadedXMLPath = xmlPath.string();
-		_loadedXMLPath = fs::proximate(xmlPath, fs::current_path()).string();
+		_loadedXMLPath = fs::proximate(xmlPath, appFolder).string();
 		
 	}
 	ImGui::PopID();
@@ -299,7 +302,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	if (ImGui::CollapsingHeader("Global Settings"))
 	{
-		AddResetButton("pos", _globalPos, sf::Vector2f(0.0, 0.0), &style);
+		AddResetButton("pos", _globalPos, sf::Vector2f(0.0, 0.0), _appConfig, &style);
 		float pos[2] = { _globalPos.x, _globalPos.y };
 		if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
 		{
@@ -307,10 +310,10 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			_globalPos.y = pos[1];
 		}
 
-		AddResetButton("rot", _globalRot, 0.f, &style);
+		AddResetButton("rot", _globalRot, 0.f, _appConfig, &style);
 		ImGui::SliderFloat("Rotation", &_globalRot, -180.f, 180.f);
 
-		AddResetButton("scale", _globalScale, sf::Vector2f(1.0, 1.0), &style);
+		AddResetButton("scale", _globalScale, sf::Vector2f(1.0, 1.0), _appConfig, &style);
 		float scale[2] = { _globalScale.x, _globalScale.y };
 		if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
 		{
@@ -446,6 +449,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	tinyxml2::XMLDocument doc;
 
 	doc.LoadFile(settingsFileName.c_str());
+
+	if (doc.Error())
+	{
+		doc.LoadFile((_appConfig->_appLocation + settingsFileName).c_str());
+	}
 
 	auto root = doc.FirstChildElement("Config");
 	if (!root) 
@@ -596,15 +604,21 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		}
 	}
 
-	doc.SaveFile(settingsFileName.c_str());
+	std::string outFile = settingsFileName;
+	if (outFile.find("/") == std::string::npos && outFile.find("\\") == std::string::npos)
+	{
+		outFile = _appConfig->_appLocation + outFile;
+	}
+
+	doc.SaveFile(outFile.c_str());
 
 	if (doc.Error())
 	{
-		_errorMessage = "Failed to save document: " + settingsFileName;
+		_errorMessage = "Failed to save document: " + outFile;
 		return false;
 	}
 
-	_lastSavedLocation = settingsFileName;
+	_lastSavedLocation = outFile;
 
 	return true;
 }
@@ -624,8 +638,13 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 	if (doc.Error())
 	{
-		_errorMessage = "Could not read document: " + settingsFileName;
-		return false;
+		doc.LoadFile((_appConfig->_appLocation + settingsFileName).c_str());
+
+		if (doc.Error())
+		{
+			_errorMessage = "Could not read document: " + settingsFileName;
+			return false;
+		}
 	}
 
 	auto root = doc.FirstChildElement("Config");
@@ -1369,25 +1388,25 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
 
 	if (_animIcon == nullptr)
-		_animIcon = _textureMan.GetTexture("res/anim.png");
+		_animIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/anim.png");
 
 	if (_emptyIcon == nullptr)
-		_emptyIcon = _textureMan.GetTexture("res/empty.png");
+		_emptyIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/empty.png");
 
 	if (_upIcon == nullptr)
-		_upIcon = _textureMan.GetTexture("res/arrowup.png");
+		_upIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/arrowup.png");
 
 	if (_dnIcon == nullptr)
-		_dnIcon = _textureMan.GetTexture("res/arrowdn.png");
+		_dnIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/arrowdn.png");
 
 	if (_editIcon == nullptr)
-		_editIcon = _textureMan.GetTexture("res/edit.png");
+		_editIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/edit.png");
 
 	if (_delIcon == nullptr)
-		_delIcon = _textureMan.GetTexture("res/delete.png");
+		_delIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/delete.png");
 
 	if (_dupeIcon == nullptr)
-		_dupeIcon = _textureMan.GetTexture("res/duplicate.png");
+		_dupeIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/duplicate.png");
 
 	//_dupeIcon->setSmooth(true);
 	_delIcon->setSmooth(true);
@@ -1609,7 +1628,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		ImGui::Separator();
 
-		AddResetButton("talkThresh", _talkThreshold, 0.15f, &style);
+		AddResetButton("talkThresh", _talkThreshold, 0.15f, _parent->_appConfig, &style);
 		ImVec2 barPos = ImGui::GetCursorPos();
 		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
 		ImGui::NewLine();
@@ -1675,7 +1694,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PopID();
 
 
-			AddResetButton("screamThresh", _screamThreshold, 0.15f, &style);
+			AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style);
 			ImVec2 barPos = ImGui::GetCursorPos();
 			ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
 			ImGui::NewLine();
@@ -1713,11 +1732,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
 			ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
-			AddResetButton("blinkdur", _blinkDuration, 0.2f, &style);
+			AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
-			AddResetButton("blinkdelay", _blinkDelay, 6.f, &style);
+			AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
-			AddResetButton("blinkvar", _blinkVariation, 4.f, &style);
+			AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
 		}
 		oldCursorPos = ImGui::GetCursorPos();
@@ -1768,11 +1787,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				if (_bounceType != BounceNone)
 				{
-					AddResetButton("bobheight", _bounceHeight, 80.f, &style);
+					AddResetButton("bobheight", _bounceHeight, 80.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0);
 					if (_bounceType == BounceRegular)
 					{
-						AddResetButton("bobtime", _bounceFrequency, 0.333f, &style);
+						AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
 						ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
 					}
 				}
@@ -1799,9 +1818,9 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				if (_doBreathing)
 				{
-					AddResetButton("breathheight", _breathHeight, 30.f, &style);
+					AddResetButton("breathheight", _breathHeight, 30.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
-					AddResetButton("breathfreq", _breathFrequency, 4.f, &style);
+					AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
 				}
 			}
@@ -1813,7 +1832,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
-			AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), &style);
+			AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 			float pos[2] = { _pos.x, _pos.y };
 			if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
 			{
@@ -1821,10 +1840,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_pos.y = pos[1];
 			}
 
-			AddResetButton("rot", _rot, 0.f, &style);
+			AddResetButton("rot", _rot, 0.f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f);
 
-			AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), &style);
+			AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
 			float scale[2] = { _scale.x, _scale.y };
 			if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
 			{
@@ -1983,7 +2002,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		ImGui::PushItemWidth(120);
 
-		AddResetButton("gridreset", _animGrid, {anim.GridSize().x, anim.GridSize().y});
+		AddResetButton("gridreset", _animGrid, {anim.GridSize().x, anim.GridSize().y}, _parent->_appConfig);
 		if (ImGui::InputInt2("Sheet Columns/Rows", _animGrid.data()))
 		{
 			if (_animGrid[0] != anim.GridSize().x || _animGrid[1] != anim.GridSize().y)
@@ -1993,10 +2012,10 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			}
 		}
 
-		AddResetButton("fcountreset", _animFCount, anim.FrameCount());
+		AddResetButton("fcountreset", _animFCount, anim.FrameCount(), _parent->_appConfig);
 		ImGui::InputInt("Frame Count", &_animFCount, 0, 0);
 
-		AddResetButton("fpsreset", _animFPS, anim.FPS(), nullptr, !anim.IsSynced());
+		AddResetButton("fpsreset", _animFPS, anim.FPS(), _parent->_appConfig, nullptr, !anim.IsSynced());
 		if(!anim.IsSynced())
 			ImGui::InputFloat("FPS", &_animFPS, 1,1, "%.1f");
 		else
@@ -2008,7 +2027,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			ImGui::PopStyleColor();
 		}
 
-		AddResetButton("framereset", _animFrameSize, { -1, -1 });
+		AddResetButton("framereset", _animFrameSize, { -1, -1 }, _parent->_appConfig);
 		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", _animFrameSize.data());
 
 		bool sync = _animsSynced;
