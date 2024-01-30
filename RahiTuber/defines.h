@@ -17,6 +17,17 @@ static ImVec4 toImColor(const sf::Color& col)
 	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
 }
 
+static float Clamp(float in, float min, float max)
+{
+	if (in < min)
+		return min;
+
+	if (in > max)
+		return max;
+
+	return in;
+}
+
 static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {
 
 	{L'\\', sf::Keyboard::Backslash},

@@ -54,12 +54,12 @@ void KeyboardTracker::SetHook(bool enable)
 
 void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
 {
-  sf::Keyboard::Key pressed = sf::Keyboard::Unknown;
+  sf::Keyboard::Key keycode = sf::Keyboard::Unknown;
 
   int vkCode = kbdStruct->vkCode;
   if (g_key_codes.count(vkCode) != 0)
   {
-    pressed = g_key_codes[vkCode];
+    keycode = g_key_codes[vkCode];
   }
   else
   {
@@ -68,16 +68,16 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
     {
       if (g_specialkey_codes.count(unicodeKey) != 0)
       {
-        pressed = g_specialkey_codes[unicodeKey];
+        keycode = g_specialkey_codes[unicodeKey];
       }
     }
   }
 
-  _keysPressed[pressed] = keyDown;
+  _keysPressed[keycode] = keyDown;
 
-  bool isCtrl = (pressed == sf::Keyboard::LControl) || (pressed == sf::Keyboard::RControl);
-  bool isShift = (pressed == sf::Keyboard::LShift) || (pressed == sf::Keyboard::RShift);
-  bool isAlt = (pressed == sf::Keyboard::LAlt) || (pressed == sf::Keyboard::RAlt);
+  bool isCtrl = (keycode == sf::Keyboard::LControl) || (keycode == sf::Keyboard::RControl);
+  bool isShift = (keycode == sf::Keyboard::LShift) || (keycode == sf::Keyboard::RShift);
+  bool isAlt = (keycode == sf::Keyboard::LAlt) || (keycode == sf::Keyboard::RAlt);
 
   bool isModifier = isCtrl || isShift || isAlt;
 
@@ -88,15 +88,15 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
   bool shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
   bool alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
 
-  if (keyDown && _layerMan)
+  if (_layerMan)
   {
-    if (_layerMan->PendingHotkey())
+    if (_layerMan->PendingHotkey() && keyDown)
     {
-      _layerMan->SetHotkeys(pressed, ctrl, shift, alt);
+      _layerMan->SetHotkeys(keycode, ctrl, shift, alt);
     }
     else
     {
-      _layerMan->HandleHotkey(pressed, ctrl, shift, alt);
+      _layerMan->HandleHotkey(keycode, keyDown, ctrl, shift, alt);
     }
   }
 }

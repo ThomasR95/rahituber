@@ -375,7 +375,7 @@ void menuAdvanced(ImGuiStyle& style)
 		float percentVal = 1.0 / 60.0;
 		float smooth = (61.0 - audioConfig->_smoothFactor)* percentVal;
 		smooth = powf(smooth, 2.f);
-		if(ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.1f"))
+		if(ImGui::DragFloat("Soft Fall", &smooth, 0.01, 0.0, 1.0, "%.2f"))
 		{
 			smooth = max(0.0, min(smooth, 1.0));
 			smooth = powf(smooth, 0.5);
@@ -387,7 +387,7 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::PopStyleColor();
 
 		ImGui::PushItemWidth(50);
-		ImGui::SliderFloat("Max Level", &audioConfig->_fixedMax, 0.0, 2.0, "%.1f");
+		ImGui::DragFloat("Max Level", &audioConfig->_fixedMax, 0.01, 0.0, 2.0, "%.2f");
 		ImGui::PopItemWidth();
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
 		ImGui::SameLine(140); ImGui::TextWrapped("The maximum volume used in audio analysis.");
@@ -804,7 +804,7 @@ void handleEvents()
 	while (appConfig->_currentWindow->pollEvent(evt))
 	{
 		if (kbdTrack->IsHooked() == false
-			&& evt.type == evt.KeyPressed
+			&& (evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
 			&& evt.key.code != sf::Keyboard::LControl
 			&& evt.key.code != sf::Keyboard::LShift
 			&& evt.key.code != sf::Keyboard::LAlt
@@ -815,7 +815,9 @@ void handleEvents()
 			&& evt.key.code != sf::Keyboard::RSystem
 			&& evt.key.code != sf::Keyboard::Escape)
 		{
-			if (layerMan->PendingHotkey())
+			bool keyDown = evt.type == evt.KeyPressed;
+
+			if (layerMan->PendingHotkey() && keyDown)
 			{
 				layerMan->SetHotkeys(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
 				if (uiConfig->_menuShowing)
@@ -824,7 +826,7 @@ void handleEvents()
 			}
 			else
 			{
-				layerMan->HandleHotkey(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
+				layerMan->HandleHotkey(evt.key.code, keyDown, evt.key.control, evt.key.shift, evt.key.alt);
 			}
 		}
 
