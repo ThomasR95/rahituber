@@ -91,12 +91,14 @@ public:
 		bool _isBouncing = false;
 
 		bool _doBreathing = true;
-		float _breathHeight = 30;
 		float _breathFrequency = 4.0;
 		bool _isBreathing = false;
 		float _breathAmount = 0;
+		sf::Vector2f _breathScale = { 0.1, 0.1 };
+		sf::Vector2f _breathMove = { 0.0, 30.0 };
 
-		float _motionHeight = 0;
+		float _motionX = 0;
+		float _motionY = 0;
 		sf::Clock _motionTimer;
 
 		bool _scream = false;
@@ -138,6 +140,8 @@ public:
 		sf::Vector2f _pos;
 		float _rot = 0.0;
 		bool _keepAspect = true;
+
+		sf::Vector2f _pivot = { 0.5f, 0.5f };
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
@@ -182,6 +186,7 @@ public:
 		float _motionDelay = 0;
 		struct MotionLinkData
 		{
+			sf::Time _frameTime;
 			sf::Vector2f _scale = { 1.f, 1.f };
 			sf::Vector2f _pos = { 0,0 };
 			float _rot = 0.0;
@@ -191,6 +196,8 @@ public:
 		std::deque<MotionLinkData> _motionLinkData;
 
 		float _lastTalkFactor = 0.0;
+
+		sf::Clock _frameTimer;
 
 	};
 
@@ -212,7 +219,7 @@ public:
 		float _timeout = 5.0;
 		bool _useTimeout = true;
 		bool _toggle = true;
-		bool _timedInterval = false;
+		bool _schedule = false;
 		float _intervalTime = 2.0;
 		float _intervalVariation = 0.0;
 		float _currentIntervalTime = 0.0;
@@ -246,7 +253,7 @@ public:
 		_pendingShift = shift;
 		_pendingAlt = alt;
 	}
-	void HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt);
+	void HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool ctrl, bool shift, bool alt);
 	void ResetStates();
 
 	LayerInfo* GetLayer(std::string id) 

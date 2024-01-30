@@ -46,7 +46,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (UINT stateIdx = 0; stateIdx < _states.size(); stateIdx++)
 	{
 		auto& state = _states[stateIdx];
-		if (!state._active && state._timedInterval && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
+		if (!state._active && state._schedule && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
 		{
 			SaveDefaultStates();
 
@@ -61,7 +61,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	auto statesOrderCopy = _statesOrder;
 	for (auto state : statesOrderCopy)
 	{
-		if (state->_active && (state->_useTimeout || state->_timedInterval) && state->_timer.getElapsedTime().asSeconds() >= state->_timeout)
+		if (state->_active && (state->_useTimeout || state->_schedule) && state->_timer.getElapsedTime().asSeconds() >= state->_timeout)
 		{
 			state->_active = false;
 			RemoveStateFromOrder(state);
@@ -504,8 +504,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
 
 		thisLayer->SetAttribute("breathing", layer._doBreathing);
-		thisLayer->SetAttribute("breathHeight", layer._breathHeight);
+		thisLayer->SetAttribute("breathHeight", layer._breathMove.y);
 		thisLayer->SetAttribute("breathTime", layer._breathFrequency);
+		thisLayer->SetAttribute("breathMoveX", layer._breathMove.x);
+		thisLayer->SetAttribute("breathScaleX", layer._breathScale.x);
+		thisLayer->SetAttribute("breathScaleY", layer._breathScale.y);
 
 		thisLayer->SetAttribute("screaming", layer._scream);
 		thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
@@ -547,8 +550,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("posY", layer._pos.y);
 		thisLayer->SetAttribute("rot", layer._rot);
 
+		thisLayer->SetAttribute("pivotX", layer._pivot.x);
+		thisLayer->SetAttribute("pivotY", layer._pivot.y);
+
 		thisLayer->SetAttribute("motionParent", layer._motionParent.c_str());
-		thisLayer->SetAttribute("motionDelay", layer._motionDelay);
+		thisLayer->SetAttribute("motionDelayTime", layer._motionDelay);
 		thisLayer->SetAttribute("hideWithParent", layer._hideWithParent);
 
 		std::string bmName = "Normal";
@@ -592,7 +598,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
 		thisHotkey->SetAttribute("toggle", hkey._toggle);
 
-		thisHotkey->SetAttribute("schedule", hkey._timedInterval);
+		thisHotkey->SetAttribute("schedule", hkey._schedule);
 		thisHotkey->SetAttribute("interval", hkey._intervalTime);
 		thisHotkey->SetAttribute("variation", hkey._intervalVariation);
 
@@ -704,8 +710,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
 
 		thisLayer->QueryAttribute("breathing", &layer._doBreathing);
-		thisLayer->QueryAttribute("breathHeight", &layer._breathHeight);
+		thisLayer->QueryAttribute("breathHeight", &layer._breathMove.y);
 		thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
+		thisLayer->QueryAttribute("breathMoveX", &layer._breathMove.x);
+		thisLayer->QueryAttribute("breathScaleX", &layer._breathScale.x);
+		thisLayer->QueryAttribute("breathScaleY", &layer._breathScale.y);
 
 		thisLayer->QueryAttribute("screaming", &layer._scream);
 		thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
@@ -767,11 +776,21 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("posY", &layer._pos.y);
 		thisLayer->QueryAttribute("rot", &layer._rot);
 
+		thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
+		thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
+
 		const char* mpguid = thisLayer->Attribute("motionParent");
 		if (mpguid)
 			layer._motionParent = mpguid;
 
-		thisLayer->QueryAttribute("motionDelay", &layer._motionDelay);
+		float motionDelayFrames = 0;
+		if(thisLayer->QueryAttribute("motionDelay", &motionDelayFrames) == tinyxml2::XML_SUCCESS)
+		{
+			layer._motionDelay = motionDelayFrames * (1.0 / 60.0);
+		}
+
+		thisLayer->QueryAttribute("motionDelayTime", &layer._motionDelay);
+
 		thisLayer->QueryAttribute("hideWithParent", &layer._hideWithParent);
 
 		layer._blendMode = g_blendmodes["Normal"];
@@ -826,7 +845,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
 		thisHotkey->QueryAttribute("toggle", &hkey._toggle);
 
-		thisHotkey->QueryAttribute("schedule", &hkey._timedInterval);
+		thisHotkey->QueryAttribute("schedule", &hkey._schedule);
 		thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
 		thisHotkey->QueryAttribute("variation", &hkey._intervalVariation);
 
@@ -860,7 +879,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	return true;
 }
 
-void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt)
+void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool ctrl, bool shift, bool alt)
 {
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
@@ -871,12 +890,12 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool ctrl, bool sh
 		auto& hkey = _states[h];
 		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
 		{
-			if (hkey._active && hkey._toggle)
+			if (hkey._active && ((hkey._toggle && keyDown) || (!hkey._toggle && !keyDown)))
 			{
 				hkey._active = false;
 				RemoveStateFromOrder(&hkey);
 			}
-			else if (!hkey._active)
+			else if (!hkey._active && keyDown)
 			{
 				SaveDefaultStates();
 
@@ -951,7 +970,7 @@ void LayerManager::DrawStatesGUI()
 			std::string name = g_key_names[state._key];
 			if (state._key == sf::Keyboard::Unknown)
 			{
-				if (state._timedInterval)
+				if (state._schedule)
 					name = "";
 				else
 					name = "No hotkey";
@@ -965,7 +984,7 @@ void LayerManager::DrawStatesGUI()
 
 			std::string keyName = name;
 
-			if (state._timedInterval)
+			if (state._schedule)
 			{
 				std::stringstream ss;
 
@@ -981,8 +1000,10 @@ void LayerManager::DrawStatesGUI()
 				name += ss.str();
 			}
 
+			float contentWidth = ImGui::GetWindowContentRegionMax().x;
+
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
-			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + 330, ImGui::GetCursorPosY() };
+			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth-60), ImGui::GetCursorPosY() };
 
 			ImGui::PushID('id' + stateIdx);
 
@@ -1033,21 +1054,27 @@ void LayerManager::DrawStatesGUI()
 
 				ImGui::NextColumn();
 
-				ImGui::Checkbox("Toggle", &state._toggle);
-				float timeoutpos = ImGui::GetCursorPosY();
+				float togglePos = ImGui::GetCursorPosY();
+				if (ImGui::RadioButton("Toggle", state._toggle))
+					state._toggle = true;
 
-				bool timeoutActive = state._useTimeout || state._timedInterval;
-				if(ImGui::Checkbox("Timeout", &timeoutActive) && !state._timedInterval)
+				float timeoutpos = ImGui::GetCursorPosY();
+				bool timeoutActive = state._useTimeout || state._schedule;
+				if(ImGui::Checkbox("Timeout", &timeoutActive) && !state._schedule)
 				{
 					state._useTimeout = timeoutActive;
 				}
-				ImGui::Checkbox("Schedule", &state._timedInterval);
+				ImGui::Checkbox("Schedule", &state._schedule);
 				float scheduleIndent = ImGui::GetCursorPosX();
 
 				ImGui::NextColumn();
 
+				ImGui::SetCursorPosY(togglePos);
+				if (ImGui::RadioButton("While Held", !state._toggle))
+					state._toggle = false;
+
 				ImGui::SetCursorPosY(timeoutpos);
-				if (state._useTimeout)
+				if (timeoutActive)
 				{
 					ImGui::PushID("timeoutSlider");
 					ImGui::SliderFloat("", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
@@ -1060,7 +1087,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::SetColumnWidth(0, 150);
 				ImGui::SetColumnWidth(1, 400);
 				ImGui::NextColumn();
-				if (state._timedInterval)
+				if (state._schedule)
 				{
 					ImGui::SliderFloat("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
@@ -1136,6 +1163,8 @@ void LayerManager::DrawStatesGUI()
 
 void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
+	sf::Time frameTime = _frameTimer.restart();
+
 	_activeSprite = nullptr;
 
 	if (!_idleImage)
@@ -1226,7 +1255,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 		sf::Vector2f pos;
 
-		float newMotionHeight = 0;
+		float newMotionY = 0;
+		float newMotionX = 0;
 
 		switch (_bounceType)
 		{
@@ -1237,7 +1267,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			if (talking || screaming)
 			{
 				_isBouncing = true;
-				newMotionHeight += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold));
+				newMotionY += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold));
 			}
 			break;
 		case LayerManager::LayerInfo::BounceRegular:
@@ -1252,7 +1282,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				float motionTime = _motionTimer.getElapsedTime().asSeconds();
 				motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
 				float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
-				newMotionHeight = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
+				newMotionY = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
 			}
 			else
 				_isBouncing = false;
@@ -1262,7 +1292,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			break;
 		}
 
-		float breathScale = 1.0;
+		sf::Vector2f breathScale = {1.0,1.0};
 
 		if (_doBreathing)
 		{
@@ -1289,17 +1319,17 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			}
 
 			// breathing is half movement, half scale
-			newMotionHeight += _breathAmount * (_breathHeight / 2);
+			newMotionX += _breathAmount * _breathMove.x;
+			newMotionY += _breathAmount * _breathMove.y;
 
-			float origHeight = _activeSprite->Size().y * _scale.y;
-			float breathHeight = origHeight + _breathAmount * (_breathHeight / 2);
-
-			breathScale = breathHeight / origHeight;
+			breathScale = sf::Vector2f(1.0, 1.0) + _breathAmount * _breathScale;
 		}
 
-		_motionHeight += (newMotionHeight - _motionHeight) * 0.3f;
+		_motionY += (newMotionY - _motionY) * 0.3f;
+		_motionX += (newMotionX - _motionX) * 0.3f;
 
-		pos.y -= _motionHeight;
+		pos.x += _motionX;
+		pos.y -= _motionY;
 
 		if (screaming && _screamVibrate)
 		{
@@ -1318,54 +1348,87 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_isScreaming = false;
 		}
 
-		_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
-		_activeSprite->setScale(_scale * breathScale);
+		_activeSprite->setOrigin({ _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y });
+		_activeSprite->setScale({ _scale.x * breathScale.x, _scale.y * breathScale.y });
 		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + pos.x, windowHeight / 2 + _pos.y + pos.y });
 		_activeSprite->setRotation(_rot);
 
 		MotionLinkData thisFrame;
+		thisFrame._frameTime = frameTime;
 		thisFrame._pos = pos;
-		thisFrame._scale = { breathScale, breathScale };
+		thisFrame._scale = breathScale;
 		thisFrame._rot = _rot;
 		_motionLinkData.push_front(thisFrame);
-		if (_motionLinkData.size() > 11)
+
+		sf::Time totalMotionStoredTime;
+		for (auto& frame : _motionLinkData)
+			totalMotionStoredTime += frame._frameTime;
+
+		while (totalMotionStoredTime > sf::seconds(1.1))
+		{
+			totalMotionStoredTime -= _motionLinkData.back()._frameTime;
 			_motionLinkData.pop_back();
+		}
 	}
 	else
 	{
 		LayerInfo* mp = _parent->GetLayer(_motionParent);
-		if (mp)
+		if (mp && mp->_activeSprite != nullptr)
 		{
 			float motionDelayNow = _motionDelay;
 			if (motionDelayNow < 0)
 				motionDelayNow = 0;
 
-			size_t maxDelay = mp->_motionLinkData.size() - 1;
-			if (motionDelayNow > maxDelay)
-				motionDelayNow = maxDelay;
+			sf::Time totalMotionStoredTime;
+			for (auto& frame : mp->_motionLinkData)
+				totalMotionStoredTime += frame._frameTime;
+
+			if (motionDelayNow > totalMotionStoredTime.asSeconds())
+				motionDelayNow = totalMotionStoredTime.asSeconds();
 
 			sf::Vector2f mpScale;
 			sf::Vector2f mpPos;
 			float mpRot = 0;
-			if (floor(motionDelayNow) == ceil(motionDelayNow) && mp->_motionLinkData.size() > motionDelayNow)
-			{
-				mpScale = mp->_motionLinkData[(size_t)motionDelayNow]._scale;
-				mpPos = mp->_motionLinkData[(size_t)motionDelayNow]._pos;
-				mpRot = mp->_motionLinkData[(size_t)motionDelayNow]._rot;
-			}
-			else
-			{
-				size_t prev = floor(motionDelayNow);
-				size_t next = ceil(motionDelayNow);
 
-				if (mp->_motionLinkData.size() > next)
+			size_t prev = 0;
+			size_t next = 0;
+			sf::Time cumulativeTime;
+			sf::Time prevCumulativeTime;
+			size_t idx = 0;
+			for (auto& frame : mp->_motionLinkData)
+			{
+				if (cumulativeTime.asSeconds() > motionDelayNow)
 				{
-					float fraction = motionDelayNow - prev;
-					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
-					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
-					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+					next = idx;
+					break;
 				}
+
+				if (cumulativeTime.asSeconds() <= motionDelayNow)
+					prev = idx;
+
+				prevCumulativeTime = cumulativeTime;
+				cumulativeTime += frame._frameTime;
+				idx++;
 			}
+
+			if (mp->_motionLinkData.size() > next)
+			{
+				float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
+				float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
+				float fraction = framePosition / frameDuration;
+				mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
+				mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+				mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+			}
+
+			const sf::Vector2f parentOrigin = mp->_activeSprite->getOrigin();
+			const sf::Vector2f myOrigin = _activeSprite->getOrigin();
+
+			sf::Vector2f originOffset = _pos - mp->_pos;
+			sf::Vector2f offsetScaled = { originOffset.x * mpScale.x, originOffset.y * mpScale.y };
+			sf::Vector2f originMove = offsetScaled - originOffset;
+
+			mpPos += originMove;
 
 			MotionLinkData thisFrame;
 			thisFrame._pos = mpPos;
@@ -1375,7 +1438,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			if (_motionLinkData.size() > 11)
 				_motionLinkData.pop_back();
 			
-			_activeSprite->setOrigin({ 0.5f * _activeSprite->Size().x, 0.5f * _activeSprite->Size().y });
+			_activeSprite->setOrigin({ _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y });
 			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
 			_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
 			_activeSprite->setRotation(_rot + mpRot);
@@ -1421,8 +1484,12 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	sf::Vector2f headerBtnSize(17, 17);
 	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - headerBtnSize.x*8, ImGui::GetCursorPosY()};
 
+	float indentSize = 8;
+
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
+		ImGui::Indent(indentSize);
+
 		static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
 		static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
 		static imgui_ext::file_browser_modal fileBrowserBlink("Import Blink Sprite");
@@ -1641,7 +1708,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			barBg = sf::Color(60, 20, 20, 255);
 		}
 
-		sf::Vector2f topLeft = { barPos.x + 7, barPos.y };
+		sf::Vector2f topLeft = { barPos.x, barPos.y };
 		float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
 		float barHeight = 10;
 		sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
@@ -1659,6 +1726,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 		if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			ImGui::Indent(indentSize);
+
 			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 			ImGui::PushID("screamimport");
 			sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
@@ -1693,10 +1762,17 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			ImGui::PopID();
 
-
+			float resetW = 22;
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+			ImGui::Columns(2, "scrm", false);
+			ImGui::SetColumnWidth(0, resetW);
+			ImGui::PopStyleVar(2);
 			AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style);
+			ImGui::NextColumn();
 			ImVec2 barPos = ImGui::GetCursorPos();
 			ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
+			ImGui::Columns(1);
 			ImGui::NewLine();
 
 			sf::Color barHighlight(60, 140, 60, 255);
@@ -1707,8 +1783,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				barBg = sf::Color(60, 20, 20, 255);
 			}
 
-			sf::Vector2f topLeft = { barPos.x + 7, barPos.y };
-			float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
+			sf::Vector2f topLeft = { barPos.x - 9, barPos.y };
+			float barWidth = (ImGui::GetColumnWidth() - topLeft.x) - (150);
 			float barHeight = 10;
 			sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
 			ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
@@ -1722,6 +1798,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			ImGui::Checkbox("Vibrate", &_screamVibrate);
 			ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f");
+
+			ImGui::Unindent(indentSize);
 		}
 		auto oldCursorPos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(subHeaderBtnPos);
@@ -1731,6 +1809,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 		if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			ImGui::Indent(indentSize);
 			ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 			AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
@@ -1738,6 +1817,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
 			AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
 			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
+			ImGui::Unindent(indentSize);
 		}
 		oldCursorPos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(subHeaderBtnPos);
@@ -1747,16 +1827,18 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 		if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			ImGui::Indent(indentSize);
 			if (_motionParent != "")
 			{
 				float md = _motionDelay;
-				if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 10.0, "%.2f", ImGuiSliderFlags_Logarithmic))
+				if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 1.0, "%.2f", ImGuiSliderFlags_Logarithmic))
 				{
-					_motionDelay = md;
+					_motionDelay = Clamp(md, 0.0, 1.0);
 				}
 			}
 
 			ImGui::Checkbox("Hide with Parent", &_hideWithParent);
+			ImGui::Unindent(indentSize);
 		}
 		oldCursorPos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(subHeaderBtnPos);
@@ -1766,7 +1848,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (ImGui::BeginCombo("##MotionInherit", mpName.c_str()))
 		{
 			if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
-				_motionParent = -1;
+				_motionParent = "-1";
 			for (auto& layer : _parent->GetLayers())
 			{
 				if (layer._id != _id && layer._motionParent != _id)
@@ -1785,6 +1867,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Bouncing", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ImGui::Indent(indentSize);
 				if (_bounceType != BounceNone)
 				{
 					AddResetButton("bobheight", _bounceHeight, 80.f, _parent->_appConfig, &style);
@@ -1795,6 +1878,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
 					}
 				}
+				ImGui::Unindent(indentSize);
 			}
 			oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
@@ -1816,13 +1900,23 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Breathing", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ImGui::Indent(indentSize);
 				if (_doBreathing)
 				{
-					AddResetButton("breathheight", _breathHeight, 30.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Breath Height", &_breathHeight, 0.0, 500.0);
+					AddResetButton("breathmove", _breathMove, {0.0, 30.0}, _parent->_appConfig, &style);
+					float data[2] = {_breathMove.x, _breathMove.y};
+					if (ImGui::SliderFloat2("Breath Move", data, -50, 50, "%.2f"))
+						_breathMove = { data[0], data[1] };
+
+					AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
+					float data2[2] = {_breathScale.x, _breathScale.y};
+					if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
+						_breathScale = { data2[0], data2[1] };
+
 					AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
 				}
+				ImGui::Unindent(indentSize);
 			}
 			oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
@@ -1832,6 +1926,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			ImGui::Indent(indentSize);
 			AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 			float pos[2] = { _pos.x, _pos.y };
 			if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
@@ -1862,8 +1957,20 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				}
 			}
 			ImGui::Checkbox("Constrain", &_keepAspect);
+
+			AddResetButton("pivot", _pivot, sf::Vector2f(0.5, 0.5), _parent->_appConfig, &style);
+			float pivot[2] = { _pivot.x, _pivot.y };
+			if (ImGui::SliderFloat2("Pivot Point", pivot, 0.0, 1.f))
+			{
+				_pivot.x = Clamp(pivot[0], 0.0, 1.0);
+				_pivot.y = Clamp(pivot[1], 0.0, 1.0);
+			}
+
+			ImGui::Unindent(indentSize);
 		}
 		ImGui::Separator();
+
+		ImGui::Unindent(indentSize);
 	}
 
 	auto oldCursorPos = ImGui::GetCursorPos();
