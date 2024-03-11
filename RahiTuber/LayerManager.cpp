@@ -29,6 +29,13 @@ LayerManager::~LayerManager()
 	//_chatReader.Cleanup();
 }
 
+const std::vector<std::string> g_activeTypeNames
+{
+	"Toggle",
+	"While Held",
+	"Permanent"
+};
+
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
 	// reset to default states
@@ -114,7 +121,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			}
 		}
 
-		if(calculate)
+		if (calculate)
 			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax);
 	}
 		
@@ -195,6 +202,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._screamSprite->Draw(target, state);
 			}
 		}
+
+		layer._oldVisible = visible;
 	}
 }
 
@@ -355,20 +364,36 @@ void LayerManager::AddLayer(const LayerInfo* toCopy)
 {
 	LayerInfo newLayer = LayerInfo();
 
+	LayerInfo* layer = nullptr;
+
 	if (toCopy != nullptr)
 	{
 		newLayer = LayerInfo(*toCopy);
 		newLayer._name += " Copy";
+		newLayer._blinkSprite = std::make_shared<SpriteSheet>(*newLayer._blinkSprite.get());
+		newLayer._talkBlinkSprite = std::make_shared<SpriteSheet>(*newLayer._talkBlinkSprite.get());
+		newLayer._talkSprite = std::make_shared<SpriteSheet>(*newLayer._talkSprite.get());
+		newLayer._screamSprite = std::make_shared<SpriteSheet>(*newLayer._screamSprite.get());
+		newLayer._idleSprite = std::make_shared<SpriteSheet>(*newLayer._idleSprite.get());
+
+		newLayer.SyncAnims(newLayer._animsSynced);
+		
+		int idx = 0;
+		for (auto lit = _layers.begin(); lit < _layers.end(); lit++, idx++)
+		{
+			if (&(*lit) == toCopy)
+			{
+				_layers.insert(lit, newLayer);
+				layer = &_layers[idx];
+				break;
+			}
+		}
 	}
-
-	_layers.push_back(newLayer);
-
-	LayerInfo& layer = _layers.back();
-
-	layer._blinkTimer.restart();
-	layer._isBlinking = false;
-	layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
-	layer._parent = this;
+	else
+	{
+		_layers.push_back(newLayer);
+		layer = &_layers.back();
+	}
 
 	UUID uuid = { 0 };
 	std::string guid;
@@ -384,8 +409,11 @@ void LayerManager::AddLayer(const LayerInfo* toCopy)
 		::RpcStringFreeA(&szUuid);
 	}
 
-	layer._id = guid;
-	
+	layer->_blinkTimer.restart();
+	layer->_isBlinking = false;
+	layer->_blinkVarDelay = GetRandom11() * layer->_blinkVariation;
+	layer->_parent = this;
+	layer->_id = guid;
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -515,6 +543,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
 		thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
 
+		thisLayer->SetAttribute("restartAnimsOnVisible", layer._restartAnimsOnVisible);
+
 		thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
 		thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
 		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
@@ -596,7 +626,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("alt", hkey._alt);
 		thisHotkey->SetAttribute("timeout", hkey._timeout);
 		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
-		thisHotkey->SetAttribute("toggle", hkey._toggle);
+		thisHotkey->SetAttribute("activeType", hkey._activeType);
+
+		thisHotkey->DeleteAttribute("toggle");
 
 		thisHotkey->SetAttribute("schedule", hkey._schedule);
 		thisHotkey->SetAttribute("interval", hkey._intervalTime);
@@ -721,6 +753,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
 		thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
 
+		thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
+
 		if(const char* idlePth = thisLayer->Attribute("idlePath"))
 			layer._idleImagePath = idlePth;
 		if (const char* talkPth = thisLayer->Attribute("talkPath"))
@@ -843,7 +877,14 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisHotkey->QueryAttribute("alt", &hkey._alt);
 		thisHotkey->QueryAttribute("timeout", &hkey._timeout);
 		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
-		thisHotkey->QueryAttribute("toggle", &hkey._toggle);
+
+		hkey._activeType = StatesInfo::ActiveType::Toggle;
+		bool toggle = true;
+		thisHotkey->QueryAttribute("toggle", &toggle);
+		if(!toggle)
+			hkey._activeType = StatesInfo::ActiveType::Held;
+			
+		thisHotkey->QueryIntAttribute("activeType", (int*)(& hkey._activeType));
 
 		thisHotkey->QueryAttribute("schedule", &hkey._schedule);
 		thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
@@ -890,27 +931,49 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 		auto& hkey = _states[h];
 		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
 		{
-			if (hkey._active && ((hkey._toggle && keyDown) || (!hkey._toggle && !keyDown)))
+			if (hkey._active && ((hkey._activeType == StatesInfo::Toggle && keyDown) || (hkey._activeType == StatesInfo::Held && !keyDown)))
 			{
+				// deactivate
 				hkey._active = false;
 				RemoveStateFromOrder(&hkey);
 			}
 			else if (!hkey._active && keyDown)
 			{
-				SaveDefaultStates();
-
-				for (auto& state : hkey._layerStates)
+				if (hkey._activeType == StatesInfo::Permanent)
 				{
-					LayerInfo* layer = GetLayer(state.first);
-					if (layer && state.second != StatesInfo::NoChange)
+					// activate immediately & alter the default states
+					for (auto& state : hkey._layerStates)
 					{
-						layer->_visible = state.second;
+						LayerInfo* layer = GetLayer(state.first);
+						if (layer && state.second != StatesInfo::NoChange)
+						{
+							layer->_visible = state.second;
+							const std::string& layerId = layer->_id;
+							if (_defaultLayerStates.count(layerId))
+								_defaultLayerStates[layerId] = state.second;
+						}
 					}
+					// never "activates" because it can't be undone
+					hkey._active = false;
 				}
-				AppendStateToOrder(&hkey);
-				hkey._timer.restart();
-				hkey._active = true;
-				_statesTimer.restart();
+				else
+				{
+					// activate and add to stack
+					SaveDefaultStates();
+
+					for (auto& state : hkey._layerStates)
+					{
+						LayerInfo* layer = GetLayer(state.first);
+						if (layer && state.second != StatesInfo::NoChange)
+						{
+							layer->_visible = state.second;
+						}
+					}
+					AppendStateToOrder(&hkey);
+					hkey._timer.restart();
+					hkey._active = true;
+					_statesTimer.restart();
+				}
 			}
 			break;
 		}
@@ -1054,31 +1117,47 @@ void LayerManager::DrawStatesGUI()
 
 				ImGui::NextColumn();
 
-				float togglePos = ImGui::GetCursorPosY();
-				if (ImGui::RadioButton("Toggle", state._toggle))
-					state._toggle = true;
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Active Type:");
 
 				float timeoutpos = ImGui::GetCursorPosY();
-				bool timeoutActive = state._useTimeout || state._schedule;
-				if(ImGui::Checkbox("Timeout", &timeoutActive) && !state._schedule)
+				bool whileHeld = state._activeType == StatesInfo::Held;
+				bool timeoutActive = (state._useTimeout && !whileHeld) || state._schedule;
+				if (state._activeType != StatesInfo::Permanent)
 				{
-					state._useTimeout = timeoutActive;
+					if (whileHeld)
+						ImGui::BeginDisabled();
+					if (ImGui::Checkbox("Timeout", &timeoutActive) && !state._schedule && !whileHeld)
+					{
+						state._useTimeout = timeoutActive;
+					}
+					if (whileHeld)
+						ImGui::EndDisabled();
+					ImGui::Checkbox("Schedule", &state._schedule);
 				}
-				ImGui::Checkbox("Schedule", &state._schedule);
-				float scheduleIndent = ImGui::GetCursorPosX();
-
+				
 				ImGui::NextColumn();
-
-				ImGui::SetCursorPosY(togglePos);
-				if (ImGui::RadioButton("While Held", !state._toggle))
-					state._toggle = false;
-
-				ImGui::SetCursorPosY(timeoutpos);
-				if (timeoutActive)
+				ImGui::PushItemWidth(100);
+				if (ImGui::BeginCombo("##ActiveType", g_activeTypeNames[state._activeType].c_str()))
 				{
-					ImGui::PushID("timeoutSlider");
-					ImGui::SliderFloat("", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
-					ImGui::PopID();
+					for (int atype = 0; atype < g_activeTypeNames.size(); atype++)
+					{
+						if (ImGui::Selectable(g_activeTypeNames[atype].c_str(), state._activeType == atype))
+							state._activeType = (StatesInfo::ActiveType)atype;
+					}
+					ImGui::EndCombo();
+				}
+				ImGui::PopItemWidth();
+
+				if (state._activeType != StatesInfo::Permanent)
+				{
+					ImGui::SetCursorPosY(timeoutpos);
+					if (timeoutActive)
+					{
+						ImGui::PushID("timeoutSlider");
+						ImGui::SliderFloat("", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+						ImGui::PopID();
+					}
 				}
 
 				ImGui::Columns();
@@ -1087,7 +1166,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::SetColumnWidth(0, 150);
 				ImGui::SetColumnWidth(1, 400);
 				ImGui::NextColumn();
-				if (state._schedule)
+				if (state._schedule && state._activeType != StatesInfo::Permanent)
 				{
 					ImGui::SliderFloat("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
@@ -1109,6 +1188,9 @@ void LayerManager::DrawStatesGUI()
 
 					ImGui::AlignTextToFramePadding();
 					ImGui::Text(l._name.c_str());
+
+					if (state._layerStates.count(l._id) == 0)
+						state._layerStates[l._id] = StatesInfo::NoChange;
 
 					ImGui::NextColumn();
 					if (layerIdx % 2)
@@ -1167,7 +1249,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	_activeSprite = nullptr;
 
-	if (!_idleImage)
+	if (!_idleSprite)
 		return;
 	
 	_idleSprite->_visible = true;
@@ -1186,6 +1268,21 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		talkFactor = pow(talkFactor, 0.5);
 		_lastTalkFactor = talkFactor;
 	}
+
+	if (_visible && !_oldVisible && _restartAnimsOnVisible)
+	{
+		if (_talkBlinkSprite)
+			_talkBlinkSprite->Restart();
+		if(_blinkSprite)
+			_blinkSprite->Restart();
+		if(_talkSprite)
+			_talkSprite->Restart();
+		if(_idleSprite)
+			_idleSprite->Restart();
+		if(_screamSprite)
+			_screamSprite->Restart();
+	}
+	_oldVisible = _visible;
 
 	bool screaming = _scream && talkFactor > _screamThreshold;
 	bool talking = !screaming && talkFactor > _talkThreshold;
@@ -1373,56 +1470,62 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	else
 	{
 		LayerInfo* mp = _parent->GetLayer(_motionParent);
-		if (mp && mp->_activeSprite != nullptr)
+		if (mp)
 		{
 			float motionDelayNow = _motionDelay;
 			if (motionDelayNow < 0)
 				motionDelayNow = 0;
 
-			sf::Time totalMotionStoredTime;
-			for (auto& frame : mp->_motionLinkData)
-				totalMotionStoredTime += frame._frameTime;
-
-			if (motionDelayNow > totalMotionStoredTime.asSeconds())
-				motionDelayNow = totalMotionStoredTime.asSeconds();
-
-			sf::Vector2f mpScale;
+			sf::Vector2f mpScale = { 1.0,1.0 };
 			sf::Vector2f mpPos;
 			float mpRot = 0;
 
-			size_t prev = 0;
-			size_t next = 0;
-			sf::Time cumulativeTime;
-			sf::Time prevCumulativeTime;
-			size_t idx = 0;
-			for (auto& frame : mp->_motionLinkData)
+			if (motionDelayNow > 0)
 			{
-				if (cumulativeTime.asSeconds() > motionDelayNow)
+				sf::Time totalParentStoredTime;
+				for (auto& frame : mp->_motionLinkData)
+					totalParentStoredTime += frame._frameTime;
+
+				if (motionDelayNow > totalParentStoredTime.asSeconds())
+					motionDelayNow = totalParentStoredTime.asSeconds();
+
+				size_t prev = 0;
+				size_t next = 0;
+				sf::Time cumulativeTime;
+				sf::Time prevCumulativeTime;
+				size_t idx = 0;
+				for (auto& frame : mp->_motionLinkData)
 				{
-					next = idx;
-					break;
+					if (cumulativeTime.asSeconds() > motionDelayNow)
+					{
+						next = idx;
+						break;
+					}
+
+					if (cumulativeTime.asSeconds() <= motionDelayNow)
+						prev = idx;
+
+					prevCumulativeTime = cumulativeTime;
+					cumulativeTime += frame._frameTime;
+					idx++;
 				}
 
-				if (cumulativeTime.asSeconds() <= motionDelayNow)
-					prev = idx;
-
-				prevCumulativeTime = cumulativeTime;
-				cumulativeTime += frame._frameTime;
-				idx++;
+				if (mp->_motionLinkData.size() > next)
+				{
+					float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
+					float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
+					float fraction = framePosition / frameDuration;
+					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
+					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+				}
 			}
-
-			if (mp->_motionLinkData.size() > next)
+			else if (mp->_motionLinkData.size() > 0)
 			{
-				float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
-				float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
-				float fraction = framePosition / frameDuration;
-				mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
-				mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
-				mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+				mpScale = mp->_motionLinkData[0]._scale;
+				mpPos = mp->_motionLinkData[0]._pos;
+				mpRot = mp->_motionLinkData[0]._rot;
 			}
-
-			const sf::Vector2f parentOrigin = mp->_activeSprite->getOrigin();
-			const sf::Vector2f myOrigin = _activeSprite->getOrigin();
 
 			sf::Vector2f originOffset = _pos - mp->_pos;
 			sf::Vector2f offsetScaled = { originOffset.x * mpScale.x, originOffset.y * mpScale.y };
@@ -1431,12 +1534,21 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			mpPos += originMove;
 
 			MotionLinkData thisFrame;
+			thisFrame._frameTime = frameTime;
 			thisFrame._pos = mpPos;
 			thisFrame._scale = mpScale;
 			thisFrame._rot = mpRot;
 			_motionLinkData.push_front(thisFrame);
-			if (_motionLinkData.size() > 11)
+			
+			sf::Time totalMotionStoredTime;
+			for (auto& frame : _motionLinkData)
+				totalMotionStoredTime += frame._frameTime;
+
+			while (totalMotionStoredTime > sf::seconds(1.1))
+			{
+				totalMotionStoredTime -= _motionLinkData.back()._frameTime;
 				_motionLinkData.pop_back();
+			}
 			
 			_activeSprite->setOrigin({ _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y });
 			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
@@ -1692,6 +1804,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_talkBlinkImage->setSmooth(_scaleFiltering);
 		}
 		ImGui::PopItemWidth();
+
+		ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
 		
 		ImGui::Separator();
 
@@ -1831,7 +1945,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (_motionParent != "")
 			{
 				float md = _motionDelay;
-				if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 1.0, "%.2f", ImGuiSliderFlags_Logarithmic))
+				if (ImGui::SliderFloat("Motion Delay", &md, 0.0, 1.0, "%.2f"))
 				{
 					_motionDelay = Clamp(md, 0.0, 1.0);
 				}
@@ -2083,6 +2197,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			_animGrid = { gridSize.x, gridSize.y };
 			_animFCount = anim.FrameCount();
 			_animFPS = anim.FPS();
+			_animLoop = anim._loop;
 			_animFrameSize = { anim.Size().x, anim.Size().y };
 		}
 		else
@@ -2143,6 +2258,12 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			_animsSynced = sync;
 		}
 
+		bool loop = _animLoop;
+		if (ImGui::Checkbox("Loop", &loop))
+		{
+			_animLoop = loop;
+		}
+
 		ImGui::PushStyleColor(ImGuiCol_Button, { 0.1,0.5,0.1,1.0 });
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.2,0.8,0.2,1.0 });
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.4,0.8,0.4,1.0 });
@@ -2150,6 +2271,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		if (ImGui::Button("Save"))
 		{
 			anim.SetAttributes(_animFCount, _animGrid[0], _animGrid[1], _animFPS, { _animFrameSize[0], _animFrameSize[1] });
+			anim._loop = _animLoop;
 			open = false;
 			ImGui::CloseCurrentPopup();
 		}

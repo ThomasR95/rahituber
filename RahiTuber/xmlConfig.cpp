@@ -83,10 +83,31 @@ bool xmlConfigLoader::loadCommon()
 
 	common->QueryAttribute("audioFilter", &_audioConfig->_doFiltering);
 
-	const char* theme = common->Attribute("theme");
-	if (theme != NULL)
-		_uiConfig->_theme = theme;
+	common->QueryBoolAttribute("vsync", &_appConfig->_enableVSync);
 
+	auto themeElmt = common->FirstChildElement("Theme");
+
+	while(themeElmt)
+	{
+		const char* themeName = themeElmt->Attribute("name");
+		if (themeName != NULL)
+		{
+			auto& theme = _uiConfig->_themes[themeName];
+
+			themeElmt->QueryAttribute("main_r", &theme.first.x);
+			themeElmt->QueryAttribute("main_g", &theme.first.y);
+			themeElmt->QueryAttribute("main_b", &theme.first.z);
+			themeElmt->QueryAttribute("accent_r", &theme.second.x);
+			themeElmt->QueryAttribute("accent_g", &theme.second.y);
+			themeElmt->QueryAttribute("accent_b", &theme.second.z);
+		}
+
+		themeElmt = themeElmt->NextSiblingElement("Theme");
+	}
+
+	const char* theme = common->Attribute("theme");
+	if (theme != NULL && _uiConfig->_themes.count(theme) != 0)
+		_uiConfig->_theme = theme;
 
 	return true;
 }
@@ -131,6 +152,30 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("audioFilter", _audioConfig->_doFiltering);
 
 			common->SetAttribute("theme", _uiConfig->_theme.c_str());
+
+			common->SetAttribute("vsync", _appConfig->_enableVSync);
+
+			auto themeElmt = common->FirstChildElement("Theme");
+
+			while (themeElmt)
+			{
+				common->DeleteChild(themeElmt);
+				themeElmt = common->FirstChildElement("Theme");
+			}
+
+			for (auto& theme : _uiConfig->_themes)
+			{
+				auto themeElmt = common->InsertEndChild(doc.NewElement("Theme"))->ToElement();
+				themeElmt->SetAttribute("name", theme.first.c_str());
+				themeElmt->SetAttribute("main_r", theme.second.first.x);
+				themeElmt->SetAttribute("main_g", theme.second.first.y);
+				themeElmt->SetAttribute("main_b", theme.second.first.z);
+				themeElmt->SetAttribute("accent_r", theme.second.second.x);
+				themeElmt->SetAttribute("accent_g", theme.second.second.y);
+				themeElmt->SetAttribute("accent_b", theme.second.second.z);
+			}
+			
+
 		}
 	}
 	else return false;

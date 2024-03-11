@@ -658,21 +658,21 @@ void menu()
 
 	auto& style = ImGui::GetStyle();
 	style.FrameRounding = 4;
-	style.DisabledAlpha = 1.0;
 	style.WindowTitleAlign = style.ButtonTextAlign = { 0.5f, 0.5f };
 	style.ItemSpacing = { 3,3 };
 	style.FrameBorderSize = 0;
 	style.AntiAliasedLines = true;
 	style.AntiAliasedFill = true;
+	style.DisabledAlpha = 0.7;
 
 	ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
 
-	ImVec4 col_dark2(baseColor.x * 0.1f, baseColor.y * 0.1f, baseColor.z * 0.1f, 1.f);
-	ImVec4 col_dark1a(baseColor.x * 0.16f, baseColor.y * 0.16f, baseColor.z * 0.16f, 1.f);
-	ImVec4 col_dark1(baseColor.x * 0.25f, baseColor.y * 0.25f, baseColor.z * 0.25f, 1.f);
-	ImVec4 col_dark(baseColor.x*0.3f, baseColor.y*0.3f, baseColor.z*0.3f, 1.f);
-	ImVec4 col_med2(baseColor.x * 0.4f, baseColor.y * 0.4f, baseColor.z * 0.4f, 1.f);
-	ImVec4 col_med(baseColor.x*0.5f, baseColor.y*0.5f, baseColor.z*0.5f, 1.f);
+	ImVec4 col_dark2(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
+	ImVec4 col_dark1a(baseColor.x * 0.32f, baseColor.y * 0.32f, baseColor.z * 0.32f, 1.f);
+	ImVec4 col_dark1(baseColor.x * 0.5f, baseColor.y * 0.5f, baseColor.z * 0.5f, 1.f);
+	ImVec4 col_dark(baseColor.x*0.6f, baseColor.y*0.6f, baseColor.z*0.6f, 1.f);
+	ImVec4 col_med2(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
+	ImVec4 col_med(baseColor.x, baseColor.y, baseColor.z, 1.f);
 
 	baseColor = uiConfig->_themes[uiConfig->_theme].second;
 
