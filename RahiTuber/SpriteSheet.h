@@ -58,7 +58,14 @@ public:
 		else
 			_currentFrame = idx;
 
-		_currentFrame = _currentFrame % _frameRects.size();
+		if (_loop == false && _currentFrame > _maxFrame)
+		{
+			_currentFrame = _maxFrame;
+		}
+		else
+		{
+			_currentFrame = _currentFrame % _frameRects.size();
+		}
 	}
 
 	inline void AddSync(SpriteSheet* spr)
@@ -94,6 +101,7 @@ public:
 	inline bool IsSynced() { return _synced; }
 
 	bool _visible = true;
+	bool _loop = true;
 
 private:
 

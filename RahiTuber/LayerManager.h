@@ -64,6 +64,7 @@ public:
 		LayerManager* _parent = nullptr;
 
 		bool _visible = true;
+		bool _oldVisible = false;
 		std::string _name = "Layer";
 
 		bool _swapWhenTalking = true;
@@ -177,6 +178,8 @@ public:
 		std::vector<float> _animFrameSize = { -1, -1 };
 
 		bool _animsSynced = false;
+		bool _animLoop = true;
+		bool _restartAnimsOnVisible = false;
 
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
 
@@ -216,9 +219,15 @@ public:
 			NoChange = 2
 		};
 
+		enum ActiveType {
+			Toggle = 0,
+			Held = 1,
+			Permanent = 2
+		};
+
 		float _timeout = 5.0;
 		bool _useTimeout = true;
-		bool _toggle = true;
+		ActiveType _activeType = Toggle;
 		bool _schedule = false;
 		float _intervalTime = 2.0;
 		float _intervalVariation = 0.0;
@@ -395,6 +404,7 @@ private:
 		animElement->SetAttribute("frameH", anim.Size().y);
 		animElement->SetAttribute("fps", anim.FPS());
 		animElement->SetAttribute("fCount", anim.FrameCount());
+		animElement->SetAttribute("loop", anim._loop);
 	}
 
 	inline void LoadAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, SpriteSheet& anim)
@@ -413,6 +423,7 @@ private:
 		animElement->QueryAttribute("frameH", &frame[1]);
 		animElement->QueryAttribute("fps", &fps);
 		animElement->QueryAttribute("fCount",&fCount);
+		animElement->QueryAttribute("loop", &anim._loop);
 
 		anim.SetAttributes(fCount, grid[0], grid[1], fps, { frame[0], frame[1] });
 	}
