@@ -68,6 +68,8 @@ struct AppConfig
 
 	sf::Clock _timer;
 
+	sf::Clock _hoverTimer;
+
 	std::string _lastLayerSet = "lastLayers";
 
 	//debug audio bars
@@ -127,6 +129,8 @@ struct AudioConfig
 	sf::Clock _quietTimer;
 
 	bool _doFiltering = false;
+
+	bool _compression = false;
 };
 
 struct UIConfig
@@ -160,6 +164,8 @@ struct UIConfig
 	bool _clearVisInfo = false;
 	bool _clearWindowInfo = false;
 	bool _windowSettingsChanged = false;
+
+	bool _audioExpanded = true;
 
 	std::string _theme = "Default";
 
