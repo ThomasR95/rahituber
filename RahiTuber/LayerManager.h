@@ -195,12 +195,18 @@ public:
 			float _rot = 0.0;
 		};
 		bool _hideWithParent = true;
+		float _motionDrag = 0.f;
+		float _motionSpring = 0.f;
+		float _distanceLimit = -1.f;
+		float _rotationEffect = 0.f;
+		sf::Vector2f _lastAccel = { 0.f, 0.f };
 
 		std::deque<MotionLinkData> _motionLinkData;
 
 		float _lastTalkFactor = 0.0;
 
 		sf::Clock _frameTimer;
+		sf::Clock _physicsTimer;
 
 	};
 

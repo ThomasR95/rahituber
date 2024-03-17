@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SFML/System.hpp"
 #include "SFML/Window/Keyboard.hpp"
 #include "SFML/Graphics/Color.hpp"
 #include "imgui/imgui.h"
@@ -7,17 +8,26 @@
 
 #define PI 3.14159265359
 
-static sf::Color toSFColor(const ImVec4& col)
+static inline void ToolTip(const char* txt, sf::Clock* hoverTimer)
+{
+	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
+	{
+		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Separator), txt);
+		ImGui::EndTooltip();
+	}
+}
+
+inline sf::Color toSFColor(const ImVec4& col)
 {
 	return sf::Color(sf::Uint8(col.x * 255), sf::Uint8(col.y * 255), sf::Uint8(col.z * 255), sf::Uint8(col.w * 255));
 }
 
-static ImVec4 toImColor(const sf::Color& col)
+inline ImVec4 toImColor(const sf::Color& col)
 {
 	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
 }
 
-static float Clamp(float in, float min, float max)
+inline float Clamp(float in, float min, float max)
 {
 	if (in < min)
 		return min;
@@ -26,6 +36,16 @@ static float Clamp(float in, float min, float max)
 		return max;
 
 	return in;
+}
+
+inline float Length(const sf::Vector2f& v)
+{
+	return sqrt(powf(v.x, 2.f) + powf(v.y, 2.f));
+}
+
+inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)
+{
+	return a.x * b.y + b.x * a.y;
 }
 
 static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {

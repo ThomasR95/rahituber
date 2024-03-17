@@ -58,6 +58,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 	common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
 	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
+	common->QueryBoolAttribute("audioExpanded", &_uiConfig->_audioExpanded);
 
 	int r = -1;
 	int g = -1; 
@@ -82,6 +83,8 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("softMax", &_audioConfig->_softMaximum);
 
 	common->QueryAttribute("audioFilter", &_audioConfig->_doFiltering);
+
+	common->QueryAttribute("compression", &_audioConfig->_compression);
 
 	common->QueryBoolAttribute("vsync", &_appConfig->_enableVSync);
 
@@ -136,6 +139,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
+			common->SetAttribute("audioExpanded", _uiConfig->_audioExpanded);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
@@ -150,6 +154,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("softMax", _audioConfig->_softMaximum);
 
 			common->SetAttribute("audioFilter", _audioConfig->_doFiltering);
+
+			common->SetAttribute("compression", _audioConfig->_compression);
 
 			common->SetAttribute("theme", _uiConfig->_theme.c_str());
 

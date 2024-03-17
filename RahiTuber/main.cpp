@@ -279,19 +279,12 @@ void menuHelp(ImGuiStyle& style)
 	if (ImGui::BeginPopup("Help", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
 	{
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Close Menu:");				ImGui::SameLine(160); ImGui::TextWrapped("Closes the main menu. ");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Fullscreen:");				ImGui::SameLine(160); ImGui::TextWrapped("Toggles fullscreen.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Show Advanced...:");		ImGui::SameLine(160); ImGui::TextWrapped("Reveals some advanced options.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Audio Input:");			ImGui::SameLine(160); ImGui::TextWrapped("Lets you select which audio device affects the visuals.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Presets:");				ImGui::SameLine(160); ImGui::TextWrapped("Save and load window settings.");
-		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Exit RahiTuber:");		ImGui::SameLine(160); ImGui::TextWrapped("Saves the layers and closes the program.");
-		ImGui::NewLine();
-
-		ImGui::TextWrapped("CTRL+click any input field to manually type the value.");
+		ImGui::TextWrapped("Hover over any control to see an explanation of what it does.");
+		ImGui::TextWrapped("CTRL+click any input field to manually type the value. For some sliders you can type a value outside of the sliding range.");
 		ImGui::NewLine();
 
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
-		ImGui::TextWrapped("Drag from the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
+		ImGui::TextWrapped("Drag the squares in the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
 		ImGui::NewLine();
 		ImGui::NewLine();
 		ImGui::NewLine();
@@ -328,9 +321,7 @@ void menuAdvanced(ImGuiStyle& style)
 	}
 	if (uiConfig->_advancedMenuShowing)
 	{
-		ImGui::PushItemWidth(124);
-		ImGui::PushID("ThemeCombo");
-		if (ImGui::BeginCombo("", uiConfig->_theme.c_str()))
+		if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
 		{
 			for (auto& theme : uiConfig->_themes)
 				if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
@@ -338,13 +329,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 			ImGui::EndCombo();
 		}
-		ImGui::PopID();
-		ImGui::PopItemWidth();
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Theme");
-		ImGui::PopStyleColor();
+		ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
 
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
+		ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchProp);
+		ImGui::TableNextColumn();
+
 		float col[3] = { (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255 };
 		ImVec4 imCol = toImColor(appConfig->_bgColor);
 		bool colBtnClicked = false;
@@ -361,47 +350,14 @@ void menuAdvanced(ImGuiStyle& style)
 		{
 			appConfig->_bgColor = sf::Color(int(255.f * col[0]), int(255.f * col[1]), int(255.f * col[2]));
 		}
-
-
 		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
-		ImGui::PopStyleColor();
+
+		ImGui::TableNextColumn();
 
 		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Start the application with the menu open.");
-		ImGui::PopStyleColor();
+		ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
 
-		ImGui::PushItemWidth(50);
-		float percentVal = 1.0 / 60.0;
-		float smooth = (61.0 - audioConfig->_smoothFactor)* percentVal;
-		smooth = powf(smooth, 2.f);
-		if(ImGui::DragFloat("Soft Fall", &smooth, 0.01, 0.0, 1.0, "%.2f"))
-		{
-			smooth = max(0.0, min(smooth, 1.0));
-			smooth = powf(smooth, 0.5);
-			audioConfig->_smoothFactor = 61 - smooth / percentVal;
-		}
-		ImGui::PopItemWidth();
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Let audio level fall slowly after speaking.");
-		ImGui::PopStyleColor();
-
-		ImGui::PushItemWidth(50);
-		ImGui::DragFloat("Max Level", &audioConfig->_fixedMax, 0.01, 0.0, 2.0, "%.2f");
-		ImGui::PopItemWidth();
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("The maximum volume used in audio analysis.");
-		ImGui::PopStyleColor();
-
-		ImGui::Checkbox("Soft Max", &audioConfig->_softMaximum);
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Allow the Max Level to increase temporarily if exceeded.");
-		ImGui::PopStyleColor();
-
-		ImGui::Checkbox("Audio Filter", &audioConfig->_doFiltering);
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Basic low-latency filtering to cancel keyboard and mouse noise frequencies.");
-		ImGui::PopStyleColor();
+		ImGui::TableNextColumn();
 
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 		float transChkBoxPos = ImGui::GetCursorPosY();
@@ -434,9 +390,9 @@ void menuAdvanced(ImGuiStyle& style)
 				EnableWindow(appConfig->_window.getSystemHandle(), true);
 			}
 		}
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Turns the app background transparent (Useful for screen capture).");
-		ImGui::PopStyleColor();
+		ToolTip("Turns the app background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
 
 		if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
 		{
@@ -451,30 +407,30 @@ void menuAdvanced(ImGuiStyle& style)
 				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 			}
 		}
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Keeps the app above all other windows on your screen.");
-		ImGui::PopStyleColor();
+		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
 
 		if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
 		{
 			kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 		}
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Uses a hook to ensure that hotkeys work while the app is not focused.");
-		ImGui::PopStyleColor();
+		ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
 
 		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Shows an FPS counter (when menu is inactive).");
-		ImGui::PopStyleColor();
+		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
 
 		if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
 		{
 			initWindow();
 		}
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Separator]);
-		ImGui::SameLine(140); ImGui::TextWrapped("Enable/Disable Vertical Sync.");
-		ImGui::PopStyleColor();
+		ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+		ImGui::EndTable();
 
 		ImGui::PopStyleColor();
 	}
@@ -482,7 +438,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 void menuAudio(ImGuiStyle& style)
 {
-	ImGui::TextColored(style.Colors[ImGuiCol_Text], "Audio Input");
+	ImGui::PushStyleColor(ImGuiCol_Header, style.Colors[ImGuiCol_ChildBg]);
+	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, style.Colors[ImGuiCol_BorderShadow]);
+	ImGui::PushStyleColor(ImGuiCol_HeaderActive, style.Colors[ImGuiCol_BorderShadow]);
+	uiConfig->_audioExpanded = ImGui::CollapsingHeader("Audio Input", (uiConfig->_audioExpanded ? ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_UpsideDownArrow : 0));
+	ImGui::PopStyleColor(3);
 
 	if (uiConfig->_firstMenu)
 	{
@@ -546,15 +506,59 @@ void menuAudio(ImGuiStyle& style)
 	}
 	ImGui::PopID();
 	ImGui::PopItemWidth();
+	ToolTip("Choose an audio input device.", &appConfig->_hoverTimer);
+
+	if (uiConfig->_audioExpanded)
+	{
+		ImGui::BeginTable("##audioOptions", 3, ImGuiTableFlags_SizingStretchProp);
+		ImGui::TableNextColumn();
+
+		ImGui::PushItemWidth(100);
+		ImGui::DragFloat("Max Level", &audioConfig->_fixedMax, 0.01, 0.0, 5.0, "%.2f");
+		ImGui::PopItemWidth();
+		ToolTip("The maximum volume used in audio analysis.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Soft Max", &audioConfig->_softMaximum);
+		ToolTip("Allow the Max Level to increase temporarily if exceeded.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::PushItemWidth(100);
+		float percentVal = 1.0 / 60.0;
+		float smooth = (61.0 - audioConfig->_smoothFactor) * percentVal;
+		smooth = powf(smooth, 2.f);
+		if (ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.2f"))
+		{
+			smooth = max(0.0, min(smooth, 1.0));
+			smooth = powf(smooth, 0.5);
+			audioConfig->_smoothFactor = 61 - smooth / percentVal;
+		}
+		ImGui::PopItemWidth();
+		ToolTip("Let audio level fall slowly after speaking.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Audio Filter", &audioConfig->_doFiltering);
+		ToolTip("Basic low-latency filtering to cancel keyboard and mouse noise frequencies.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Compression", &audioConfig->_compression);
+		ToolTip("Use a compression curve for audio levels\n(the difference in effect reduces as the volume nears maximum).", &appConfig->_hoverTimer);
+
+		ImGui::EndTable();
+	}
 }
 
 void menuPresets(ImGuiStyle& style)
 {
-	if (ImGui::Button("Presets", { -1,20 }))
+	if (ImGui::Button("Window Presets", { -1,20 }))
 	{
-		ImGui::OpenPopup("Presets");
+		ImGui::OpenPopup("Window Presets");
 	}
-	if (ImGui::BeginPopup("Presets", ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
+	if (ImGui::BeginPopup("Window Presets", ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::SetWindowSize({ 400,-1 });
 		ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
@@ -665,6 +669,9 @@ void menu()
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
+	if (ImGui::IsAnyItemHovered() == false)
+		appConfig->_hoverTimer.restart();
+
 	ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
 
 	ImVec4 col_dark2(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
@@ -696,8 +703,6 @@ void menu()
 	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
 	style.Colors[ImGuiCol_Border] = col_dark;
 	 
-
-	
 	if (!appConfig->_isFullScreen)
 	{
 		// Move tab in the top centre
@@ -721,7 +726,7 @@ void menu()
 	backdrop.setFillColor(backdropCol);
 	appConfig->_layersRT.draw(backdrop);
 
-	ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
+	ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
 
 	ImDrawList* dList = ImGui::GetWindowDrawList();
 
@@ -744,7 +749,9 @@ void menu()
 
 	ImGui::Separator();
 	float separatorPos = ImGui::GetCursorPosY();
-	float nextSectionPos = windowHeight - 120;
+	float nextSectionPos = windowHeight - 150;
+	if(!uiConfig->_audioExpanded)
+		nextSectionPos = windowHeight - 104;
 
 	layerMan->DrawGUI(style, nextSectionPos - separatorPos);
 
@@ -752,11 +759,9 @@ void menu()
 	ImGui::SetCursorPosY(nextSectionPos);
 	ImGui::Separator();
 	menuAudio(style);
-	
-	ImGui::NewLine();
 
-	ImGui::Columns();
-
+	ImGui::SetCursorPosY(windowHeight - 54);
+	ImGui::Separator();
 	menuPresets(style);
 
 	ImGui::Separator();
@@ -952,6 +957,14 @@ void render()
 	float audioLevel = audioConfig->_midAverage;
 	if (audioConfig->_doFiltering)
 		audioLevel = max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
+
+	if (audioConfig->_compression)
+	{
+		audioLevel = Clamp(audioLevel, 0.0, 1.0);
+		audioLevel = (1.0 - audioLevel) * sin(PI * 0.5 * audioLevel) + audioLevel * sin(PI * 0.5 * powf(audioLevel, 0.5));
+		audioLevel = Clamp(audioLevel, 0.0, 1.0);
+	}
+		
 
  	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
