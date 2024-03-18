@@ -91,13 +91,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 
 	std::vector<LayerInfo*> calculateOrder;
-	for (int l = _layers.size()-1; l >= 0; l--)
+	for (int l = _layers.size() - 1; l >= 0; l--)
 		calculateOrder.push_back(&_layers[l]);
-	
+
 	std::sort(calculateOrder.begin(), calculateOrder.end(), [](const LayerInfo* lhs, const LayerInfo* rhs)
-	{
-		return (lhs->_id == rhs->_motionParent);
-	});
+		{
+			return (lhs->_id == rhs->_motionParent);
+		});
 
 	for (auto layer : calculateOrder)
 	{
@@ -109,9 +109,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			{
 				LayerInfo& checkLayer = _layers[l];
 				//check if any layer relies on it as a parent
-				if (!checkLayer._visible) 
+				if (!checkLayer._visible)
 					continue;
-				if (checkLayer._motionParent != layer->_id) 
+				if (checkLayer._motionParent != layer->_id)
 					continue;
 				if (checkLayer._hideWithParent)
 					continue;
@@ -124,7 +124,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (calculate)
 			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax);
 	}
-		
+
 
 	for (int l = _layers.size() - 1; l >= 0; l--)
 	{
@@ -153,24 +153,27 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._blendMode == g_blendmodes["Lighten"] ||
 				layer._blendMode == g_blendmodes["Darken"])
 			{
-				
-				auto rtSize = layer._activeSprite->Size();
+
+				auto size = layer._activeSprite->Size();
+				auto rtSize = size;
 				auto scale = layer._activeSprite->getScale();
 				rtSize = { rtSize.x * scale.x, rtSize.y * scale.y };
 				_blendingRT.create(rtSize.x, rtSize.y);
 
-				if(layer._blendMode == g_blendmodes["Lighten"])
+				if (layer._blendMode == g_blendmodes["Lighten"])
 					_blendingRT.clear(sf::Color{ 0,0,0,255 });
 				else
-					_blendingRT.clear(sf::Color{255,255,255,255});
+					_blendingRT.clear(sf::Color{ 255,255,255,255 });
 
 				auto pos = layer._activeSprite->getPosition();
 				auto rot = layer._activeSprite->getRotation();
-				
+				auto origin = layer._activeSprite->getOrigin();
+
 				sf::RenderStates tmpState = sf::RenderStates::Default;
 				tmpState.blendMode = g_blendmodes["Normal"];
 
-				layer._activeSprite->setPosition({ rtSize.x/2, rtSize.y/2});
+				layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
+				layer._activeSprite->setOrigin({ size.x / 2, size.y / 2 });
 				layer._activeSprite->setRotation(0);
 
 				layer._idleSprite->Draw(&_blendingRT, tmpState);
@@ -184,11 +187,15 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				auto rtPlane = sf::RectangleShape(rtSize);
 				rtPlane.setTexture(&_blendingRT.getTexture(), true);
 
-				rtPlane.setOrigin({ rtSize.x / 2, rtSize.y / 2 });
+				rtPlane.setOrigin({ origin.x * scale.x, origin.y * scale.y});
 				rtPlane.setPosition(pos);
 				rtPlane.setRotation(rot);
 
 				target->draw(rtPlane, state);
+
+				layer._activeSprite->setPosition(pos);
+				layer._activeSprite->setRotation(rot);
+				layer._activeSprite->setOrigin(origin);
 
 			}
 			else
@@ -202,6 +209,55 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		}
 
 		layer._oldVisible = visible;
+	}
+
+	if (_uiConfig->_menuShowing && _uiConfig->_showLayerBounds)
+	{
+		for (int l = _layers.size() - 1; l >= 0; l--)
+		{
+			LayerInfo& layer = _layers[l];
+
+			bool visible = layer._visible;
+			if (layer._hideWithParent)
+			{
+				LayerInfo* mp = GetLayer(layer._motionParent);
+				if (mp)
+					visible &= mp->_visible;
+			}
+
+			if (visible)
+			{
+				// Draw sprite borders
+
+				sf::Vector2f origin = layer._activeSprite->getOrigin();
+				sf::Vector2f pos = layer._activeSprite->getPosition();
+				sf::Vector2f scale = layer._activeSprite->getScale();
+				sf::Vector2f size = layer._activeSprite->Size();
+				float rot = layer._activeSprite->getRotation();
+
+				sf::Vector2f boxSize = { size.x * scale.x, size.y * scale.y };
+				sf::Vector2f boxOrigin = { origin.x * scale.x, origin.y * scale.y };
+
+				auto box = sf::RectangleShape(boxSize);
+				box.setOrigin(boxOrigin);
+				box.setPosition(pos);
+				box.setRotation(rot);
+				box.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)));
+				box.setOutlineThickness(1);
+				sf::Color fill = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+				fill.a = 0.5;
+				box.setFillColor(fill);
+
+				auto circle = sf::CircleShape(3, 8);
+				circle.setPosition(pos);
+				circle.setFillColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text)));
+				circle.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Button)));
+				circle.setOutlineThickness(2);
+
+				target->draw(box, sf::RenderStates::Default);
+				target->draw(circle, sf::RenderStates::Default);
+			}
+		}
 	}
 }
 
@@ -1571,11 +1627,18 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				mpRot = mp->_motionLinkData[0]._rot;
 			}
 
-			
+			// transform this layer's position by the parent position
+			sf::Vector2f originalOffset = _pos - mp->_pos;
+			sf::Vector2f originalOffsetRotated = Rotate(originalOffset, Deg2Rad(mpRot));
+			sf::Vector2f offsetScaled = { originalOffsetRotated.x * mpScale.x, originalOffsetRotated.y * mpScale.y };
+			sf::Vector2f originMove = offsetScaled - originalOffset;
+
+			mpPos += originMove;
 			
 			sf::Vector2f pivot = { _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y };
 
 			bool physics = (_motionDrag > 0 || _motionSpring > 0);
+			sf::Vector2f physicsPos = mpPos;
 
 			if (physics && becameVisible)
 			{
@@ -1595,7 +1658,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 				auto lastFrame = _motionLinkData.front();
 				sf::Vector2f oldScale = lastFrame._scale;
-				sf::Vector2f oldPos = lastFrame._pos;
+				sf::Vector2f oldPos = lastFrame._physicsPos;
 				float oldRot = lastFrame._rot;
 
 				sf::Vector2f idealAccel = mpPos - oldPos;
@@ -1605,6 +1668,19 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 				sf::Vector2f offset = mpPos - newMpPos;
 				float dist = Length(offset);
+				
+				sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
+				pivotDiff = Rotate(pivotDiff, Deg2Rad(mpRot));
+				float lenPivot = Length(pivotDiff);
+				if (lenPivot > 0 && dist > 0 && _rotationEffect > 0)
+				{
+					float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
+
+					mpRot += _rotationEffect * rotMult * (dist * lenPivot);
+				}
+
+				physicsPos = newMpPos;
+
 				if (_distanceLimit == 0.f)
 				{
 					newMpPos = mpPos;
@@ -1614,28 +1690,14 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 					sf::Vector2f offsetNorm = offset / dist;
 					newMpPos = mpPos + offsetNorm * _distanceLimit;
 				}
-				
-				sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
-				float lenPivot = Length(pivotDiff);
-				if (lenPivot > 0 && dist > 0 && _rotationEffect > 0)
-				{
-					float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
-
-					mpRot += _rotationEffect * rotMult * (dist * lenPivot);
-				}
 
 				mpPos = newMpPos;
 			}
-			
-			sf::Vector2f originOffset = _pos - mp->_pos;
-			sf::Vector2f offsetScaled = { originOffset.x * mpScale.x, originOffset.y * mpScale.y };
-			sf::Vector2f originMove = offsetScaled - originOffset;
-
-			mpPos += originMove;
 
 			MotionLinkData thisFrame;
 			thisFrame._frameTime = frameTime;
 			thisFrame._pos = mpPos;
+			thisFrame._physicsPos = physicsPos;
 			thisFrame._scale = mpScale;
 			thisFrame._rot = mpRot;
 			_motionLinkData.push_front(thisFrame);
@@ -2138,7 +2200,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer);
 
 				AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
-				ImGui::SliderFloat("Rotation effect", &_rotationEffect, 0.f, 10.f, "%.2f");
+				ImGui::SliderFloat("Rotation effect", &_rotationEffect, 0.f, 2.f, "%.2f");
 				ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
 			}
 

@@ -192,6 +192,7 @@ public:
 			sf::Time _frameTime;
 			sf::Vector2f _scale = { 1.f, 1.f };
 			sf::Vector2f _pos = { 0,0 };
+			sf::Vector2f _physicsPos = { 0,0 };
 			float _rot = 0.0;
 		};
 		bool _hideWithParent = true;
@@ -289,6 +290,7 @@ public:
 	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
 
 	AppConfig* _appConfig = nullptr;
+	UIConfig* _uiConfig = nullptr;
 
 private:
 

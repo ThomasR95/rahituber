@@ -146,6 +146,7 @@ struct UIConfig
 	bool _showFPS = false;
 	bool _firstMenu = true;
 	sf::Color* _editingColour;
+	bool _showLayerBounds = true;
 
 	sf::RectangleShape _topLeftBox;
 	sf::RectangleShape _bottomRightBox;

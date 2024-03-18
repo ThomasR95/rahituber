@@ -337,12 +337,15 @@ void menuAdvanced(ImGuiStyle& style)
 		float col[3] = { (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255 };
 		ImVec4 imCol = toImColor(appConfig->_bgColor);
 		bool colBtnClicked = false;
+		bool tooltipShown = false;
 		ImGui::SetCursorPosX(8);
 		for (int x = 0; x < 11; x++)
 		{
 			ImGui::PushID(x);
 			colBtnClicked |= ImGui::ColorEdit3("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoBorder);
 			ImGui::PopID();
+			if(!tooltipShown)
+				tooltipShown = ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
 			ImGui::SameLine(x * 12.5);
 		}
 
@@ -429,6 +432,11 @@ void menuAdvanced(ImGuiStyle& style)
 			initWindow();
 		}
 		ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
+		ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 
@@ -1198,6 +1206,7 @@ int main()
 
 	layerMan = new LayerManager();
 	layerMan->_appConfig = appConfig;
+	layerMan->_uiConfig = uiConfig;
 	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
 	layerMan->LoadLayers(lastLayerSettingsFile);
 

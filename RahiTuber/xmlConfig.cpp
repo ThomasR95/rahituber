@@ -59,6 +59,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
 	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
 	common->QueryBoolAttribute("audioExpanded", &_uiConfig->_audioExpanded);
+	common->QueryBoolAttribute("showBounds", &_uiConfig->_showLayerBounds);
 
 	int r = -1;
 	int g = -1; 
@@ -140,6 +141,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
 			common->SetAttribute("audioExpanded", _uiConfig->_audioExpanded);
+			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
