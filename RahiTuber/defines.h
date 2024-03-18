@@ -8,13 +8,15 @@
 
 #define PI 3.14159265359
 
-static inline void ToolTip(const char* txt, sf::Clock* hoverTimer)
+static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
 {
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
 	{
 		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Separator), txt);
 		ImGui::EndTooltip();
+		return true;
 	}
+	return false;
 }
 
 inline sf::Color toSFColor(const ImVec4& col)
@@ -46,6 +48,32 @@ inline float Length(const sf::Vector2f& v)
 inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)
 {
 	return a.x * b.y + b.x * a.y;
+}
+
+inline float Deg2Rad(const float& a)
+{
+	return a / 180.0 * PI;
+}
+
+inline sf::Vector2f Rotate(const sf::Vector2f& point, float angle, sf::Vector2f pivot = { 0.f, 0.f })
+{
+	sf::Vector2f p = point;
+
+	float s = sin(angle);
+	float c = cos(angle);
+
+	// translate point back to origin:
+	p.x -= pivot.x;
+	p.y -= pivot.y;
+
+	// rotate point
+	float xnew = p.x * c - p.y * s;
+	float ynew = p.x * s + p.y * c;
+
+	// translate point back:
+	p.x = xnew + pivot.x;
+	p.y = ynew + pivot.y;
+	return p;
 }
 
 static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {
