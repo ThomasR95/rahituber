@@ -600,6 +600,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("breathMoveX", layer._breathMove.x);
 		thisLayer->SetAttribute("breathScaleX", layer._breathScale.x);
 		thisLayer->SetAttribute("breathScaleY", layer._breathScale.y);
+		thisLayer->SetAttribute("breathCircular", layer._breathCircular);
+		thisLayer->SetAttribute("breatheWhileTalking", layer._breatheWhileTalking);
 
 		thisLayer->SetAttribute("screaming", layer._scream);
 		thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
@@ -815,6 +817,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisLayer->QueryAttribute("breathMoveX", &layer._breathMove.x);
 		thisLayer->QueryAttribute("breathScaleX", &layer._breathScale.x);
 		thisLayer->QueryAttribute("breathScaleY", &layer._breathScale.y);
+		if (layer._breathScale.x != layer._breathScale.y)
+			layer._breathScaleConstrain = false;
+
+		thisLayer->QueryAttribute("breathCircular", &layer._breathCircular);
+		thisLayer->QueryAttribute("breatheWhileTalking", &layer._breatheWhileTalking);
 
 		thisLayer->QueryAttribute("screaming", &layer._scream);
 		thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
@@ -1334,6 +1341,7 @@ void LayerManager::DrawStatesGUI()
 void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
 	sf::Time frameTime = _frameTimer.restart();
+	float fps = 1.0 / frameTime.asSeconds();
 
 	SpriteSheet* lastActiveSprite = _activeSprite;
 
@@ -1493,33 +1501,59 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 		if (_doBreathing)
 		{
-			_breathAmount *= 0.95;
+			bool talkActive = (talking && _swapWhenTalking || _isBouncing) && !_breatheWhileTalking;
 
-			bool talkActive = talking && _swapWhenTalking;
-
-			if ( !talkActive && !_isBouncing && _breathFrequency > 0)
+			if ( !talkActive && _breathFrequency > 0)
 			{
 				if (!_isBreathing)
 				{
 					_motionTimer.restart();
 					_isBreathing = true;
 				}
-
 				float motionTime = _motionTimer.getElapsedTime().asSeconds();
-				motionTime -= floor(motionTime / _breathFrequency) * _breathFrequency;
+
+				bool coolingDown = motionTime < _breathFrequency && !_breatheWhileTalking;
+				float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
+
+				motionTime = fmod(motionTime , _breathFrequency);
 				float phase = (motionTime / _breathFrequency) * 2.0 * PI;
-				_breathAmount = (-0.5 * cos(phase) + 0.5);
+				if (coolingDown)
+				{
+					_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
+					_breathAmount.x = std::max(_breathAmount.x, (-0.5f * cos(phase) + 0.5f));
+					_breathAmount.y = std::max(0.0f, _breathAmount.y * coolDownFactor);
+					if(_breathCircular)
+						_breathAmount.y = std::max(_breathAmount.y, (-0.5f * sin(phase) + 0.5f));
+					else
+						_breathAmount.y = std::max(_breathAmount.y, (-0.5f * cos(phase) + 0.5f));
+				}
+				else
+				{
+					_breathAmount.x = (-0.5f * cos(phase) + 0.5f);
+					if(_breathCircular)
+						_breathAmount.y = (-0.5f * sin(phase) + 0.5f);
+					else
+						_breathAmount.y = (-0.5f * cos(phase) + 0.5f);
+				}
 			}
 			else
 			{
-				_isBreathing = false;
+				if (_isBreathing)
+				{
+					_motionTimer.restart();
+					_isBreathing = false;
+				}
+				float motionTime = _motionTimer.getElapsedTime().asSeconds();
+				float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
+
+				_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
+				_breathAmount.y = std::max(0.0f, _breathAmount.y * coolDownFactor);
 			}
 
-			// breathing is half movement, half scale
-			newMotionX += _breathAmount * _breathMove.x;
-			newMotionY += _breathAmount * _breathMove.y;
+			newMotionX += _breathAmount.x * _breathMove.x;
+			newMotionY += _breathAmount.y * _breathMove.y;
 
-			breathScale = sf::Vector2f(1.0, 1.0) + _breathAmount * _breathScale;
+			breathScale = sf::Vector2f(1.0, 1.0) + _breathAmount.y * _breathScale;
 		}
 
 		_motionY += (newMotionY - _motionY) * 0.3f;
@@ -2284,11 +2318,38 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					float data[2] = {_breathMove.x, _breathMove.y};
 					if (ImGui::SliderFloat2("Breath Move", data, -50, 50, "%.2f"))
 						_breathMove = { data[0], data[1] };
+					ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
 
 					AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
 					float data2[2] = {_breathScale.x, _breathScale.y};
 					if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
-						_breathScale = { data2[0], data2[1] };
+					{
+						if (!_breathScaleConstrain)
+						{
+							_breathScale.x = data2[0];
+							_breathScale.y = data2[1];
+						}
+						else if (data2[0] != _breathScale.x)
+						{
+							_breathScale = { data2[0] , data2[0] };
+						}
+						else if (data2[1] != _breathScale.y)
+						{
+							_breathScale = { data2[1] , data2[1] };
+						}
+					}
+					ToolTip("The amout added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::PushID("BreathScaleConstrain");
+					ImGui::Checkbox("Constrain", &_breathScaleConstrain);
+					ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+					ImGui::PopID();
+
+					ImGui::Checkbox("Circular Motion", &_breathCircular);
+					ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::Checkbox("Breathe Whilst Talking", &_breatheWhileTalking);
+					ToolTip("Breathing animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
 
 					AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");

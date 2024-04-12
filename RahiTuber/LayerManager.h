@@ -94,9 +94,12 @@ public:
 		bool _doBreathing = true;
 		float _breathFrequency = 4.0;
 		bool _isBreathing = false;
-		float _breathAmount = 0;
+		sf::Vector2f _breathAmount = { 0.0f, 0.0f };
 		sf::Vector2f _breathScale = { 0.1, 0.1 };
 		sf::Vector2f _breathMove = { 0.0, 30.0 };
+		bool _breathScaleConstrain = true;
+		bool _breathCircular = false;
+		bool _breatheWhileTalking = false;
 
 		float _motionX = 0;
 		float _motionY = 0;
