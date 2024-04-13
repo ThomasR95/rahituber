@@ -40,6 +40,24 @@ inline float Clamp(float in, float min, float max)
 	return in;
 }
 
+template<typename T>
+inline float Max(T a, T b)
+{
+	if (a > b)
+		return a;
+
+	return b;
+}
+
+template<typename T>
+inline float Min(T a, T b)
+{
+	if (a > b)
+		return a;
+
+	return b;
+}
+
 inline float Length(const sf::Vector2f& v)
 {
 	return sqrt(powf(v.x, 2.f) + powf(v.y, 2.f));
@@ -50,7 +68,7 @@ inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)
 	return a.x * b.y + b.x * a.y;
 }
 
-inline float Deg2Rad(const float& a)
+inline double Deg2Rad(const float& a)
 {
 	return a / 180.0 * PI;
 }

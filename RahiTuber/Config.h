@@ -14,6 +14,9 @@
 
 #include "defines.h"
 
+#include "TextureManager.h"
+
+
 #define SCRW 1280
 #define SCRH 720
 
@@ -75,6 +78,7 @@ struct AppConfig
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;
 
+	TextureManager _textureMan;
 
 	std::string _appLocation = "";
 };

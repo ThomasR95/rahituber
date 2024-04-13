@@ -18,6 +18,8 @@
 #include "LayerManager.h"
 #include "KeyboardTracker.h"
 
+#include "defines.h"
+
 #include <fstream>
 
 #include <Windows.h>
@@ -484,7 +486,7 @@ void menuAudio(ImGuiStyle& style)
 
 				audioConfig->_devIdx = dev.second;
 				audioConfig->_params.device = audioConfig->_devIdx;
-				audioConfig->_params.channelCount = min(2, info->maxInputChannels);
+				audioConfig->_params.channelCount = Min(2, info->maxInputChannels);
 				audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
 				audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 				sRate = info->defaultSampleRate;
@@ -539,7 +541,7 @@ void menuAudio(ImGuiStyle& style)
 		smooth = powf(smooth, 2.f);
 		if (ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.2f"))
 		{
-			smooth = max(0.0, min(smooth, 1.0));
+			smooth = Max(0.0f, Min(smooth, 1.0f));
 			smooth = powf(smooth, 0.5);
 			audioConfig->_smoothFactor = 61 - smooth / percentVal;
 		}
@@ -964,7 +966,7 @@ void render()
 
 	float audioLevel = audioConfig->_midAverage;
 	if (audioConfig->_doFiltering)
-		audioLevel = max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
+		audioLevel = Max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
 
 	if (audioConfig->_compression)
 	{
@@ -1205,8 +1207,8 @@ int main()
 	audioConfig = new AudioConfig();
 
 	layerMan = new LayerManager();
-	layerMan->_appConfig = appConfig;
-	layerMan->_uiConfig = uiConfig;
+	layerMan->Init(appConfig, uiConfig);
+
 	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
 	layerMan->LoadLayers(lastLayerSettingsFile);
 
@@ -1267,7 +1269,6 @@ int main()
 		}
 	}
 
-	layerMan->_appConfig = appConfig;
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 	if(appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
@@ -1356,7 +1357,7 @@ int main()
 	{
 		auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
 		audioConfig->_params.device = audioConfig->_devIdx;
-		audioConfig->_params.channelCount = min(1, info->maxInputChannels);
+		audioConfig->_params.channelCount = Min(1, info->maxInputChannels);
 		audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
 		audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 		sRate = info->defaultSampleRate;

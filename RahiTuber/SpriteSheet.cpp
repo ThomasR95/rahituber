@@ -37,25 +37,34 @@ void SpriteSheet::Draw(sf::RenderTarget* target, const sf::RenderStates& states)
 
 void SpriteSheet::LoadFromTexture(const sf::Texture& tex, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
 {
-	_sprite.setTexture(tex, true);
+	bool autoSize = size == sf::Vector2f(-1, -1);
+
+	if(autoSize)
+		_sprite.setTexture(tex, true);
 
 	SetAttributes(frameCount, gridX, gridY, fps, size);
+
+	if(!autoSize)
+		_sprite.setTexture(tex, false);
 }
 
 void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
 {
-	if (_sprite.getTexture() == nullptr)
-		return;
-
 	_fps = fps;
 
-	_gridSize = { gridX, gridY };
+	gridX = std::max(1, gridX);
+	gridY = std::max(1, gridY);
+	frameCount = std::max(1, frameCount);
 
+	_gridSize = { gridX, gridY };
 	sf::Vector2f frameSize(size);
-	sf::Vector2u texSize = _sprite.getTexture()->getSize();
 
 	if (frameSize == sf::Vector2f(-1, -1))
 	{
+		if (_sprite.getTexture() == nullptr)
+			return;
+
+		sf::Vector2u texSize = _sprite.getTexture()->getSize();
 		frameSize = sf::Vector2f((float)texSize.x / gridX, (float)texSize.y / gridY);
 	}
 

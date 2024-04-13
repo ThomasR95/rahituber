@@ -7,12 +7,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RahiTuber", "RahiTuber.vcxp
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_Administrator|x64 = Debug_Administrator|x64
+		Debug_Administrator|x86 = Debug_Administrator|x86
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug_Administrator|x64.ActiveCfg = Debug_Administrator|x64
+		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug_Administrator|x64.Build.0 = Debug_Administrator|x64
+		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug_Administrator|x86.ActiveCfg = Debug_Administrator|Win32
+		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug_Administrator|x86.Build.0 = Debug_Administrator|Win32
 		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug|x64.ActiveCfg = Debug|x64
 		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug|x64.Build.0 = Debug|x64
 		{281A839A-335A-45E3-BE08-7C8DE69ECBD1}.Debug|x86.ActiveCfg = Debug|Win32

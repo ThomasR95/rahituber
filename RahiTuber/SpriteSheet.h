@@ -107,8 +107,8 @@ private:
 
 	sf::Sprite _sprite;
 
-	sf::Vector2f _spriteSize;
-	sf::Vector2i _gridSize;
+	sf::Vector2f _spriteSize = { 0,0 };
+	sf::Vector2i _gridSize = { 1,1 };
 
 	int _maxFrame = 0;
 	int _currentFrame = 0;
