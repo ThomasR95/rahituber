@@ -18,7 +18,7 @@ xmlConfigLoader::~xmlConfigLoader()
 bool xmlConfigLoader::loadCommon()
 {
 	_errorMessage = "";
-	XMLDocument doc;
+	tinyxml2::XMLDocument doc;
 
 	doc.LoadFile(_settingsFileName.c_str());
 
@@ -119,7 +119,7 @@ bool xmlConfigLoader::loadCommon()
 bool xmlConfigLoader::saveCommon()
 {
 	_errorMessage = "";
-	XMLDocument doc;
+	tinyxml2::XMLDocument doc;
 
 	doc.LoadFile(_settingsFileName.c_str());
 
@@ -201,7 +201,7 @@ bool xmlConfigLoader::saveCommon()
 
 bool xmlConfigLoader::loadPresetNames()
 {
-	XMLDocument doc;
+	tinyxml2::XMLDocument doc;
 
 	_uiConfig->_presetNames.clear();
 
@@ -225,7 +225,7 @@ bool xmlConfigLoader::loadPresetNames()
 
 bool xmlConfigLoader::loadPreset(const std::string & presetName)
 {
-	XMLDocument doc;
+	tinyxml2::XMLDocument doc;
 	doc.LoadFile(_settingsFileName.c_str());
 
 	auto root = doc.FirstChildElement("Config");
@@ -289,7 +289,7 @@ bool xmlConfigLoader::loadPreset(const std::string & presetName)
 
 bool xmlConfigLoader::savePreset(const std::string & presetName)
 {
-	XMLDocument doc;
+	tinyxml2::XMLDocument doc;
 	doc.LoadFile(_settingsFileName.c_str());
 
 	auto root = doc.FirstChildElement("Config");

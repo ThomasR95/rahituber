@@ -17,6 +17,8 @@
 
 #include "ChatReader.h"
 
+#include "TextureManager.h"
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -39,21 +41,11 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 };
 
-class TextureManager
-{
-public:
-
-	sf::Texture* GetTexture(const std::string& path);
-
-	void Reset();
-
-private:
-	std::map<std::string, sf::Texture*> _textures;
-};
-
 class LayerManager
 {
 public:
+
+	LayerManager() {}
 
 	~LayerManager();
 
@@ -292,10 +284,18 @@ public:
 	std::string LastUsedLayerSet() { return _loadedXML; }
 	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
 
-	AppConfig* _appConfig = nullptr;
-	UIConfig* _uiConfig = nullptr;
+	void Init(AppConfig* appConf, UIConfig* uiConf)
+	{
+		_appConfig = appConf;
+		_uiConfig = uiConf;
+		if(_appConfig)
+			_textureMan = &_appConfig->_textureMan;
+	}
 
 private:
+
+	AppConfig* _appConfig = nullptr;
+	UIConfig* _uiConfig = nullptr;
 
 	std::vector<StatesInfo> _states;
 
@@ -304,6 +304,8 @@ private:
 	sf::RenderTexture _blendingRT;
 
 	ChatReader _chatReader;
+
+	TextureManager* _textureMan;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";
@@ -405,16 +407,26 @@ private:
 
 	inline void SaveAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, const SpriteSheet& anim)
 	{
+		int fcount = anim.FrameCount();
 		auto animElement = parent->FirstChildElement(animName);
-		if (!animElement)
+
+		if (animElement && fcount <= 1)
+		{
+			parent->DeleteChild(animElement);
+			return;
+		}
+
+		if (!animElement && fcount > 1)
 			animElement = parent->InsertFirstChild(doc->NewElement(animName))->ToElement();
+		else if(!animElement)
+			return;
 
 		animElement->SetAttribute("gridX", anim.GridSize().x);
 		animElement->SetAttribute("gridY", anim.GridSize().y);
 		animElement->SetAttribute("frameW", anim.Size().x);
 		animElement->SetAttribute("frameH", anim.Size().y);
 		animElement->SetAttribute("fps", anim.FPS());
-		animElement->SetAttribute("fCount", anim.FrameCount());
+		animElement->SetAttribute("fCount", fcount);
 		animElement->SetAttribute("loop", anim._loop);
 	}
 
@@ -424,16 +436,23 @@ private:
 		if (!animElement)
 			return;
 
+		int fCount;
+		animElement->QueryAttribute("fCount", &fCount);
+
+		if (fCount <= 1)
+		{
+			return;
+		}
+
 		std::vector<int> grid = { 1,1 };
 		std::vector<float> frame = { -1,-1 };
 		float fps;
-		int fCount;
+		
 		animElement->QueryAttribute("gridX", &grid[0]);
 		animElement->QueryAttribute("gridY", &grid[1]);
 		animElement->QueryAttribute("frameW", &frame[0]);
 		animElement->QueryAttribute("frameH", &frame[1]);
 		animElement->QueryAttribute("fps", &fps);
-		animElement->QueryAttribute("fCount",&fCount);
 		animElement->QueryAttribute("loop", &anim._loop);
 
 		anim.SetAttributes(fCount, grid[0], grid[1], fps, { frame[0], frame[1] });
@@ -451,13 +470,12 @@ static sf::Texture* _delIcon = nullptr;
 static sf::Texture* _dupeIcon = nullptr;
 
 
-static TextureManager _textureMan;
 
 template <typename T>
 inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true)
 {
 	if (_resetIcon == nullptr)
-		_resetIcon = _textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
+		_resetIcon = appConfig->_textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
 
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 	if (style)

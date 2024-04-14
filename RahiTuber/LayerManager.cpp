@@ -25,7 +25,7 @@ void OsOpenInShell(const char* path) {
 
 LayerManager::~LayerManager()
 {
-	_textureMan.Reset();
+	_textureMan->Reset();
 	//_chatReader.Cleanup();
 }
 
@@ -342,7 +342,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	if (_errorMessage.empty() == false)
 	{
-		ImGui::TextWrapped(_errorMessage.c_str());
+		ImGui::TextColored(ImVec4(1.0,0.0,0.0,1.0), _errorMessage.c_str());
 	}
 
 	float buttonW = (frameW / 3) - style.ItemSpacing.x*2.55;
@@ -841,11 +841,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		if (const char* screamPth = thisLayer->Attribute("screamPath"))
 			layer._screamImagePath = screamPth;
 
-		layer._idleImage = _textureMan.GetTexture(layer._idleImagePath);
-		layer._talkImage = _textureMan.GetTexture(layer._talkImagePath);
-		layer._blinkImage = _textureMan.GetTexture(layer._blinkImagePath);
-		layer._talkBlinkImage = _textureMan.GetTexture(layer._talkBlinkImagePath);
-		layer._screamImage = _textureMan.GetTexture(layer._screamImagePath);
+		layer._idleImage = _textureMan->GetTexture(layer._idleImagePath, &_errorMessage);
+		layer._talkImage = _textureMan->GetTexture(layer._talkImagePath, &_errorMessage);
+		layer._blinkImage = _textureMan->GetTexture(layer._blinkImagePath, &_errorMessage);
+		layer._talkBlinkImage = _textureMan->GetTexture(layer._talkBlinkImagePath, &_errorMessage);
+		layer._screamImage = _textureMan->GetTexture(layer._screamImagePath, &_errorMessage);
 
 		if(layer._idleImage)
 			layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -1759,25 +1759,25 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
 
 	if (_animIcon == nullptr)
-		_animIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/anim.png");
+		_animIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/anim.png");
 
 	if (_emptyIcon == nullptr)
-		_emptyIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/empty.png");
+		_emptyIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/empty.png");
 
 	if (_upIcon == nullptr)
-		_upIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/arrowup.png");
+		_upIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/arrowup.png");
 
 	if (_dnIcon == nullptr)
-		_dnIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/arrowdn.png");
+		_dnIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/arrowdn.png");
 
 	if (_editIcon == nullptr)
-		_editIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/edit.png");
+		_editIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/edit.png");
 
 	if (_delIcon == nullptr)
-		_delIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/delete.png");
+		_delIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/delete.png");
 
 	if (_dupeIcon == nullptr)
-		_dupeIcon = _textureMan.GetTexture(_parent->_appConfig->_appLocation + "res/duplicate.png");
+		_dupeIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/duplicate.png");
 
 	//_dupeIcon->setSmooth(true);
 	_delIcon->setSmooth(true);
@@ -1817,7 +1817,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			fileBrowserIdle.SetStartingDir(_idleImagePath);
 		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 		{
-			_idleImage = _textureMan.GetTexture(_idleImagePath);
+			_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
 			_idleImage->setSmooth(_scaleFiltering);
 			_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 		}
@@ -1834,10 +1834,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PushID("idleimportfile");
 		char idlebuf[256] = "                           ";
 		_idleImagePath.copy(idlebuf, 256);
-		if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+		if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 		{
 			_idleImagePath = idlebuf;
-			_idleImage = _textureMan.GetTexture(_idleImagePath);
+			_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
 			if (_idleImage)
 			{
 				_idleImage->setSmooth(_scaleFiltering);
@@ -1867,7 +1867,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				fileBrowserTalk.SetStartingDir(_talkImagePath);
 			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 			{
-				_talkImage = _textureMan.GetTexture(_talkImagePath);
+				_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
 				if (_talkImage)
 				{
 					_talkImage->setSmooth(_scaleFiltering);
@@ -1885,10 +1885,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushID("talkimportfile");
 			char talkbuf[256] = "                           ";
 			_talkImagePath.copy(talkbuf, 256);
-			if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+			if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				_talkImagePath = talkbuf;
-				_talkImage = _textureMan.GetTexture(_talkImagePath);
+				_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
 				if (_talkImage)
 				{
 					_talkImage->setSmooth(_scaleFiltering);
@@ -1921,7 +1921,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				fileBrowserBlink.SetStartingDir(_blinkImagePath);
 			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
 			{
-				_blinkImage = _textureMan.GetTexture(_blinkImagePath);
+				_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
 				if (_blinkImage)
 				{
 					_blinkImage->setSmooth(_scaleFiltering);
@@ -1939,10 +1939,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushID("blinkimportfile");
 			char blinkbuf[256] = "                           ";
 			_blinkImagePath.copy(blinkbuf, 256);
-			if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+			if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				_blinkImagePath = blinkbuf;
-				_blinkImage = _textureMan.GetTexture(_blinkImagePath);
+				_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
 				if (_blinkImage)
 				{
 					_blinkImage->setSmooth(_scaleFiltering);
@@ -1973,7 +1973,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					fileBrowserBlink.SetStartingDir(_talkBlinkImagePath);
 				if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
 				{
-					_talkBlinkImage = _textureMan.GetTexture(_talkBlinkImagePath);
+					_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
 					if (_talkBlinkImage)
 					{
 						_talkBlinkImage->setSmooth(_scaleFiltering);
@@ -1991,10 +1991,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PushID("talkblinkimportfile");
 				char talkblinkbuf[256] = "                           ";
 				_talkBlinkImagePath.copy(talkblinkbuf, 256);
-				if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+				if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
 					_talkBlinkImagePath = talkblinkbuf;
-					_talkBlinkImage = _textureMan.GetTexture(_talkBlinkImagePath);
+					_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
 					if (_talkBlinkImage)
 					{
 						_talkBlinkImage->setSmooth(_scaleFiltering);
@@ -2098,7 +2098,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				fileBrowserTalk.SetStartingDir(_screamImagePath);
 			if (fileBrowserTalk.render(_importScreamOpen, _screamImagePath))
 			{
-				_screamImage = _textureMan.GetTexture(_screamImagePath);
+				_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
 				if (_screamImage)
 				{
 					_screamImage->setSmooth(_scaleFiltering);
@@ -2119,7 +2119,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
 			{
 				_screamImagePath = screambuf;
-				_screamImage = _textureMan.GetTexture(_screamImagePath);
+				_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
 				if (_screamImage)
 				{
 					_screamImage->setSmooth(_scaleFiltering);
@@ -2629,35 +2629,4 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 		_idleSprite->AddSync(_screamSprite.get());
 		_idleSprite->Restart();
 	}
-}
-
-sf::Texture* TextureManager::GetTexture(const std::string& path)
-{
-	sf::Texture* out = nullptr;
-	if (path.empty())
-		return nullptr;
-
-	if (_textures.count(path))
-	{
-		out = _textures[path];
-	}
-	else
-	{
-		_textures[path] = new sf::Texture();
-		if(_textures[path]->loadFromFile(path))
-			out = _textures[path];
-	}
-
-	return out;
-}
-
-void TextureManager::Reset()
-{
-	auto it = _textures.begin();
-	for (; it != _textures.end(); it++)
-	{
-		delete (*it).second;
-		(*it).second = nullptr;
-	}
-	_textures.clear();
 }

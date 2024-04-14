@@ -1,3 +1,12 @@
 <Config>
-    <Common startMaximised="false" lastWidth="971" lastHeight="743" lastX="564" lastY="250" alwaysOnTop="false" lastAudioDevice="3" useKeyboardHook="true" lastBgCol_r="146" lastBgCol_g="130" lastBgCol_b="186" transparent="false" menuOnStart="true" lastLayerSet="screamTest" softFall="24" audioFilter="false" theme="Forest"/>
+    <Common startMaximised="false" lastWidth="1280" lastHeight="720" lastX="371" lastY="176" alwaysOnTop="false" lastAudioDevice="3" useKeyboardHook="true" audioExpanded="true" showBounds="true" lastBgCol_r="128" lastBgCol_g="110" lastBgCol_b="128" transparent="true" menuOnStart="true" lastLayerSet="CatTuber4-11" softFall="24" maxLevel="5" softMax="true" audioFilter="false" compression="false" theme="Default" vsync="true">
+        <Theme name="Default" main_r="0.37" main_g="0.1" main_b="0.34999999" accent_r="0.75" accent_g="0.2" accent_b="0.69999999"/>
+        <Theme name="Forest" main_r="0.15000001" main_g="0.2" main_b="0.25" accent_r="0.2" accent_g="0.5" accent_b="0.30000001"/>
+        <Theme name="Iron" main_r="0.15000001" main_g="0.15000001" main_b="0.175" accent_r="0.75" accent_g="0.40000001" accent_b="0.2"/>
+        <Theme name="Oxide" main_r="0.25" main_g="0.34999999" main_b="0.40000001" accent_r="0.69999999" accent_g="0.2" accent_b="0.050000001"/>
+        <Theme name="Pretty" main_r="0.5" main_g="0.25" main_b="0.44999999" accent_r="0.69999999" accent_g="0.75" accent_b="1"/>
+        <Theme name="Silver" main_r="0.37" main_g="0.27500001" main_b="0.40000001" accent_r="0.55000001" accent_g="0.60000002" accent_b="0.64999998"/>
+        <Theme name="Sunset" main_r="0.34999999" main_g="0.050000001" main_b="0.30000001" accent_r="0.60000002" accent_g="0.2" accent_b="0.2"/>
+        <Theme name="Volcano" main_r="0.34999999" main_g="0.050000001" main_b="0.1" accent_r="0.89999998" accent_g="0.60000002" accent_b="0.2"/>
+    </Common>
 </Config>
