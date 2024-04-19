@@ -53,6 +53,7 @@ struct AppConfig
 	bool _enableVSync = true;
 
 	sf::RenderWindow _window;
+	sf::RenderWindow _menuWindow;
 	sf::RenderWindow* _currentWindow = nullptr;
 	sf::RenderTexture _layersRT;
 	sf::RenderTexture _menuRT;
@@ -65,7 +66,9 @@ struct AppConfig
 	bool _isFullScreen = false;
 	bool _wasFullScreen = false;
 	bool _alwaysOnTop = false;
-	bool _useKeyboardHooks = true;
+	bool _useKeyboardHooks = false;
+	bool _menuPopped = false;
+	bool _menuPopBox = false;
 
 	float _fps = 0;
 
@@ -184,5 +187,9 @@ struct UIConfig
 		{"Oxide",   { {0.25f, 0.35f, 0.4f, 1.0f},  {0.7f, 0.2f, 0.05f, 1.0f} }},
 		{"Pretty",  { {0.5f, 0.25f, 0.45f, 1.0f},  {0.7f, 0.75f, 1.0f, 1.0f} }},
 	};
+
+	sf::Texture fontTex;
+	sf::Image fontimg;
+	bool fontBuilt = false;
 
 };

@@ -1092,7 +1092,10 @@ void LayerManager::DrawStatesGUI()
 
 	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen, ImGuiWindowFlags_NoResize))
 	{
-		ImGui::TextWrapped("Use Hotkeys or Timers to instantly set the visibility of multiple layers");
+		ImGui::TextWrapped("Use Hotkeys or Timers to instantly set the visibility of multiple layers.");
+
+		if(_appConfig->_useKeyboardHooks == false)
+			ImGui::TextWrapped("Keyboard Hook is disabled. Hotkeys will not work if Rahituber is not in focus.");
 
 		if (ImGui::Button("Add"))
 		{

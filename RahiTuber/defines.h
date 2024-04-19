@@ -52,7 +52,7 @@ inline float Max(T a, T b)
 template<typename T>
 inline float Min(T a, T b)
 {
-	if (a > b)
+	if (a < b)
 		return a;
 
 	return b;
