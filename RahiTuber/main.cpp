@@ -132,6 +132,38 @@ static int recordCallback(const void *inputBuffer, void *outputBuffer,
 	return paContinue;
 }
 
+void LoadCustomFont()
+{
+	ImGuiIO& io = ImGui::GetIO();
+
+	ImFontConfig cfg;
+	cfg.OversampleH = 1;
+	cfg.SizePixels = 13.f;
+	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
+
+	io.FontDefault = io.Fonts->AddFontFromFileTTF((appConfig->_appLocation + "res/monof55.ttf").c_str(), 13.f, &cfg);
+
+	if (!io.Fonts->IsBuilt())
+	{
+		if (!io.Fonts->Build())
+			__debugbreak();
+
+		// Retrieve texture in RGBA format
+		unsigned char* tex_pixels = NULL;
+		int tex_width, tex_height, bpp;
+		io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height, &bpp);
+
+		uiConfig->fontimg.create(tex_width, tex_height, tex_pixels);
+		uiConfig->fontTex.loadFromImage(uiConfig->fontimg);
+		uiConfig->fontTex.setSmooth(false);
+
+		uiConfig->fontBuilt = true;
+	}
+	
+	io.Fonts->SetTexID((ImTextureID)uiConfig->fontTex.getNativeHandle());
+}
+
 void getWindowSizes()
 {
 	RECT desktop;
@@ -233,10 +265,13 @@ void initWindow(bool firstStart = false)
 	appConfig->_window.setFramerateLimit(appConfig->_enableVSync? 60 : 200);
 
 	HWND hwnd = appConfig->_window.getSystemHandle();
+	HWND hwnd2 = appConfig->_menuWindow.getSystemHandle();
 
 	if (appConfig->_alwaysOnTop)
 	{
 		SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+		if(appConfig->_menuWindow.isOpen())
+			SetWindowPos(hwnd2, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	}
 
 	if (appConfig->_transparent)
@@ -244,13 +279,13 @@ void initWindow(bool firstStart = false)
 		MARGINS margins;
 		margins.cxLeftWidth = -1;
 
-		SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, WS_EX_TRANSPARENT);
+		SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT);
 		SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
 		DwmExtendFrameIntoClientArea(hwnd, &margins);
 	}
 	else
 	{
-		SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
+		SetWindowLong(hwnd, GWL_EXSTYLE, 0);
 		SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
 	}
 
@@ -258,6 +293,8 @@ void initWindow(bool firstStart = false)
 	if (uiConfig->_ico.getPixelsPtr())
 	{
 		appConfig->_window.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
+		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
+
 	}
 }
 
@@ -440,6 +477,8 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
 		ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
 
+		ImGui::TableNextColumn();
+
 		ImGui::EndTable();
 
 		ImGui::PopStyleColor();
@@ -541,7 +580,7 @@ void menuAudio(ImGuiStyle& style)
 		smooth = powf(smooth, 2.f);
 		if (ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.2f"))
 		{
-			smooth = Max(0.0f, Min(smooth, 1.0f));
+			smooth = Clamp(smooth, 0.0f, 1.0f);
 			smooth = powf(smooth, 0.5);
 			audioConfig->_smoothFactor = 61 - smooth / percentVal;
 		}
@@ -668,7 +707,15 @@ void menuPresets(ImGuiStyle& style)
 
 void menu()
 {
-	ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+	bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopBox == false;
+	bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopBox == true;
+
+	appConfig->_menuPopped = appConfig->_menuPopBox;
+
+	if (appConfig->_menuPopped)
+		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
+	else
+		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 
 	auto& style = ImGui::GetStyle();
 	style.FrameRounding = 4;
@@ -687,16 +734,16 @@ void menu()
 	ImVec4 col_dark2(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
 	ImVec4 col_dark1a(baseColor.x * 0.32f, baseColor.y * 0.32f, baseColor.z * 0.32f, 1.f);
 	ImVec4 col_dark1(baseColor.x * 0.5f, baseColor.y * 0.5f, baseColor.z * 0.5f, 1.f);
-	ImVec4 col_dark(baseColor.x*0.6f, baseColor.y*0.6f, baseColor.z*0.6f, 1.f);
+	ImVec4 col_dark(baseColor.x * 0.6f, baseColor.y * 0.6f, baseColor.z * 0.6f, 1.f);
 	ImVec4 col_med2(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
 	ImVec4 col_med(baseColor.x, baseColor.y, baseColor.z, 1.f);
 
 	baseColor = uiConfig->_themes[uiConfig->_theme].second;
 
-	ImVec4 col_light(baseColor.x*0.8f, baseColor.y*0.8f, baseColor.z*0.8f, 1.f);
+	ImVec4 col_light(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
 	ImVec4 col_light2(baseColor);
 	ImVec4 col_light2a(mean(baseColor.x, 0.6f), mean(baseColor.y, 0.6f), mean(baseColor.z, 0.6f), 1.f);
-	ImVec4 col_light3(powf(baseColor.x,.3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
+	ImVec4 col_light3(powf(baseColor.x, .3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
 	ImVec4 greyoutCol(0.3f, 0.3f, 0.3f, 1.0f);
 
 	style.Colors[ImGuiCol_WindowBg] = col_dark2;
@@ -712,38 +759,55 @@ void menu()
 	style.Colors[ImGuiCol_Separator] = col_light2a;
 	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
 	style.Colors[ImGuiCol_Border] = col_dark;
-	 
-	if (!appConfig->_isFullScreen)
-	{
-		// Move tab in the top centre
-		ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 40, 0 });
-		ImGui::SetNextWindowSize({uiConfig->_moveTabSize.x, uiConfig->_moveTabSize.y});
-
-		ImGui::Begin("move_tab", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
-		ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12,4 });
-		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24, 24), sf::Color(255*col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
-		ImGui::End();
-	}
 
 	// Main menu window
-	ImGui::SetNextWindowPos(ImVec2(10,10));
+
 	float windowHeight = appConfig->_scrH - 20;
-	ImGui::SetNextWindowSize({ 480, windowHeight });
+	if (appConfig->_menuPopped == false)
+	{
+		ImGui::SetNextWindowPos(ImVec2(10, 10));
+		ImGui::SetNextWindowSize({ 480, windowHeight });
 
-	sf::Color backdropCol = { sf::Uint8(255 * col_med.x), sf::Uint8(255 * col_med.y), sf::Uint8(255 * col_med.z) };
-	sf::RectangleShape backdrop({ 474, windowHeight - 6 });
-	backdrop.setPosition(13, 13);
-	backdrop.setFillColor(backdropCol);
-	appConfig->_layersRT.draw(backdrop);
+		sf::Color backdropCol = { sf::Uint8(255 * col_med.x), sf::Uint8(255 * col_med.y), sf::Uint8(255 * col_med.z) };
+		sf::RectangleShape backdrop({ 474, windowHeight - 6 });
+		backdrop.setPosition(13, 13);
+		backdrop.setFillColor(backdropCol);
+		appConfig->_layersRT.draw(backdrop);
 
-	ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+		ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+	}
+	else
+	{
+		sf::Vector2u windSize = appConfig->_menuWindow.getSize();
+		windowHeight = windSize.y;
+		ImGui::SetNextWindowPos(ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(windSize.x, windSize.y));
+		ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+	}
 
 	ImDrawList* dList = ImGui::GetWindowDrawList();
 
-	if (ImGui::Button("Close Menu (Esc)", { -1,20 }))
+	std::string menuShowName = "Close Menu (Esc)";
+	std::string menuPopName = "Popout Menu";
+	if (appConfig->_menuPopped)
 	{
-		uiConfig->_menuShowing = false;			
+		menuPopName = "Dock Menu";
+		if (uiConfig->_menuShowing)
+			menuShowName = "Hide Interface (Esc)";
+		else
+			menuShowName = "Show Interface (Esc)";
 	}
+
+	if (ImGui::Button(menuShowName.c_str(), { ImGui::GetWindowWidth() / 2 - 10,20 }))
+	{
+		uiConfig->_menuShowing = !uiConfig->_menuShowing;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button(menuPopName.c_str(), { -1,20 }))
+	{
+		appConfig->_menuPopBox = !appConfig->_menuPopBox;
+	}
+
 
 	//	FULLSCREEN
 	if (ImGui::Button(appConfig->_isFullScreen? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 }))
@@ -788,36 +852,124 @@ void menu()
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
 	if (ImGui::Button("Exit RahiTuber", { -1, 20 }))
 	{
+		appConfig->_menuWindow.close();
 		appConfig->_window.close();
 	}
 	ImGui::PopStyleColor(3);
 
 	ImGui::End();
+
+	if (appConfig->_menuPopped)
+	{
+		ImGui::EndFrame();
+		ImGui::SFML::Render(appConfig->_menuWindow);
+
+		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+	}
+
+	if (!appConfig->_isFullScreen && uiConfig->_menuShowing)
+	{
+		// Move tab in the top centre
+		ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 40, 0 });
+		ImGui::SetNextWindowSize({ uiConfig->_moveTabSize.x, uiConfig->_moveTabSize.y });
+
+		ImGui::Begin("move_tab", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
+		ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12,4 });
+		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24, 24), sf::Color(255 * col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
+		ImGui::End();
+	}
+
 	ImGui::EndFrame();
 	ImGui::SFML::Render(appConfig->_menuRT);
+
+	if (menuUnpopped)
+	{
+		appConfig->_menuWindow.close();
+		appConfig->_window.requestFocus();
+	}
+	
+	if (menuPoppedNow)
+	{
+		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+		appConfig->_menuWindow.setPosition({ appConfig->_scrX, appConfig->_scrY });
+		appConfig->_menuWindow.requestFocus();
+
+		sf::Event dummyFocus;
+		dummyFocus.type = sf::Event::GainedFocus;
+		ImGui::SFML::ProcessEvent(appConfig->_menuWindow, dummyFocus);
+	}
 
 	uiConfig->_firstMenu = false;
 }
 
 void handleEvents()
 {
-	if (appConfig->_currentWindow->hasFocus() && appConfig->_isFullScreen && !uiConfig->_menuShowing)
+	sf::Event menuEvt;
+	if (appConfig->_menuWindow.isOpen())
 	{
-		appConfig->_currentWindow->setMouseCursorVisible(false);
+		while (appConfig->_menuWindow.pollEvent(menuEvt))
+		{
+			if (menuEvt.type == menuEvt.Closed)
+			{
+				appConfig->_menuPopBox = false;
+				// menu function will close it later
+				break;
+			}
+			else if (menuEvt.type == menuEvt.KeyPressed && menuEvt.key.code == sf::Keyboard::F11 && menuEvt.key.control == false)
+			{
+				//toggle fullscreen
+				swapFullScreen();
+			}
+			else if ((menuEvt.type == menuEvt.KeyPressed && menuEvt.key.code == sf::Keyboard::Escape))
+			{
+				//toggle the menu visibility
+				uiConfig->_menuShowing = !uiConfig->_menuShowing;
+				if (uiConfig->_menuShowing)
+					uiConfig->_firstMenu = true;
+
+				appConfig->_timer.restart();
+
+				break;
+			}
+
+			if (menuEvt.type == menuEvt.Resized)
+			{
+				sf::Vector2u windSize = appConfig->_menuWindow.getSize();
+				windSize.x = 480u;
+				appConfig->_menuWindow.setSize(windSize);
+			}
+
+			if (menuEvt.type == menuEvt.KeyPressed || menuEvt.type == menuEvt.MouseButtonPressed)
+			{
+				appConfig->_menuWindow.requestFocus();
+			}
+
+			ImGui::SFML::ProcessEvent(appConfig->_menuWindow, menuEvt);
+		}
+	}
+
+	if (appConfig->_window.hasFocus() && appConfig->_isFullScreen && (!uiConfig->_menuShowing || appConfig->_menuPopped))
+	{
+		appConfig->_window.setMouseCursorVisible(false);
 	}
 	else
 	{
-		appConfig->_currentWindow->setMouseCursorVisible(true);
+		appConfig->_window.setMouseCursorVisible(true);
 	}
 
 	if (uiConfig->_cornerGrabbed.first || uiConfig->_cornerGrabbed.second)
 	{
-		appConfig->_currentWindow->requestFocus();
+		appConfig->_window.requestFocus();
 	}
 
 	sf::Event evt;
-	while (appConfig->_currentWindow->pollEvent(evt))
+	while (appConfig->_window.pollEvent(evt))
 	{
+		if (evt.type == evt.KeyPressed || evt.type == evt.MouseButtonPressed)
+		{
+			appConfig->_window.requestFocus();
+		}
+
 		if (kbdTrack->IsHooked() == false
 			&& (evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
 			&& evt.key.code != sf::Keyboard::LControl
@@ -835,8 +987,8 @@ void handleEvents()
 			if (layerMan->PendingHotkey() && keyDown)
 			{
 				layerMan->SetHotkeys(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
-				if (uiConfig->_menuShowing)
-					ImGui::SFML::ProcessEvent(evt);
+				if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
+					ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 				continue;
 			}
 			else
@@ -849,7 +1001,8 @@ void handleEvents()
 		{
 			layerMan->SaveLayers("lastLayers.xml");
 			//close the application
-			appConfig->_currentWindow->close();
+			appConfig->_window.close();
+			appConfig->_menuWindow.close();
 			break;
 		}
 		else if (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Left))
@@ -879,6 +1032,9 @@ void handleEvents()
 				uiConfig->_firstMenu = true;
 
 			appConfig->_timer.restart();
+
+			appConfig->_window.requestFocus();
+			ImGui::SFML::SetCurrentWindow(appConfig->_window);
 
 			break;
 		}
@@ -941,8 +1097,8 @@ void handleEvents()
 			}
 		}
 
-		if (uiConfig->_menuShowing)
-			ImGui::SFML::ProcessEvent(evt);
+		if (uiConfig->_menuShowing && appConfig->_menuWindow.isOpen() == false)
+			ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 	}
 }
 
@@ -974,7 +1130,6 @@ void render()
 		audioLevel = (1.0 - audioLevel) * sin(PI * 0.5 * audioLevel) + audioLevel * sin(PI * 0.5 * powf(audioLevel, 0.5));
 		audioLevel = Clamp(audioLevel, 0.0, 1.0);
 	}
-		
 
  	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
@@ -995,7 +1150,12 @@ void render()
 		}
 		menu();
 	}
-	else if(uiConfig->_showFPS)
+	else if (appConfig->_menuWindow.isOpen())
+	{
+		menu();
+	}
+	
+	if(uiConfig->_showFPS && (!uiConfig->_menuShowing || appConfig->_menuPopped))
 	{
 		if (dt <= sf::Time::Zero)
 			dt = sf::milliseconds(1);
@@ -1055,6 +1215,8 @@ void render()
 	appConfig->_window.draw(appConfig->_RTPlane, states);
 
 	appConfig->_window.display();
+	if (appConfig->_menuWindow.isOpen())
+		appConfig->_menuWindow.display();
 }
 
 void doAudioAnalysis()
@@ -1186,7 +1348,6 @@ void doAudioAnalysis()
 	}
 }
 
-
 int main()
 {
 	PaError err = paNoError;
@@ -1289,33 +1450,16 @@ int main()
 
 	initWindow(true);
 	ImGui::SFML::Init(appConfig->_window);
+	ImGui::SFML::Init(appConfig->_menuWindow);
 
 	ImGui::GetStyle().WindowRounding = 4.f;
 	ImGui::GetStyle().Alpha = 1.0;
 
-	ImGuiIO& io = ImGui::GetIO();
-	ImFontConfig cfg;
-	cfg.OversampleH = 1;
-	cfg.SizePixels = 13.f;
-	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
-	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
+	ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
+	LoadCustomFont();
 
-	io.FontDefault = io.Fonts->AddFontFromFileTTF((appConfig->_appLocation + "res/monof55.ttf").c_str(), 13.f, &cfg);
-	if (!io.Fonts->Build())
-		__debugbreak();
-
-	// Retrieve texture in RGBA format
-	unsigned char* tex_pixels = NULL;
-	int tex_width, tex_height, bpp;
-	io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_width, &tex_height, &bpp);
-
-	static sf::Image* fontimg = new sf::Image();
-	static sf::Texture* fontTex = new sf::Texture();
-	fontimg->create(tex_width, tex_height, tex_pixels);
-	fontTex->loadFromImage(*fontimg);
-	fontTex->setSmooth(false);
-	
-	io.Fonts->SetTexID((ImTextureID)fontTex->getNativeHandle());
+	ImGui::SFML::SetCurrentWindow(appConfig->_window);
+	LoadCustomFont();
 
 	//setup debug bars
 	audioConfig->_frames.resize(FRAMES_PER_BUFFER * 3);
@@ -1385,17 +1529,21 @@ int main()
 	errorMsg = Pa_GetErrorText(err);
 
 	//request focus and start the game loop
-	appConfig->_currentWindow->requestFocus();
+	appConfig->_window.requestFocus();
+
+	sf::Event dummyFocus;
+	dummyFocus.type = sf::Event::GainedFocus;
+	ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
 
 	audioConfig->_quietTimer.restart();
 
 	////////////////////////////////////// MAIN LOOP /////////////////////////////////////
-	while (appConfig->_currentWindow->isOpen())
+	while (appConfig->_window.isOpen())
 	{
 		doAudioAnalysis();
 
 		handleEvents();
-		if (!appConfig->_currentWindow->isOpen())
+		if (!appConfig->_window.isOpen())
 			break;
 
 		render();
@@ -1424,8 +1572,11 @@ int main()
 
 	ImGui::SFML::Shutdown();
 
-	if (appConfig->_currentWindow->isOpen())
-		appConfig->_currentWindow->close();
+	if (appConfig->_window.isOpen())
+		appConfig->_window.close();
+
+	if (appConfig->_menuWindow.isOpen())
+		appConfig->_menuWindow.close();
 
 	delete appConfig;
 	delete uiConfig;
@@ -1433,8 +1584,6 @@ int main()
 	
 	delete kbdTrack;
 
-	delete fontimg;
-	delete fontTex;
 	return 0;
 
 }
