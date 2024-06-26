@@ -55,6 +55,12 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryFloatAttribute("lastHeight", &_appConfig->_minScrH);
 	common->QueryIntAttribute("lastX", &_appConfig->_scrX);
 	common->QueryIntAttribute("lastY", &_appConfig->_scrY);
+
+	_appConfig->_lastMenuPopPosition = { _appConfig->_scrX,_appConfig->_scrY };
+	common->QueryBoolAttribute("menuPopped", &_appConfig->_menuPopPending);
+	common->QueryIntAttribute("lastMenuX", &_appConfig->_lastMenuPopPosition.x);
+	common->QueryIntAttribute("lastMenuY", &_appConfig->_lastMenuPopPosition.y);
+		
 	common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 	common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
 	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
@@ -137,6 +143,11 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastHeight", _appConfig->_minScrH);
 			common->SetAttribute("lastX", _appConfig->_scrX);
 			common->SetAttribute("lastY", _appConfig->_scrY);
+
+			common->SetAttribute("menuPopped", _appConfig->_menuPopped);
+			common->SetAttribute("lastMenuX", _appConfig->_lastMenuPopPosition.x);
+			common->SetAttribute("lastMenuY", _appConfig->_lastMenuPopPosition.y);
+
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);

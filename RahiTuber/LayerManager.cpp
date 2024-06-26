@@ -134,8 +134,15 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (layer._hideWithParent)
 		{
 			LayerInfo* mp = GetLayer(layer._motionParent);
-			if (mp)
+			while (mp != nullptr)
+			{
 				visible &= mp->_visible;
+				if (mp->_hideWithParent)
+					mp = GetLayer(mp->_motionParent);
+				else
+					break;
+			}
+				
 		}
 
 		if (visible)
@@ -583,6 +590,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 		thisLayer->SetAttribute("talking", layer._swapWhenTalking);
 		thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
+		thisLayer->SetAttribute("restartOnSwap", layer._restartTalkAnim);
 
 		thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
 		thisLayer->SetAttribute("talkBlink", layer._blinkWhileTalking);
@@ -672,6 +680,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	root->SetAttribute("globalPosY", _globalPos.y);
 	root->SetAttribute("globalRot", _globalRot);
 
+	root->SetAttribute("statesPassThrough", _statesPassThrough);
+
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
 		hotkeys = root->InsertFirstChild(doc.NewElement("hotkeys"))->ToElement();
@@ -687,23 +697,25 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	for (int h = 0; h < _states.size(); h++)
 	{
 		auto thisHotkey = hotkeys->InsertEndChild(doc.NewElement("hotkey"))->ToElement();
-		const auto& hkey = _states[h];
+		const auto& stateInfo = _states[h];
 
-		thisHotkey->SetAttribute("key", (int)hkey._key);
-		thisHotkey->SetAttribute("ctrl", hkey._ctrl);
-		thisHotkey->SetAttribute("shift", hkey._shift);
-		thisHotkey->SetAttribute("alt", hkey._alt);
-		thisHotkey->SetAttribute("timeout", hkey._timeout);
-		thisHotkey->SetAttribute("useTimeout", hkey._useTimeout);
-		thisHotkey->SetAttribute("activeType", hkey._activeType);
+		thisHotkey->SetAttribute("enabled", stateInfo._enabled);
+
+		thisHotkey->SetAttribute("key", (int)stateInfo._key);
+		thisHotkey->SetAttribute("ctrl", stateInfo._ctrl);
+		thisHotkey->SetAttribute("shift", stateInfo._shift);
+		thisHotkey->SetAttribute("alt", stateInfo._alt);
+		thisHotkey->SetAttribute("timeout", stateInfo._timeout);
+		thisHotkey->SetAttribute("useTimeout", stateInfo._useTimeout);
+		thisHotkey->SetAttribute("activeType", stateInfo._activeType);
 
 		thisHotkey->DeleteAttribute("toggle");
 
-		thisHotkey->SetAttribute("schedule", hkey._schedule);
-		thisHotkey->SetAttribute("interval", hkey._intervalTime);
-		thisHotkey->SetAttribute("variation", hkey._intervalVariation);
+		thisHotkey->SetAttribute("schedule", stateInfo._schedule);
+		thisHotkey->SetAttribute("interval", stateInfo._intervalTime);
+		thisHotkey->SetAttribute("variation", stateInfo._intervalVariation);
 
-		for (auto& state : hkey._layerStates)
+		for (auto& state : stateInfo._layerStates)
 		{
 			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
 			thisState->SetAttribute("id", state.first.c_str());
@@ -798,6 +810,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 		thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
 		thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
+		thisLayer->QueryAttribute("restartOnSwap", &layer._restartTalkAnim);
 
 		thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
 		thisLayer->QueryAttribute("talkBlink", &layer._blinkWhileTalking);
@@ -932,6 +945,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	root->QueryAttribute("globalPosY", &_globalPos.y);
 	root->QueryAttribute("globalRot", &_globalRot);
 
+	root->QueryAttribute("statesPassThrough", &_statesPassThrough);
+
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
 	{
@@ -946,6 +961,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	{
 		_states.emplace_back(StatesInfo());
 		StatesInfo& hkey = _states.back();
+
+		thisHotkey->QueryAttribute("enabled", &hkey._enabled);
 
 		int key;
 		thisHotkey->QueryAttribute("key", &key);
@@ -1006,21 +1023,21 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 	
 	for (int h = 0; h < _states.size(); h++)
 	{
-		auto& hkey = _states[h];
-		if (hkey._key == key && hkey._ctrl == ctrl && hkey._shift == shift && hkey._alt == alt)
+		auto& stateInfo = _states[h];
+		if (stateInfo._enabled && stateInfo._key == key && stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 		{
-			if (hkey._active && ((hkey._activeType == StatesInfo::Toggle && keyDown) || (hkey._activeType == StatesInfo::Held && !keyDown)))
+			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
 				// deactivate
-				hkey._active = false;
-				RemoveStateFromOrder(&hkey);
+				stateInfo._active = false;
+				RemoveStateFromOrder(&stateInfo);
 			}
-			else if (!hkey._active && keyDown)
+			else if (!stateInfo._active && keyDown)
 			{
-				if (hkey._activeType == StatesInfo::Permanent)
+				if (stateInfo._activeType == StatesInfo::Permanent)
 				{
 					// activate immediately & alter the default states
-					for (auto& state : hkey._layerStates)
+					for (auto& state : stateInfo._layerStates)
 					{
 						LayerInfo* layer = GetLayer(state.first);
 						if (layer && state.second != StatesInfo::NoChange)
@@ -1032,14 +1049,14 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 						}
 					}
 					// never "activates" because it can't be undone
-					hkey._active = false;
+					stateInfo._active = false;
 				}
 				else
 				{
 					// activate and add to stack
 					SaveDefaultStates();
 
-					for (auto& state : hkey._layerStates)
+					for (auto& state : stateInfo._layerStates)
 					{
 						LayerInfo* layer = GetLayer(state.first);
 						if (layer && state.second != StatesInfo::NoChange)
@@ -1047,13 +1064,15 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 							layer->_visible = state.second;
 						}
 					}
-					AppendStateToOrder(&hkey);
-					hkey._timer.restart();
-					hkey._active = true;
+					AppendStateToOrder(&stateInfo);
+					stateInfo._timer.restart();
+					stateInfo._active = true;
 					_statesTimer.restart();
 				}
 			}
-			break;
+
+			if(!_statesPassThrough)
+				break;
 		}
 	}
 
@@ -1092,7 +1111,8 @@ void LayerManager::DrawStatesGUI()
 
 	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen, ImGuiWindowFlags_NoResize))
 	{
-		ImGui::TextWrapped("Use Hotkeys or Timers to instantly set the visibility of multiple layers.");
+		ImGui::Checkbox("States pass through", &_statesPassThrough);
+		ToolTip("When multiple states are defined with the same hotkey,\nonly the first will activate unless this is checked.", &_appConfig->_hoverTimer);
 
 		if(_appConfig->_useKeyboardHooks == false)
 			ImGui::TextWrapped("Keyboard Hook is disabled. Hotkeys will not work if Rahituber is not in focus.");
@@ -1149,12 +1169,15 @@ void LayerManager::DrawStatesGUI()
 
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth-60), ImGui::GetCursorPosY() };
+			ImVec2 enableButtonPos = { delButtonPos.x - 30, delButtonPos.y };
 
 			ImGui::PushID('id' + stateIdx);
 
 			auto col = ImGui::GetStyleColorVec4(ImGuiCol_Header);
 			if(state._active)
 				col = ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive);
+			if (state._enabled == false)
+				col = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
 			ImGui::PushStyleColor(ImGuiCol_Header, col);
 			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
@@ -1327,6 +1350,12 @@ void LayerManager::DrawStatesGUI()
 			}
 			ImGui::PopStyleColor(4);
 			ToolTip("Delete this state", &_appConfig->_hoverTimer);
+			
+
+			ImGui::SetCursorPos(enableButtonPos);
+			ImGui::Checkbox("##enableState", &state._enabled);
+			ToolTip("Enable this state to be triggered", &_appConfig->_hoverTimer);
+
 			ImGui::PopID();
 
 			ImGui::SetCursorPos(endHeaderPos);
@@ -1447,6 +1476,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_blinkSprite->_visible = false;
 		_talkSprite->_visible = true;
 		_talkSprite->SetColor(_talkTint);
+
+		if (!_wasTalking && _restartTalkAnim)
+		{
+			_talkSprite->Restart();
+		}
 	}
 	else if (_screamImage && screaming)
 	{
@@ -1457,6 +1491,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_talkSprite->_visible = false;
 		_screamSprite->SetColor(_screamTint);
 	}
+
+	_wasTalking = talking;
 
 	if (_motionParent == "" || _motionParent == "-1")
 	{
@@ -2084,6 +2120,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		
 		ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
 		ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
+
+		ImGui::SameLine(0.0, 10.f);
+
+		ImGui::Checkbox("Restart on swap", &_restartTalkAnim);
+		ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
 
 		ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 		if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
