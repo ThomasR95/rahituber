@@ -36,8 +36,18 @@ const std::vector<std::string> g_activeTypeNames
 	"Permanent"
 };
 
+const std::vector<std::string> g_canTriggerNames
+{
+	"Always",
+	"While Talking",
+	"While Idle"
+};
+
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
 {
+	_lastTalkLevel = talkLevel;
+	_lastTalkMax = talkMax;
+
 	// reset to default states
 	if (_statesDirty)
 	{
@@ -49,18 +59,37 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		_statesDirty = false;
 	}
 
+	float talkFactor = 0;
+	if (_lastTalkMax > 0)
+	{
+		talkFactor = _lastTalkLevel / _lastTalkMax;
+		talkFactor = pow(talkFactor, 0.5);
+	}
+
 	// activate timed states
 	for (UINT stateIdx = 0; stateIdx < _states.size(); stateIdx++)
 	{
 		auto& state = _states[stateIdx];
 		if (!state._active && state._schedule && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
 		{
-			SaveDefaultStates();
+			bool canTrigger = state._enabled;
+			if (canTrigger && state._canTrigger != StatesInfo::CanTrigger::Always)
+			{
+				if (state._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+					canTrigger &= talkFactor >= state._threshold;
+				if (state._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+					canTrigger &= talkFactor < state._threshold;
+			}
 
-			state._active = true;
-			state._currentIntervalTime = state._intervalTime + GetRandom11() * state._intervalVariation;
-			state._timer.restart();
-			_statesOrder.push_back(&_states[stateIdx]);
+			if (canTrigger)
+			{
+				SaveDefaultStates();
+
+				state._active = true;
+				state._currentIntervalTime = state._intervalTime + GetRandom11() * state._intervalVariation;
+				state._timer.restart();
+				_statesOrder.push_back(&_states[stateIdx]);
+			}
 		}
 	}
 
@@ -681,6 +710,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	root->SetAttribute("globalRot", _globalRot);
 
 	root->SetAttribute("statesPassThrough", _statesPassThrough);
+	root->SetAttribute("statesHideUnaffected", _statesHideUnaffected);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
@@ -701,6 +731,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 		thisHotkey->SetAttribute("enabled", stateInfo._enabled);
 
+		thisHotkey->SetAttribute("name", stateInfo._name.c_str());
+
 		thisHotkey->SetAttribute("key", (int)stateInfo._key);
 		thisHotkey->SetAttribute("ctrl", stateInfo._ctrl);
 		thisHotkey->SetAttribute("shift", stateInfo._shift);
@@ -708,6 +740,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("timeout", stateInfo._timeout);
 		thisHotkey->SetAttribute("useTimeout", stateInfo._useTimeout);
 		thisHotkey->SetAttribute("activeType", stateInfo._activeType);
+		thisHotkey->SetAttribute("canTrigger", stateInfo._canTrigger);
+		thisHotkey->SetAttribute("threshold", stateInfo._threshold);
 
 		thisHotkey->DeleteAttribute("toggle");
 
@@ -946,6 +980,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	root->QueryAttribute("globalRot", &_globalRot);
 
 	root->QueryAttribute("statesPassThrough", &_statesPassThrough);
+	root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
@@ -964,6 +999,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 		thisHotkey->QueryAttribute("enabled", &hkey._enabled);
 
+		if (const char* storedName = thisHotkey->Attribute("idlePath"))
+			hkey._name = storedName;
+
 		int key;
 		thisHotkey->QueryAttribute("key", &key);
 		hkey._key = (sf::Keyboard::Key)key;
@@ -980,6 +1018,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			hkey._activeType = StatesInfo::ActiveType::Held;
 			
 		thisHotkey->QueryIntAttribute("activeType", (int*)(& hkey._activeType));
+		thisHotkey->QueryIntAttribute("canTrigger", (int*)(&hkey._canTrigger));
+		thisHotkey->QueryAttribute("threshold", &hkey._threshold);
 
 		thisHotkey->QueryAttribute("schedule", &hkey._schedule);
 		thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
@@ -1020,11 +1060,28 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
+
+	float talkFactor = 0;
+	if (_lastTalkMax > 0)
+	{
+		talkFactor = _lastTalkLevel / _lastTalkMax;
+		talkFactor = pow(talkFactor, 0.5);
+	}
 	
 	for (int h = 0; h < _states.size(); h++)
 	{
 		auto& stateInfo = _states[h];
-		if (stateInfo._enabled && stateInfo._key == key && stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
+
+		bool canTrigger = stateInfo._enabled;
+		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::Always)
+		{
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+				canTrigger &= talkFactor >= stateInfo._threshold;
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+				canTrigger &= talkFactor < stateInfo._threshold;
+		}
+
+		if (canTrigger && stateInfo._key == key && stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 		{
 			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
@@ -1109,10 +1166,21 @@ void LayerManager::DrawStatesGUI()
 		}
 	}
 
+	if (_editIcon == nullptr)
+		_editIcon = _textureMan->GetTexture(_appConfig->_appLocation + "res/edit.png");
+
 	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen, ImGuiWindowFlags_NoResize))
 	{
+		ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
+
+		ImGui::Columns(2, 0, false);
 		ImGui::Checkbox("States pass through", &_statesPassThrough);
 		ToolTip("When multiple states are defined with the same hotkey,\nonly the first will activate unless this is checked.", &_appConfig->_hoverTimer);
+		ImGui::NextColumn();
+		ImGui::Checkbox("Hide \"No Change\"", &_statesHideUnaffected);
+		ToolTip("Hide all layers with \"No Change\" under\neach state effect", &_appConfig->_hoverTimer);
+		ImGui::Columns();
 
 		if(_appConfig->_useKeyboardHooks == false)
 			ImGui::TextWrapped("Keyboard Hook is disabled. Hotkeys will not work if Rahituber is not in focus.");
@@ -1132,44 +1200,52 @@ void LayerManager::DrawStatesGUI()
 		{
 			auto& state = _states[stateIdx];
 
-			std::string name = g_key_names[state._key];
+			std::string keyName = g_key_names[state._key];
 			if (state._key == sf::Keyboard::Unknown)
 			{
 				if (state._schedule)
-					name = "";
+					keyName = "";
 				else
-					name = "No hotkey";
-			}				
-			if (state._alt)
-				name = "Alt, " + name;
-			if (state._shift)
-				name = "Shift, " + name;
-			if (state._ctrl)
-				name = "Ctrl, " + name;
-
-			std::string keyName = name;
-
-			if (state._schedule)
-			{
-				std::stringstream ss;
-
-				if (name != "")
-					ss << ", ";
-
-				if (state._intervalVariation > 0)
-					ss << std::fixed << std::setprecision(1) << state._intervalTime - state._intervalVariation
-					<< " - " << state._intervalTime + state._intervalVariation << "s interval";
-				else
-					ss << std::fixed << std::setprecision(1) << state._intervalTime << "s interval";
-
-				name += ss.str();
+					keyName = "No hotkey";
 			}
+			if (state._alt)
+				keyName = "Alt, " + keyName;
+			if (state._shift)
+				keyName = "Shift, " + keyName;
+			if (state._ctrl)
+				keyName = "Ctrl, " + keyName;
+
+			std::string name;
+			if (state._name == "")
+			{
+				// Generate a name from the actions
+				name = keyName;
+
+				if (state._schedule)
+				{
+					std::stringstream ss;
+
+					if (name != "")
+						ss << ", ";
+
+					if (state._intervalVariation > 0)
+						ss << std::fixed << std::setprecision(1) << state._intervalTime - state._intervalVariation
+						<< " - " << state._intervalTime + state._intervalVariation << "s interval";
+					else
+						ss << std::fixed << std::setprecision(1) << state._intervalTime << "s interval";
+
+					name += ss.str();
+				}
+			}
+			else
+				name = state._name;
 
 			float contentWidth = ImGui::GetWindowContentRegionMax().x;
 
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 20, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth-60), ImGui::GetCursorPosY() };
 			ImVec2 enableButtonPos = { delButtonPos.x - 30, delButtonPos.y };
+			ImVec2 renameButtonPos = { enableButtonPos.x - 30, enableButtonPos.y };
 
 			ImGui::PushID('id' + stateIdx);
 
@@ -1227,6 +1303,15 @@ void LayerManager::DrawStatesGUI()
 				ImGui::AlignTextToFramePadding();
 				ImGui::Text("Active Type:");
 
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Can Trigger:");
+
+				if (state._canTrigger != StatesInfo::CanTrigger::Always)
+				{
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("Threshold:");
+				}
+
 				float timeoutpos = ImGui::GetCursorPosY();
 				bool whileHeld = state._activeType == StatesInfo::Held;
 				bool timeoutActive = (state._useTimeout && !whileHeld) || state._schedule;
@@ -1263,15 +1348,34 @@ void LayerManager::DrawStatesGUI()
 \n- While Held: The state will be active while the\n    hotkey is held, and inactive otherwise\
 \n- Permanent: The effects of this state will be\n    permanently applied when the hotkey is pressed", &_appConfig->_hoverTimer);
 
+				ImGui::PushItemWidth(100);
+				if (ImGui::BeginCombo("##CanTrigger", g_canTriggerNames[state._canTrigger].c_str()))
+				{
+					for (int trigType = 0; trigType < g_canTriggerNames.size(); trigType++)
+					{
+						if (ImGui::Selectable(g_canTriggerNames[trigType].c_str(), state._canTrigger == trigType))
+							state._canTrigger = (StatesInfo::CanTrigger)trigType;
+					}
+					ImGui::EndCombo();
+				}
+				ImGui::PopItemWidth();
+				ToolTip("Change when the state can be triggered:\
+\n- Always: Can always be triggered by the \n    schedule or the hotkey\
+\n- While Talking: Can only be triggered above \n    the given voice threshold\
+\n- While Idle: Can only be triggered below \n    the given voice threshold", &_appConfig->_hoverTimer);
+
+				if (state._canTrigger != StatesInfo::CanTrigger::Always)
+				{
+					ImGui::SliderFloat("##Threshold", &state._threshold, 0.0, 1.0, "%.3f");
+				}
+
 				if (state._activeType != StatesInfo::Permanent)
 				{
 					ImGui::SetCursorPosY(timeoutpos);
 					if (timeoutActive)
 					{
-						ImGui::PushID("timeoutSlider");
-						ImGui::SliderFloat("", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+						ImGui::SliderFloat("##timeoutSlider", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 						ToolTip("How long the state stays active for", &_appConfig->_hoverTimer);
-						ImGui::PopID();
 					}
 				}
 
@@ -1288,6 +1392,7 @@ void LayerManager::DrawStatesGUI()
 					ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
 					ToolTip("Adds a random variation to the Interval.\nThis sets the maximum variation.", &_appConfig->_hoverTimer);
 				}
+
 				ImGui::Columns();
 
 				ImGui::Separator();
@@ -1297,6 +1402,9 @@ void LayerManager::DrawStatesGUI()
 				int layerIdx = 0;
 				for (auto& l : _layers)
 				{
+					if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
+						continue;
+
 					ImGui::PushID(l._id.c_str());
 					ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
 
@@ -1334,8 +1442,24 @@ void LayerManager::DrawStatesGUI()
 
 			ImVec2 endHeaderPos = ImGui::GetCursorPos();
 
-			ImGui::SetCursorPos(headerTxtPos);
-			ImGui::Text(name.c_str());
+			
+			if (state._renaming)
+			{
+				headerTxtPos.y -= 3;
+				ImGui::SetCursorPos(headerTxtPos);
+				char inputStr[32] = " ";
+				state._name.copy(inputStr, 32);
+				if (ImGui::InputText("##rename", inputStr, 32, ImGuiInputTextFlags_EscapeClearsAll | ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					state._name = inputStr;
+					state._renaming = false;
+				}
+			}
+			else
+			{
+				ImGui::SetCursorPos(headerTxtPos);
+				ImGui::Text(name.c_str());
+			}
 
 			ImGui::SetCursorPos(delButtonPos);
 			ImGuiStyle& style = ImGui::GetStyle();
@@ -1355,6 +1479,14 @@ void LayerManager::DrawStatesGUI()
 			ImGui::SetCursorPos(enableButtonPos);
 			ImGui::Checkbox("##enableState", &state._enabled);
 			ToolTip("Enable this state to be triggered", &_appConfig->_hoverTimer);
+
+			ImGui::SetCursorPos(renameButtonPos);
+			ImGui::PushID("renameBtn");
+			if (ImGui::ImageButton(*_editIcon, {17,17}, 1, sf::Color::Transparent, btnColor))
+			{
+				state._renaming = true;
+			}
+			ImGui::PopID();
 
 			ImGui::PopID();
 
@@ -1551,20 +1683,20 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				}
 				float motionTime = _motionTimer.getElapsedTime().asSeconds();
 
-				bool coolingDown = motionTime < _breathFrequency && !_breatheWhileTalking;
-				float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
+				float coolDownTime = _breathFrequency / 5;
+
+				bool coolingDown = motionTime < coolDownTime && !_breatheWhileTalking;
+				float coolDownFactor = Clamp((coolDownTime - motionTime) / coolDownTime, 0.0, 1.0);
 
 				motionTime = fmod(motionTime , _breathFrequency);
 				float phase = (motionTime / _breathFrequency) * 2.0 * PI;
 				if (coolingDown)
 				{
-					_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
-					_breathAmount.x = std::max(_breathAmount.x, (-0.5f * cos(phase) + 0.5f));
-					_breathAmount.y = std::max(0.0f, _breathAmount.y * coolDownFactor);
+					_breathAmount.x = std::max(_breathAmount.x * coolDownFactor, (-0.5f * cos(phase) + 0.5f) * 1.0f-coolDownFactor);
 					if(_breathCircular)
-						_breathAmount.y = std::max(_breathAmount.y, (-0.5f * sin(phase) + 0.5f));
+						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * sin(phase) + 0.5f) * 1.0f-coolDownFactor);
 					else
-						_breathAmount.y = std::max(_breathAmount.y, (-0.5f * cos(phase) + 0.5f));
+						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * cos(phase) + 0.5f) * 1.0f-coolDownFactor);
 				}
 				else
 				{

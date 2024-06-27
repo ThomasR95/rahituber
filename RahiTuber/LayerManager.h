@@ -218,6 +218,9 @@ public:
 		bool _shift = false;
 		bool _alt = false;
 
+		bool _renaming = false;
+		std::string _name = "";
+
 		enum State {
 			Hide = 0,
 			Show = 1,
@@ -239,6 +242,15 @@ public:
 		float _currentIntervalTime = 0.0;
 		std::map<std::string, State> _layerStates;
 		bool _awaitingHotkey = false;
+
+		enum CanTrigger {
+			Always,
+			WhileTalking,
+			WhileIdle
+		};
+
+		CanTrigger _canTrigger = Always;
+		float _threshold = 0.4f;
 
 		sf::Clock _timer;
 	};
@@ -297,6 +309,9 @@ public:
 
 private:
 
+	float _lastTalkLevel = 0.0;
+	float _lastTalkMax = 1.0;
+
 	AppConfig* _appConfig = nullptr;
 	UIConfig* _uiConfig = nullptr;
 
@@ -311,6 +326,7 @@ private:
 	TextureManager* _textureMan;
 
 	bool _statesPassThrough = false;
+	bool _statesHideUnaffected = false;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";
