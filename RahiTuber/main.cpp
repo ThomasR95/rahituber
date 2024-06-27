@@ -707,10 +707,10 @@ void menuPresets(ImGuiStyle& style)
 
 void menu()
 {
-	bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopBox == false;
-	bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopBox == true;
+	bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopPending == false;
+	bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopPending == true;
 
-	appConfig->_menuPopped = appConfig->_menuPopBox;
+	appConfig->_menuPopped = appConfig->_menuPopPending;
 
 	if (appConfig->_menuPopped)
 		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
@@ -805,7 +805,7 @@ void menu()
 	ImGui::SameLine();
 	if (ImGui::Button(menuPopName.c_str(), { -1,20 }))
 	{
-		appConfig->_menuPopBox = !appConfig->_menuPopBox;
+		appConfig->_menuPopPending = !appConfig->_menuPopPending;
 	}
 
 
@@ -852,6 +852,9 @@ void menu()
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
 	if (ImGui::Button("Exit RahiTuber", { -1, 20 }))
 	{
+		if(appConfig->_menuWindow.isOpen())
+			appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
+
 		appConfig->_menuWindow.close();
 		appConfig->_window.close();
 	}
@@ -884,6 +887,7 @@ void menu()
 
 	if (menuUnpopped)
 	{
+		appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
 		appConfig->_menuWindow.close();
 		appConfig->_window.requestFocus();
 	}
@@ -891,7 +895,7 @@ void menu()
 	if (menuPoppedNow)
 	{
 		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
-		appConfig->_menuWindow.setPosition({ appConfig->_scrX, appConfig->_scrY });
+		appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);
 		appConfig->_menuWindow.requestFocus();
 
 		sf::Event dummyFocus;
@@ -911,7 +915,7 @@ void handleEvents()
 		{
 			if (menuEvt.type == menuEvt.Closed)
 			{
-				appConfig->_menuPopBox = false;
+				appConfig->_menuPopPending = false;
 				// menu function will close it later
 				break;
 			}

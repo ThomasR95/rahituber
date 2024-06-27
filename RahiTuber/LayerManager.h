@@ -61,6 +61,8 @@ public:
 
 		bool _swapWhenTalking = true;
 		float _talkThreshold = 0.15f;
+		bool _restartTalkAnim = false;
+		bool _wasTalking = false;
 
 		bool _useBlinkFrame = true;
 		bool _blinkWhileTalking = false;
@@ -208,6 +210,7 @@ public:
 
 	struct StatesInfo
 	{
+		bool _enabled = true;
 		bool _active = false;
 
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
@@ -306,6 +309,8 @@ private:
 	ChatReader _chatReader;
 
 	TextureManager* _textureMan;
+
+	bool _statesPassThrough = false;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";

@@ -68,7 +68,9 @@ struct AppConfig
 	bool _alwaysOnTop = false;
 	bool _useKeyboardHooks = false;
 	bool _menuPopped = false;
-	bool _menuPopBox = false;
+	bool _menuPopPending = false;
+
+	sf::Vector2i _lastMenuPopPosition;
 
 	float _fps = 0;
 
