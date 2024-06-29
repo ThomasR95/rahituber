@@ -218,6 +218,10 @@ public:
 		bool _shift = false;
 		bool _alt = false;
 
+		sf::Joystick::Axis _jAxis = sf::Joystick::Axis::X;
+		float _jDir = 0.f;
+		int _jButton = -1;
+
 		bool _renaming = false;
 		std::string _name = "";
 
@@ -272,14 +276,30 @@ public:
 	bool LoadLayers(const std::string& settingsFileName);
 
 	bool PendingHotkey() { return _waitingForHotkey; }
-	void SetHotkeys(const sf::Keyboard::Key& key, bool ctrl, bool shift, bool alt)
+	void SetHotkeys(const sf::Event& evt)
 	{
-		_pendingKey = key;
-		_pendingCtrl = ctrl;
-		_pendingShift = shift;
-		_pendingAlt = alt;
+		if (evt.type == sf::Event::KeyPressed)
+		{
+			_pendingKey = evt.key.code;
+			_pendingCtrl = evt.key.control;
+			_pendingShift = evt.key.shift;
+			_pendingAlt = evt.key.alt;
+		}
+
+		//_pendingJStick = evt.joystickMove.joystickId;
+		if (evt.type == sf::Event::JoystickMoved)
+		{
+			_pendingJAxis = evt.joystickMove.axis;
+			_pendingJDir = evt.joystickMove.position;
+		}
+
+		//_pendingJButtonSID = evt.joystickButton.joystickId;
+		if (evt.type == sf::Event::JoystickButtonPressed)
+			_pendingJButton = evt.joystickButton.button;
+		else
+			_pendingJButton = -1;
 	}
-	void HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool ctrl, bool shift, bool alt);
+	void HandleHotkey(const sf::Event& key, bool keyDown);
 	void ResetStates();
 
 	LayerInfo* GetLayer(std::string id) 
@@ -342,6 +362,9 @@ private:
 	bool _pendingCtrl = false;
 	bool _pendingShift = false;
 	bool _pendingAlt = false;
+	sf::Joystick::Axis _pendingJAxis = sf::Joystick::Axis::X;
+	float _pendingJDir = 0.f;
+	int _pendingJButton = -1;
 
 	sf::Vector2f _globalScale = { 1.f, 1.f };
 	sf::Vector2f _globalPos;

@@ -84,19 +84,29 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
   if (isModifier)
     return;
 
-  bool ctrl = _keysPressed[sf::Keyboard::LControl] || _keysPressed[sf::Keyboard::RControl];
-  bool shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
-  bool alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
+  sf::Event evt;
+
+  evt.key.control = _keysPressed[sf::Keyboard::LControl] || _keysPressed[sf::Keyboard::RControl];
+  evt.key.shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
+  evt.key.alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
+
+  evt.key.code = keycode;
+
+  if(keyDown)
+    evt.type = sf::Event::KeyPressed;
+  else
+    evt.type = sf::Event::KeyReleased;
+
 
   if (_layerMan)
   {
     if (_layerMan->PendingHotkey() && keyDown)
     {
-      _layerMan->SetHotkeys(keycode, ctrl, shift, alt);
+      _layerMan->SetHotkeys(evt);
     }
     else
     {
-      _layerMan->HandleHotkey(keycode, keyDown, ctrl, shift, alt);
+      _layerMan->HandleHotkey(evt, keyDown);
     }
   }
 }
