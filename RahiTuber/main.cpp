@@ -906,6 +906,8 @@ void menu()
 	uiConfig->_firstMenu = false;
 }
 
+std::map<sf::Joystick::Axis, sf::Event> axisEvents;
+
 void handleEvents()
 {
 	sf::Event menuEvt;
@@ -966,8 +968,6 @@ void handleEvents()
 		appConfig->_window.requestFocus();
 	}
 
-	sf::Joystick::update();
-
 	sf::Event evt;
 	while (appConfig->_window.pollEvent(evt))
 	{
@@ -976,11 +976,15 @@ void handleEvents()
 			appConfig->_window.requestFocus();
 		}
 
-		if (evt.type == evt.JoystickButtonPressed 
-			|| evt.type == evt.JoystickButtonReleased 
-			|| (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30))
+		if (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30)
 		{
-			bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.JoystickMoved;
+			axisEvents[evt.joystickMove.axis] = evt;
+		}
+
+		if (evt.type == evt.JoystickButtonPressed 
+			|| evt.type == evt.JoystickButtonReleased)
+		{
+			bool keyDown = evt.type == evt.JoystickButtonPressed;
 
 			if (layerMan->PendingHotkey() && keyDown)
 			{
@@ -1121,6 +1125,37 @@ void handleEvents()
 
 		if (uiConfig->_menuShowing && appConfig->_menuWindow.isOpen() == false)
 			ImGui::SFML::ProcessEvent(appConfig->_window, evt);
+	}
+
+	sf::Joystick::update();
+
+	for (auto& posn : axisEvents)
+	{
+		if (posn.second.type == sf::Event::JoystickMoved)
+		{
+			auto& jMove = posn.second.joystickMove;
+
+			if (Abs(jMove.position) >= 30)
+			{
+				// active / held
+				if (layerMan->PendingHotkey())
+					layerMan->SetHotkeys(posn.second);
+				else
+					layerMan->HandleHotkey(posn.second, true);
+
+				// update it in case it's been released and didn't trigger an event
+				jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
+			}
+			else
+			{
+				jMove.position = 0.f;
+				// released
+				layerMan->HandleHotkey(posn.second, false);
+
+				// update it in case it's been released and didn't trigger an event
+				jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
+			}
+		}
 	}
 }
 

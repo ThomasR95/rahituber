@@ -256,6 +256,8 @@ public:
 		CanTrigger _canTrigger = Always;
 		float _threshold = 0.4f;
 
+		bool _axisWasTriggered = false;
+
 		sf::Clock _timer;
 	};
 
