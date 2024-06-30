@@ -1055,11 +1055,20 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	return true;
 }
 
-void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool ctrl, bool shift, bool alt)
+void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 {
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
+
+	sf::Keyboard::Key key = evt.key.code;
+	bool ctrl = evt.key.control;
+	bool shift = evt.key.shift;
+	bool alt = evt.key.alt;
+
+	auto axis = evt.joystickMove.axis;
+	float jDir = evt.joystickMove.position;
+	float jButton = evt.joystickButton.button;
 
 	float talkFactor = 0;
 	if (_lastTalkMax > 0)
@@ -1080,8 +1089,19 @@ void LayerManager::HandleHotkey(const sf::Keyboard::Key& key, bool keyDown, bool
 			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileIdle)
 				canTrigger &= talkFactor < stateInfo._threshold;
 		}
+		if (!canTrigger)
+			continue;
 
-		if (canTrigger && stateInfo._key == key && stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
+		bool match = false;
+		if (evt.type == sf::Event::KeyPressed && stateInfo._key == key
+			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
+			match = true;
+		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton)
+			match = true;
+		else if (evt.type == sf::Event::JoystickMoved && stateInfo._jDir != 0.f && ::signbit(stateInfo._jDir) == std::signbit(jDir) && stateInfo._jAxis == axis)
+			match = true;
+
+		if (match)
 		{
 			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
@@ -1203,7 +1223,11 @@ void LayerManager::DrawStatesGUI()
 			std::string keyName = g_key_names[state._key];
 			if (state._key == sf::Keyboard::Unknown)
 			{
-				if (state._schedule)
+				if (state._jButton != -1)
+					keyName = "Joystick Btn " + std::to_string(state._jButton);
+				else if (state._jDir != 0.f)
+					keyName = g_axis_names[state._jAxis] + ((state._jDir > 0) ? "+" : "-");
+				else if (state._schedule)
 					keyName = "";
 				else
 					keyName = "No hotkey";
@@ -1273,6 +1297,11 @@ void LayerManager::DrawStatesGUI()
 					_pendingCtrl = false;
 					_pendingShift = false;
 					_pendingAlt = false;
+
+					_pendingJAxis = sf::Joystick::Axis::X;
+					_pendingJDir = 0.f;
+					_pendingJButton = -1;
+
 					_waitingForHotkey = true;
 					state._awaitingHotkey = true;
 				}
@@ -1280,7 +1309,14 @@ void LayerManager::DrawStatesGUI()
 
 				if (ImGui::Button("Clear", {140,20}))
 				{
+					state._jDir = 0.f;
+					state._jButton = -1;
 					state._key = sf::Keyboard::Unknown;
+
+					state._ctrl = false;
+					state._shift = false;
+					state._alt = false;
+
 					_waitingForHotkey = false;
 					state._awaitingHotkey = false;
 				}
@@ -1288,14 +1324,40 @@ void LayerManager::DrawStatesGUI()
 
 				ImGui::PopID();
 
-				if (state._awaitingHotkey && _waitingForHotkey && _pendingKey != sf::Keyboard::Unknown)
+				if (state._awaitingHotkey && _waitingForHotkey)
 				{
-					state._key = _pendingKey;
 					state._ctrl = _pendingCtrl;
 					state._shift = _pendingShift;
 					state._alt = _pendingAlt;
-					_waitingForHotkey = false;
-					state._awaitingHotkey = false;
+
+					//reset them all first
+					state._jDir = 0.f;
+					state._jButton = -1;
+					state._key = sf::Keyboard::Unknown;
+
+					bool set = false;
+					if (_pendingKey != sf::Keyboard::Unknown)
+					{
+						state._key = _pendingKey;
+						set = true;
+					}
+					else if (_pendingJDir != 0.f)
+					{
+						state._jDir = _pendingJDir;
+						state._jAxis = _pendingJAxis;
+						set = true;
+					}
+					else if (_pendingJButton != -1)
+					{
+						state._jButton = _pendingJButton;
+						set = true;
+					}
+					
+					if (set)
+					{
+						_waitingForHotkey = false;
+						state._awaitingHotkey = false;
+					}
 				}
 
 				ImGui::NextColumn();

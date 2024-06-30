@@ -966,12 +966,30 @@ void handleEvents()
 		appConfig->_window.requestFocus();
 	}
 
+	sf::Joystick::update();
+
 	sf::Event evt;
 	while (appConfig->_window.pollEvent(evt))
 	{
 		if (evt.type == evt.KeyPressed || evt.type == evt.MouseButtonPressed)
 		{
 			appConfig->_window.requestFocus();
+		}
+
+		if (evt.type == evt.JoystickButtonPressed 
+			|| evt.type == evt.JoystickButtonReleased 
+			|| (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30))
+		{
+			bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.JoystickMoved;
+
+			if (layerMan->PendingHotkey() && keyDown)
+			{
+				layerMan->SetHotkeys(evt);
+			}
+			else
+			{
+				layerMan->HandleHotkey(evt, keyDown);
+			}
 		}
 
 		if (kbdTrack->IsHooked() == false
@@ -990,14 +1008,14 @@ void handleEvents()
 
 			if (layerMan->PendingHotkey() && keyDown)
 			{
-				layerMan->SetHotkeys(evt.key.code, evt.key.control, evt.key.shift, evt.key.alt);
+				layerMan->SetHotkeys(evt);
 				if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
 					ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 				continue;
 			}
 			else
 			{
-				layerMan->HandleHotkey(evt.key.code, keyDown, evt.key.control, evt.key.shift, evt.key.alt);
+				layerMan->HandleHotkey(evt, keyDown);
 			}
 		}
 

@@ -2,6 +2,7 @@
 
 #include "SFML/System.hpp"
 #include "SFML/Window/Keyboard.hpp"
+#include "SFML/Window/Joystick.hpp"
 #include "SFML/Graphics/Color.hpp"
 #include "imgui/imgui.h"
 #include <string>
@@ -36,6 +37,14 @@ inline float Clamp(float in, float min, float max)
 
 	if (in > max)
 		return max;
+
+	return in;
+}
+
+inline float Abs(float in)
+{
+	if (in < 0)
+		return in * -1.f;
 
 	return in;
 }
@@ -212,6 +221,17 @@ static std::map<int, sf::Keyboard::Key> g_key_codes = {
 	{0xBC, sf::Keyboard::Comma },
 	{0xBD, sf::Keyboard::Hyphen },
 	{0xBE, sf::Keyboard::Period },
+};
+
+static std::map<sf::Joystick::Axis, std::string> g_axis_names = {
+	{sf::Joystick::Axis::X, "X"},
+	{sf::Joystick::Axis::Y, "Y"},
+	{sf::Joystick::Axis::Z, "Z"},
+	{sf::Joystick::Axis::R, "R"},
+	{sf::Joystick::Axis::U, "U"},
+	{sf::Joystick::Axis::V, "V"},
+	{sf::Joystick::Axis::PovX, "PovX"},
+	{sf::Joystick::Axis::PovY, "PovY"},
 };
 
 static std::map<sf::Keyboard::Key, std::string> g_key_names = {
