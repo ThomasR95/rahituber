@@ -97,7 +97,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	auto statesOrderCopy = _statesOrder;
 	for (auto state : statesOrderCopy)
 	{
-		if (state->_active && (state->_useTimeout || state->_schedule) && state->_timer.getElapsedTime().asSeconds() >= state->_timeout)
+		if (state->_active && 
+			(state->_useTimeout || state->_schedule) && 
+			state->_timer.getElapsedTime().asSeconds() >= state->_timeout &&
+			state->_activeType == state->Toggle)
 		{
 			state->_active = false;
 			RemoveStateFromOrder(state);
@@ -1098,16 +1101,24 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			match = true;
 		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton)
 			match = true;
-		else if (evt.type == sf::Event::JoystickMoved && stateInfo._jDir != 0.f && ::signbit(stateInfo._jDir) == std::signbit(jDir) && stateInfo._jAxis == axis)
+		else if (evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jDir != 0.f && ::signbit(stateInfo._jDir) == std::signbit(jDir) && stateInfo._jAxis == axis)
 			match = true;
 
-		if (match)
+		float timeout = 0.2;
+		if (stateInfo._activeType == StatesInfo::Held)
+			timeout = 0;
+
+		if (match && stateInfo._timer.getElapsedTime().asSeconds() > timeout)
 		{
+			if (evt.type == sf::Event::JoystickMoved)
+				stateInfo._axisWasTriggered = true;
+
 			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
 				// deactivate
 				stateInfo._active = false;
 				RemoveStateFromOrder(&stateInfo);
+				stateInfo._timer.restart();
 			}
 			else if (!stateInfo._active && keyDown)
 			{
@@ -1150,6 +1161,11 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 			if(!_statesPassThrough)
 				break;
+		}
+		else
+		{
+			if (evt.type == sf::Event::JoystickMoved)
+				stateInfo._axisWasTriggered = false;
 		}
 	}
 
