@@ -1101,8 +1101,14 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			match = true;
 		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton)
 			match = true;
-		else if (evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jDir != 0.f && ::signbit(stateInfo._jDir) == std::signbit(jDir) && stateInfo._jAxis == axis)
-			match = true;
+		else if (evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jAxis == (int)axis)
+		{
+			if (keyDown && std::signbit(stateInfo._jDir) == std::signbit(jDir))
+				match = true;
+			else if (keyDown == false)
+				match = true;
+		}
+			
 
 		float timeout = 0.2;
 		if (stateInfo._activeType == StatesInfo::Held)
@@ -1159,7 +1165,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 				}
 			}
 
-			if(!_statesPassThrough)
+			if(!_statesPassThrough && keyDown)
 				break;
 		}
 		else
@@ -1241,8 +1247,8 @@ void LayerManager::DrawStatesGUI()
 			{
 				if (state._jButton != -1)
 					keyName = "Joystick Btn " + std::to_string(state._jButton);
-				else if (state._jDir != 0.f)
-					keyName = g_axis_names[state._jAxis] + ((state._jDir > 0) ? "+" : "-");
+				else if (state._jDir != 0.f && state._jAxis != -1)
+					keyName = g_axis_names[(sf::Joystick::Axis)state._jAxis] + ((state._jDir > 0) ? "+" : "-");
 				else if (state._schedule)
 					keyName = "";
 				else
@@ -1350,6 +1356,7 @@ void LayerManager::DrawStatesGUI()
 					state._jDir = 0.f;
 					state._jButton = -1;
 					state._key = sf::Keyboard::Unknown;
+					state._jAxis = -1;
 
 					bool set = false;
 					if (_pendingKey != sf::Keyboard::Unknown)

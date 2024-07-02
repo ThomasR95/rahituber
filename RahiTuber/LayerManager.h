@@ -218,7 +218,7 @@ public:
 		bool _shift = false;
 		bool _alt = false;
 
-		sf::Joystick::Axis _jAxis = sf::Joystick::Axis::X;
+		int _jAxis = -1;
 		float _jDir = 0.f;
 		int _jButton = -1;
 
