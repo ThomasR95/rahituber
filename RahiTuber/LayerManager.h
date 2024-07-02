@@ -451,18 +451,20 @@ private:
 		colElement->QueryAttribute("a", &col[3]);
 	}
 
-	inline void SaveAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, const SpriteSheet& anim)
+	inline void SaveAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, const SpriteSheet& anim, bool animsSynced = false)
 	{
 		int fcount = anim.FrameCount();
 		auto animElement = parent->FirstChildElement(animName);
 
-		if (animElement && fcount <= 1)
+		bool hasAnim = fcount > 1 || anim.GridSize() != sf::Vector2i(1, 1) || animsSynced == true;
+
+		if (animElement && !hasAnim)
 		{
 			parent->DeleteChild(animElement);
 			return;
 		}
 
-		if (!animElement && fcount > 1)
+		if (!animElement && hasAnim)
 			animElement = parent->InsertFirstChild(doc->NewElement(animName))->ToElement();
 		else if(!animElement)
 			return;
@@ -484,11 +486,6 @@ private:
 
 		int fCount;
 		animElement->QueryAttribute("fCount", &fCount);
-
-		if (fCount <= 1)
-		{
-			return;
-		}
 
 		std::vector<int> grid = { 1,1 };
 		std::vector<float> frame = { -1,-1 };

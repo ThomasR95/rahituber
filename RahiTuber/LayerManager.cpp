@@ -656,20 +656,20 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
 		thisLayer->SetAttribute("screamPath", layer._screamImagePath.c_str());
 
-		if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1,1))
-			SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
+		if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1,1) || layer._animsSynced == true)
+			SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite, layer._animsSynced);
 
-		if (layer._talkSprite->FrameCount() > 1 || layer._talkSprite->GridSize() != sf::Vector2i(1, 1))
-			SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
+		if (layer._talkSprite->FrameCount() > 1 || layer._talkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+			SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite, layer._animsSynced);
 
-		if (layer._blinkSprite->FrameCount() > 1 || layer._blinkSprite->GridSize() != sf::Vector2i(1, 1))
-			SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
+		if (layer._blinkSprite->FrameCount() > 1 || layer._blinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+			SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite, layer._animsSynced);
 
-		if (layer._talkBlinkSprite->FrameCount() > 1 || layer._talkBlinkSprite->GridSize() != sf::Vector2i(1, 1))
-			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
+		if (layer._talkBlinkSprite->FrameCount() > 1 || layer._talkBlinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite, layer._animsSynced);
 
-		if (layer._screamSprite->FrameCount() > 1 || layer._screamSprite->GridSize() != sf::Vector2i(1, 1))
-			SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
+		if (layer._screamSprite->FrameCount() > 1 || layer._screamSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+			SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite, layer._animsSynced);
 
 		thisLayer->SetAttribute("syncAnims", layer._animsSynced);
 
