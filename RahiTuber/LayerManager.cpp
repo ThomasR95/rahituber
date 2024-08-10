@@ -97,10 +97,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	auto statesOrderCopy = _statesOrder;
 	for (auto state : statesOrderCopy)
 	{
-		if (state->_active && 
-			(state->_useTimeout || state->_schedule) && 
-			state->_timer.getElapsedTime().asSeconds() >= state->_timeout &&
-			state->_activeType == state->Toggle)
+		if (state->_active &&																											//     Is active
+			(state->_useTimeout || state->_schedule) &&															// AND On a schedule
+			state->_timer.getElapsedTime().asSeconds() >= state->_timeout &&				// AND Has timed out
+																																							// AND Not currently being held on
+			(state->_activeType == state->Toggle || (state->_activeType == state->Held && state->_keyIsHeld == false)))
 		{
 			state->_active = false;
 			RemoveStateFromOrder(state);
@@ -282,7 +283,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				box.setPosition(pos);
 				box.setRotation(rot);
 				box.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)));
-				box.setOutlineThickness(1);
+				box.setOutlineThickness(1.0f / _globalScale.x);
 				sf::Color fill = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
 				fill.a = 0.5;
 				box.setFillColor(fill);
@@ -293,8 +294,18 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				circle.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Button)));
 				circle.setOutlineThickness(2);
 
-				target->draw(box, sf::RenderStates::Default);
-				target->draw(circle, sf::RenderStates::Default);
+				circle.setScale({ 1.0f/_globalScale.x, 1.0f / _globalScale.y });
+
+				sf::RenderStates state = sf::RenderStates::Default;
+
+				state.transform.translate(_globalPos);
+				state.transform.translate(0.5 * target->getSize().x, 0.5 * target->getSize().y);
+				state.transform.scale(_globalScale);
+				state.transform.rotate(_globalRot);
+				state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
+
+				target->draw(box, state);
+				target->draw(circle, state);
 			}
 		}
 	}
@@ -1002,7 +1013,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 		thisHotkey->QueryAttribute("enabled", &hkey._enabled);
 
-		if (const char* storedName = thisHotkey->Attribute("idlePath"))
+		if (const char* storedName = thisHotkey->Attribute("name"))
 			hkey._name = storedName;
 
 		int key;
@@ -1096,7 +1107,8 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			continue;
 
 		bool match = false;
-		if (evt.type == sf::Event::KeyPressed && stateInfo._key == key
+		if ((evt.type == sf::Event::KeyPressed || evt.type == sf::Event::KeyReleased)
+			&& stateInfo._key == key
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 			match = true;
 		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton)
@@ -1121,6 +1133,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
+				stateInfo._keyIsHeld = false;
 				// deactivate
 				stateInfo._active = false;
 				RemoveStateFromOrder(&stateInfo);
@@ -1147,6 +1160,9 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 				}
 				else
 				{
+					if(stateInfo._activeType == StatesInfo::Held)
+						stateInfo._keyIsHeld = true;
+
 					// activate and add to stack
 					SaveDefaultStates();
 
@@ -1487,6 +1503,9 @@ void LayerManager::DrawStatesGUI()
 				int layerIdx = 0;
 				for (auto& l : _layers)
 				{
+					if (state._layerStates.count(l._id) == 0)
+						state._layerStates[l._id] = StatesInfo::NoChange;
+
 					if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
 						continue;
 
@@ -1498,9 +1517,6 @@ void LayerManager::DrawStatesGUI()
 
 					ImGui::AlignTextToFramePadding();
 					ImGui::Text(l._name.c_str());
-
-					if (state._layerStates.count(l._id) == 0)
-						state._layerStates[l._id] = StatesInfo::NoChange;
 
 					ImGui::NextColumn();
 					if (layerIdx % 2)
