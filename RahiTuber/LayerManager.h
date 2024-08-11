@@ -258,6 +258,8 @@ public:
 
 		bool _axisWasTriggered = false;
 
+		bool _keyIsHeld = false;
+
 		sf::Clock _timer;
 	};
 

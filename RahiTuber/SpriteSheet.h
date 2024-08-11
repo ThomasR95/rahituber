@@ -44,6 +44,7 @@ public:
 	{ 
 		Stop(); 
 		Play();
+		_timer.restart();
 		for (SpriteSheet* c : _syncChildren)
 			c->Restart();
 	}
