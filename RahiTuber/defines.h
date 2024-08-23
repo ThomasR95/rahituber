@@ -30,6 +30,11 @@ inline ImVec4 toImColor(const sf::Color& col)
 	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
 }
 
+inline sf::Vector2f toSFVector(const ImVec2& vec)
+{
+	return sf::Vector2f(vec.x, vec.y);
+}
+
 inline float Clamp(float in, float min, float max)
 {
 	if (in < min)

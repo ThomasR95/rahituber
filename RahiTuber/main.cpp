@@ -976,6 +976,14 @@ void handleEvents()
 			appConfig->_window.requestFocus();
 		}
 
+		if (evt.type == evt.MouseButtonPressed || evt.type == evt.MouseButtonReleased || evt.type == evt.MouseMoved)
+		{
+			auto pos = sf::Mouse::getPosition(appConfig->_window);
+			bool mousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Left);
+			if (layerMan->HandleLayerDrag(pos.x, pos.y, mousePressed))
+				continue;
+		}
+
 		if (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30)
 		{
 			axisEvents[evt.joystickMove.axis] = evt;

@@ -462,18 +462,58 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
+	if (_dragActive)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+
+		int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
+
+		if (hoveredLayer != _draggedLayer && hoveredLayer != -1)
+		{
+			LayerInfo& layerBelowInsert = _layers[hoveredLayer];
+			sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
+
+			if (hoveredLayer > _draggedLayer)
+				linePos.y += layerBelowInsert._lastHeaderSize.y;
+			else
+				linePos.y -= 1;
+
+			sf::Vector2f linePos2 = linePos;
+			linePos2.x += layerBelowInsert._lastHeaderSize.x;
+
+			ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+			ImGui::DrawLine(linePos, linePos2, toSFColor(lineCol), 2);
+		}
+
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+	}
+
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		auto& layer = _layers[l];
-		layer.DrawGUI(style, l);
+		if(layer._inFolder == "")
+			layer.DrawGUI(style, l);
+	}
+
+	if (_dragActive)
+	{
+		ImGui::PopStyleColor(3);
 	}
 
 	ImGui::EndChild();
-
 	ImGui::PopID();
+
+	if (_dragActive && ImGui::BeginTooltip())
+	{
+		ImGui::Text(_layers[_draggedLayer]._name.c_str());
+		ImGui::EndTooltip();
+	}
+
 }
 
-void LayerManager::AddLayer(const LayerInfo* toCopy)
+void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
 {
 	LayerInfo newLayer = LayerInfo();
 
@@ -504,8 +544,8 @@ void LayerManager::AddLayer(const LayerInfo* toCopy)
 	}
 	else
 	{
-		_layers.push_back(newLayer);
-		layer = &_layers.back();
+		_layers.insert(_layers.begin(), newLayer);
+		layer = &_layers[0];
 	}
 
 	UUID uuid = { 0 };
@@ -527,6 +567,7 @@ void LayerManager::AddLayer(const LayerInfo* toCopy)
 	layer->_blinkVarDelay = GetRandom11() * layer->_blinkVariation;
 	layer->_parent = this;
 	layer->_id = guid;
+	layer->_isFolder = isFolder;
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -534,26 +575,118 @@ void LayerManager::RemoveLayer(int toRemove)
 	_layers.erase(_layers.begin() + toRemove);
 }
 
-void LayerManager::MoveLayerUp(int moveUp)
+void LayerManager::MoveLayerTo(int toMove, int position)
 {
-	if (moveUp <= 0)
+	if (toMove < 0)
 		return;
 
-	LayerInfo copy = _layers[moveUp];
-	RemoveLayer(moveUp);
-	int insertIdx = moveUp - 1;
-	_layers.insert(_layers.begin() + insertIdx, copy);
+	if (position < 0)
+		position = 0;
+
+	if (position > _layers.size() - 1)
+		position = _layers.size();
+
+	if (toMove == position)
+		return;
+
+	LayerInfo copy = _layers[toMove];
+	if (copy._inFolder != "")
+	{
+		auto* parentFolder = GetLayer(copy._inFolder);
+		auto childIt = parentFolder->_folderContents.begin();
+		while (childIt != parentFolder->_folderContents.end())
+		{
+			if (*childIt == copy._id)
+				break;
+			childIt++;
+		}
+		parentFolder->_folderContents.erase(childIt);
+		if (childIt != parentFolder->_folderContents.begin())
+			childIt--;
+		parentFolder->_folderContents.insert(childIt, copy._id);
+
+	}
+	else
+	{
+		RemoveLayer(toMove);
+		int insertIdx = position;
+		_layers.insert(_layers.begin() + position, copy);
+	}
+}
+
+bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed)
+{
+	int hoveredLayer = GetLayerUnderCursor(mouseX, mouseY);
+
+	bool useInput = false;
+	
+	if (mousePressed == false) 
+	{
+		_layerDragTimer.restart();
+
+		// Drop the layer if active
+		if (_dragActive == true)
+		{
+			if (hoveredLayer != -1)
+			{
+				MoveLayerTo(_draggedLayer, hoveredLayer);
+
+				_draggedLayer = -1;
+				_dragActive = false;
+				useInput = true;
+			}
+		}
+	}
+
+	// If a mouse is newly down on a layer, save which layer and start the clock
+	if (mousePressed == true && hoveredLayer != -1)
+	{
+		if (_lastDragMouseDown == false)
+		{
+			_layerDragTimer.restart();
+			_draggedLayer = hoveredLayer;
+		}
+	}
+
+	// if mouse is pressed and held for long enough, drag
+	if (mousePressed == true && _layerDragTimer.getElapsedTime().asSeconds() > 0.2)
+	{
+		_dragActive = true;
+		useInput = true;
+
+		_layerDragPos = { mouseX, mouseY };
+	}
+
+	_lastDragMouseDown = mousePressed;
+
+	return useInput;
+}
+
+int LayerManager::GetLayerUnderCursor(float mouseX, float mouseY)
+{
+	for (int l = 0; l < _layers.size(); l++)
+	{
+		auto& layer = _layers[l];
+		float minX = layer._lastHeaderScreenPos.x;
+		float minY = layer._lastHeaderScreenPos.y;
+		float maxX = minX + layer._lastHeaderSize.x;
+		float maxY = minY + layer._lastHeaderSize.y;
+		if (mouseX >= minX && mouseX <= maxX && mouseY >= minY && mouseY <= maxY)
+		{
+			return l;
+		}
+	}
+	return -1;
+}
+
+void LayerManager::MoveLayerUp(int moveUp)
+{
+	MoveLayerTo(moveUp, moveUp - 1);
 }
 
 void LayerManager::MoveLayerDown(int moveDown)
 {
-	if (moveDown >= _layers.size() - 1)
-		return;
-
-	LayerInfo copy = _layers[moveDown];
-	RemoveLayer(moveDown);
-	int insertIdx = moveDown + 1;
-	_layers.insert(_layers.begin() + insertIdx, copy);
+	MoveLayerTo(moveDown, moveDown + 1);
 }
 
 void LayerManager::RemoveLayer(LayerInfo* toRemove)
@@ -1654,6 +1787,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_idleSprite->Restart();
 		if(_screamSprite)
 			_screamSprite->Restart();
+
+		_motionTimer.restart();
 	}
 	_oldVisible = reallyVisible;
 
@@ -1941,7 +2076,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 			mpPos += originMove;
 			
-			sf::Vector2f pivot = { _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y };
+			sf::Vector2f pivot = { _pivot.x * _idleSprite->Size().x, _pivot.y * _idleSprite->Size().y };
 
 			bool physics = (_motionDrag > 0 || _motionSpring > 0);
 			sf::Vector2f physicsPos = mpPos;
@@ -1978,7 +2113,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
 				pivotDiff = Rotate(pivotDiff, Deg2Rad(mpRot));
 				float lenPivot = Length(pivotDiff);
-				if (lenPivot > 0 && dist > 0 && _rotationEffect > 0)
+				if (lenPivot > 0 && dist > 0 && _rotationEffect != 0)
 				{
 					float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
 
@@ -2066,9 +2201,19 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 	float indentSize = 8;
 
+	_lastHeaderScreenPos = toSFVector(ImGui::GetCursorScreenPos());
+	_lastHeaderPos = toSFVector(ImGui::GetCursorPos());
+	_lastHeaderSize = sf::Vector2f(ImGui::GetWindowWidth() - 8, 20);
+
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
 		ImGui::Indent(indentSize);
+
+		for (int l = 0; l < _folderContents.size(); l++)
+		{
+			auto* layer = _parent->GetLayer(_folderContents[l]);
+				layer->DrawGUI(style, l);
+		}
 
 		static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
 		static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
@@ -2511,7 +2656,7 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer);
 
 				AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
-				ImGui::SliderFloat("Rotation effect", &_rotationEffect, 0.f, 2.f, "%.2f");
+				ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
 				ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
 			}
 
@@ -2675,13 +2820,41 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
 
 			AddResetButton("pivot", _pivot, sf::Vector2f(0.5, 0.5), _parent->_appConfig, &style);
-			float pivot[2] = { _pivot.x, _pivot.y };
-			if (ImGui::SliderFloat2("Pivot Point", pivot, 0.0, 1.f))
+			std::vector<float> pivot = { _pivot.x * 100, _pivot.y * 100 };
+			std::string pivunit = "%";
+			std::string pivfmt = "%.1f %%";
+			float pivmax = 100.0;
+			float pivmin = 0.0;
+			sf::Vector2f spriteSize = _idleSprite->Size();
+			if (_pivotPx)
 			{
-				_pivot.x = Clamp(pivot[0], 0.0, 1.0);
-				_pivot.y = Clamp(pivot[1], 0.0, 1.0);
+				pivunit = "px";
+				pivfmt = "%.1f px";
+				pivmax = Max(spriteSize.x, spriteSize.y);
+				pivot = { _pivot.x * spriteSize.x, _pivot.y * spriteSize.y };
+			}
+
+			if (ImGui::SliderFloat2("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str()))
+			{
+				if (!_pivotPx)
+				{
+					_pivot.x = pivot[0] / 100;
+					_pivot.y = pivot[1] / 100;
+				}
+				else
+				{
+					_pivot.x = pivot[0] / spriteSize.x;
+					_pivot.y = pivot[1] / spriteSize.y;
+				}
+				
 			}
 			ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer);
+			ImGui::SameLine();
+			if (ImGui::SmallButton(_pivotPx ? "px" : "%"))
+			{
+				_pivotPx = !_pivotPx;
+			}
+			
 
 			ImGui::Unindent(indentSize);
 		}
@@ -2818,12 +2991,12 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 	{
 		ImGui::Columns(2, 0, false);
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });
-		ImGui::TextWrapped("If you need help creating a sprite sheet, here's a free tool:");
+		ImGui::TextWrapped("If you need help creating a sprite sheet, here's a free tool by Final Parsec:");
 		ImGui::PopStyleColor();
 		ImGui::NextColumn();
-		if (ImGui::Button("Leshy SpriteSheet\nTool (web link)"))
+		if (ImGui::Button("Sprite Sheet\nTool (web link)"))
 		{
-			OsOpenInShell("https://www.leshylabs.com/apps/sstool/");
+			OsOpenInShell("https://www.finalparsec.com/tools/sprite_sheet_maker");
 		}
 		ImGui::Columns();
 
