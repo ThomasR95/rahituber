@@ -402,6 +402,11 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
 
 	ImGui::SameLine();
+	if (ImGui::Button("Add Folder", { buttonW, 20 }))
+		AddLayer(nullptr, true);
+	ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
+
+	ImGui::SameLine();
 	if (ImGui::Button("Remove All", { buttonW, 20 }))
 		_layers.clear();
 	ToolTip("Removes all layers from the list.", &_appConfig->_hoverTimer);
@@ -505,7 +510,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ImGui::EndChild();
 	ImGui::PopID();
 
-	if (_dragActive && ImGui::BeginTooltip())
+	if (_dragActive && _draggedLayer != -1 && ImGui::BeginTooltip())
 	{
 		ImGui::Text(_layers[_draggedLayer]._name.c_str());
 		ImGui::EndTooltip();
@@ -568,6 +573,8 @@ void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
 	layer->_parent = this;
 	layer->_id = guid;
 	layer->_isFolder = isFolder;
+	if (layer->_isFolder)
+		layer->_name = "New Folder";
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -575,7 +582,7 @@ void LayerManager::RemoveLayer(int toRemove)
 	_layers.erase(_layers.begin() + toRemove);
 }
 
-void LayerManager::MoveLayerTo(int toMove, int position)
+void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 {
 	if (toMove < 0)
 		return;
@@ -584,32 +591,113 @@ void LayerManager::MoveLayerTo(int toMove, int position)
 		position = 0;
 
 	if (position > _layers.size() - 1)
-		position = _layers.size();
+		position = _layers.size() - 1;
 
 	if (toMove == position)
 		return;
 
-	LayerInfo copy = _layers[toMove];
-	if (copy._inFolder != "")
-	{
-		auto* parentFolder = GetLayer(copy._inFolder);
-		auto childIt = parentFolder->_folderContents.begin();
-		while (childIt != parentFolder->_folderContents.end())
-		{
-			if (*childIt == copy._id)
-				break;
-			childIt++;
-		}
-		parentFolder->_folderContents.erase(childIt);
-		if (childIt != parentFolder->_folderContents.begin())
-			childIt--;
-		parentFolder->_folderContents.insert(childIt, copy._id);
+	LayerInfo& origLayer = _layers[toMove];
+	LayerInfo& targetLayer = _layers[position];
 
+	std::string origID = origLayer._id;
+	std::string targetID = targetLayer._id;
+
+	if (origID == targetID)
+		return;
+
+	if (origLayer._inFolder != "")
+	{
+		LayerInfo* origFolder = GetLayer(origLayer._inFolder);
+		if (origFolder)
+		{
+			// remove it from its original folder for now
+			for (int c = 0; c < origFolder->_folderContents.size(); c++)
+			{
+				LayerInfo* child = GetLayer(origFolder->_folderContents[c]);
+				if (child->_id == origID)
+				{
+					origFolder->_folderContents.erase(origFolder->_folderContents.begin() + c);
+					origLayer._inFolder = "";
+					break;
+				}
+			}
+		}
+	}
+
+	if (targetLayer._isFolder && skipFolders == false)
+	{
+		targetLayer._folderContents.push_back(origLayer._id);
+		origLayer._inFolder = targetLayer._id;
+
+		// move the layer to be 1 below the folder layer in the main list
+		int targetPosition = toMove;
+		for (int c = 0; c < _layers.size(); c++)
+		{
+			LayerInfo* child = &_layers[c];
+			if (child->_id == targetLayer._id)
+			{
+				targetPosition = c;
+				break;
+			}
+		}
+
+		LayerInfo copy = _layers[toMove];
+		RemoveLayer(toMove);
+		_layers.insert(_layers.begin() + targetPosition, copy);
+
+		std::sort(targetLayer._folderContents.begin(), targetLayer._folderContents.end(), [&](const std::string & a, const std::string& b) {
+			for (LayerInfo& l : _layers)
+			{
+				if (l._id == a)
+					return true;
+				if (l._id == b)
+					return false;
+			}
+			return false;
+			});
+	}
+	else if (targetLayer._inFolder != "")
+	{
+		LayerInfo* targetFolder = GetLayer(targetLayer._inFolder);
+
+		if (origID == targetFolder->_id)
+			return;
+
+		//insert the id in the folder
+		targetFolder->_folderContents.push_back(origLayer._id);
+		origLayer._inFolder = targetFolder->_id;
+
+		// move the layer to be 1 below the target layer in the main list
+		int targetPosition = toMove;
+		for (int c = 0; c < _layers.size(); c++)
+		{
+			LayerInfo* child = &_layers[c];
+			if (child->_id == targetLayer._id)
+			{
+				targetPosition = c;
+				break;
+			}
+		}
+
+		LayerInfo copy = _layers[toMove];
+		RemoveLayer(toMove);
+		_layers.insert(_layers.begin() + targetPosition, copy);
+
+		std::sort(targetFolder->_folderContents.begin(), targetFolder->_folderContents.end(), [&](const std::string& a, const std::string& b) {
+			for (LayerInfo& l : _layers)
+			{
+				if (l._id == a)
+					return true;
+				if (l._id == b)
+					return false;
+			}
+			return false;
+			});
 	}
 	else
 	{
+		LayerInfo copy = _layers[toMove];
 		RemoveLayer(toMove);
-		int insertIdx = position;
 		_layers.insert(_layers.begin() + position, copy);
 	}
 }
@@ -649,7 +737,7 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 	}
 
 	// if mouse is pressed and held for long enough, drag
-	if (mousePressed == true && _layerDragTimer.getElapsedTime().asSeconds() > 0.2)
+	if (mousePressed == true && _draggedLayer != -1 && _layerDragTimer.getElapsedTime().asSeconds() > 0.2)
 	{
 		_dragActive = true;
 		useInput = true;
@@ -681,12 +769,46 @@ int LayerManager::GetLayerUnderCursor(float mouseX, float mouseY)
 
 void LayerManager::MoveLayerUp(int moveUp)
 {
-	MoveLayerTo(moveUp, moveUp - 1);
+	int position = moveUp - 1;
+
+	if (position < 0)
+		return;
+
+	LayerInfo& origLayer = _layers[moveUp];
+	LayerInfo* targetLayer = &_layers[position];
+
+	while (targetLayer->_inFolder != origLayer._inFolder)
+	{
+		position--;
+		if (position < 0)
+			return;
+
+		targetLayer = &_layers[position];
+	}
+
+	MoveLayerTo(moveUp, position, true);
 }
 
 void LayerManager::MoveLayerDown(int moveDown)
 {
-	MoveLayerTo(moveDown, moveDown + 1);
+	int position = moveDown + 1;
+
+	if (position >= _layers.size())
+		return;
+
+	LayerInfo& origLayer = _layers[moveDown];
+	LayerInfo* targetLayer = &_layers[position];
+
+	while (targetLayer->_inFolder != origLayer._inFolder)
+	{
+		position++;
+		if (position >= _layers.size())
+			return;
+
+		targetLayer = &_layers[position];
+	}
+
+	MoveLayerTo(moveDown, position, true);
 }
 
 void LayerManager::RemoveLayer(LayerInfo* toRemove)
@@ -694,7 +816,10 @@ void LayerManager::RemoveLayer(LayerInfo* toRemove)
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		if (&_layers[l] == toRemove)
+		{
 			RemoveLayer(l);
+			break;
+		}
 	}
 }
 
@@ -2196,6 +2321,9 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 	ImGui::PushID(_id.c_str());
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
+	if(_isFolder)
+		name = "[" + _name + "]";
+
 	sf::Vector2f headerBtnSize(17, 17);
 	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - headerBtnSize.x*8, ImGui::GetCursorPosY()};
 
@@ -2211,654 +2339,659 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		for (int l = 0; l < _folderContents.size(); l++)
 		{
-			auto* layer = _parent->GetLayer(_folderContents[l]);
-				layer->DrawGUI(style, l);
+			int layerIdx = 0;
+			auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
+				layer->DrawGUI(style, layerIdx);
 		}
 
-		static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
-		static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
-		static imgui_ext::file_browser_modal fileBrowserBlink("Import Blink Sprite");
-
-		ImGui::Columns(3, "imagebuttons", false);
-
-		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
-		ImGui::PushID("idleimport");
-
-		float imgBtnWidth = 108;
-
-		sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
-		sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-		_importIdleOpen = ImGui::ImageButton(*idleIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, idleCol);
-		ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-		if (_importIdleOpen && _idleImage)
-			fileBrowserIdle.SetStartingDir(_idleImagePath);
-		if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
+		if (_isFolder == false)
 		{
-			_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
-			_idleImage->setSmooth(_scaleFiltering);
-			_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
-		}
+			static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
+			static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
+			static imgui_ext::file_browser_modal fileBrowserBlink("Import Blink Sprite");
 
-		ImGui::SameLine(imgBtnWidth + 16);
-		ImGui::PushID("idleanimbtn");
-		_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-		ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
-		AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
-		ImGui::PopID();
+			ImGui::Columns(3, "imagebuttons", false);
 
-		fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
+			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
+			ImGui::PushID("idleimport");
 
-		ImGui::PushID("idleimportfile");
-		char idlebuf[256] = "                           ";
-		_idleImagePath.copy(idlebuf, 256);
-		if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
-		{
-			_idleImagePath = idlebuf;
-			_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
-			if (_idleImage)
+			float imgBtnWidth = 108;
+
+			sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
+			sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
+			_importIdleOpen = ImGui::ImageButton(*idleIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, idleCol);
+			ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+			if (_importIdleOpen && _idleImage)
+				fileBrowserIdle.SetStartingDir(_idleImagePath);
+			if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
 			{
+				_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
 				_idleImage->setSmooth(_scaleFiltering);
 				_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 			}
-		}
-		ImGui::PopID();
-		ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-		
-
-		ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-		ImGui::PopID();
-
-		ImGui::NextColumn();
-
-		if (_swapWhenTalking)
-		{
-			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
-			ImGui::PushID("talkimport");
-			sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
-			sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-			_importTalkOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, talkCol);
-			ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-			fileBrowserTalk.SetStartingDir(chosenDir);
-			if (_talkImage)
-				fileBrowserTalk.SetStartingDir(_talkImagePath);
-			if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
-			{
-				_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
-				if (_talkImage)
-				{
-					_talkImage->setSmooth(_scaleFiltering);
-					_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
-				}
-			}
 
 			ImGui::SameLine(imgBtnWidth + 16);
-			ImGui::PushID("talkanimbtn");
-			_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-			AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
+			ImGui::PushID("idleanimbtn");
+			_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+			ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
+			AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
 			ImGui::PopID();
 
-			ImGui::PushID("talkimportfile");
-			char talkbuf[256] = "                           ";
-			_talkImagePath.copy(talkbuf, 256);
-			if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+			fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
+
+			ImGui::PushID("idleimportfile");
+			char idlebuf[256] = "                           ";
+			_idleImagePath.copy(idlebuf, 256);
+			if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 			{
-				_talkImagePath = talkbuf;
-				_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
-				if (_talkImage)
+				_idleImagePath = idlebuf;
+				_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
+				if (_idleImage)
 				{
-					_talkImage->setSmooth(_scaleFiltering);
-					_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
+					_idleImage->setSmooth(_scaleFiltering);
+					_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
 				}
 			}
 			ImGui::PopID();
 			ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-			ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+
+			ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 			ImGui::PopID();
-		}
 
-		ImGui::NextColumn();
+			ImGui::NextColumn();
 
-		if (_useBlinkFrame)
-		{
-			sf::Vector2f blinkBtnSize = _blinkWhileTalking ? sf::Vector2f(48, 48) : sf::Vector2f(imgBtnWidth, imgBtnWidth);
-
-			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
-			ImGui::PushID("blinkimport");
-			sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
-			sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
-			ImVec2 tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
-			_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
-			ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-			fileBrowserBlink.SetStartingDir(chosenDir);
-			if (_blinkImage)
-				fileBrowserBlink.SetStartingDir(_blinkImagePath);
-			if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
+			if (_swapWhenTalking)
 			{
-				_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
-				if (_blinkImage)
-				{
-					_blinkImage->setSmooth(_scaleFiltering);
-					_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
-				}
-			}
-
-			ImGui::SameLine(blinkBtnSize.x + 16);
-			ImGui::PushID("blinkanimbtn");
-			_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-			AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
-			ImGui::PopID();
-
-			ImGui::PushID("blinkimportfile");
-			char blinkbuf[256] = "                           ";
-			_blinkImagePath.copy(blinkbuf, 256);
-			if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
-			{
-				_blinkImagePath = blinkbuf;
-				_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
-				if (_blinkImage)
-				{
-					_blinkImage->setSmooth(_scaleFiltering);
-					_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
-				}
-			}
-			ImGui::PopID();
-			ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-			auto preTintPos = ImGui::GetCursorPos();
-			if (_blinkWhileTalking)
-				ImGui::SetCursorPos(tintPos);
-			ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-			ImGui::SetCursorPos(preTintPos);
-			ImGui::PopID();
-
-			if (_blinkWhileTalking)
-			{
-				//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
-				ImGui::PushID("talkblinkimport");
-				sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
-				sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
-				tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
-				_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
+				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
+				ImGui::PushID("talkimport");
+				sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
+				sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
+				_importTalkOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, talkCol);
 				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-				fileBrowserBlink.SetStartingDir(chosenDir);
-				if (_talkBlinkImage)
-					fileBrowserBlink.SetStartingDir(_talkBlinkImagePath);
-				if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
+				fileBrowserTalk.SetStartingDir(chosenDir);
+				if (_talkImage)
+					fileBrowserTalk.SetStartingDir(_talkImagePath);
+				if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
 				{
-					_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
-					if (_talkBlinkImage)
+					_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
+					if (_talkImage)
 					{
-						_talkBlinkImage->setSmooth(_scaleFiltering);
-						_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+						_talkImage->setSmooth(_scaleFiltering);
+						_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
 					}
 				}
 
-				ImGui::SameLine(blinkBtnSize.x + 16);
-				ImGui::PushID("talkblinkanimbtn");
-				_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				ImGui::SameLine(imgBtnWidth + 16);
+				ImGui::PushID("talkanimbtn");
+				_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
 				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-				AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
+				AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
 				ImGui::PopID();
 
-				ImGui::PushID("talkblinkimportfile");
-				char talkblinkbuf[256] = "                           ";
-				_talkBlinkImagePath.copy(talkblinkbuf, 256);
-				if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+				ImGui::PushID("talkimportfile");
+				char talkbuf[256] = "                           ";
+				_talkImagePath.copy(talkbuf, 256);
+				if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					_talkBlinkImagePath = talkblinkbuf;
-					_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
-					if (_talkBlinkImage)
+					_talkImagePath = talkbuf;
+					_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
+					if (_talkImage)
 					{
-						_talkBlinkImage->setSmooth(_scaleFiltering);
-						_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+						_talkImage->setSmooth(_scaleFiltering);
+						_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
 					}
 				}
 				ImGui::PopID();
 				ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-				preTintPos = ImGui::GetCursorPos();
-				ImGui::SetCursorPos(tintPos);
+				ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
-				ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-				ImGui::SetCursorPos(preTintPos);
 				ImGui::PopID();
 			}
-		}
-		ImGui::Columns();
 
-		sf::BlendMode oldBlendMode = _blendMode;
-		std::string bmName = "";
-		for (auto& bm : g_blendmodes)
-			if (bm.second == oldBlendMode)
-				bmName = bm.first;
-		ImGui::PushItemWidth(240);
-		if (ImGui::BeginCombo("Blend Mode", bmName.c_str()))
-		{
-			for (auto& bm : g_blendmodes)
-			{
-				if (ImGui::Selectable(bm.first.c_str(), bm.second == oldBlendMode))
-				{
-					_blendMode = bm.second;
-				}
-			}
-			ImGui::EndCombo();
-		}
-		ImGui::SameLine();
-		if (ImGui::Checkbox("Scale Filter", &_scaleFiltering))
-		{
-			if (_idleImage)
-				_idleImage->setSmooth(_scaleFiltering);
-			if (_talkImage)
-				_talkImage->setSmooth(_scaleFiltering);
-			if (_blinkImage)
-				_blinkImage->setSmooth(_scaleFiltering);
-			if (_talkBlinkImage)
-				_talkBlinkImage->setSmooth(_scaleFiltering);
-			if (_screamImage)
-				_screamImage->setSmooth(_scaleFiltering);
-		}
-		ImGui::PopItemWidth();
-		ToolTip("On: Smooth pixel interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp edges at any size", &_parent->_appConfig->_hoverTimer);
-
-		ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
-		
-		ImGui::Separator();
-
-		AddResetButton("talkThresh", _talkThreshold, 0.15f, _parent->_appConfig, &style);
-		ImVec2 barPos = ImGui::GetCursorPos();
-		ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
-		ImGui::NewLine();
-		ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
-
-		sf::Color barHighlight(60, 140, 60, 255);
-		sf::Color barBg(20, 60, 20, 255);
-		if (_lastTalkFactor < 0.001 || _lastTalkFactor < _talkThreshold)
-		{
-			barHighlight = sf::Color(140, 60, 60, 255);
-			barBg = sf::Color(60, 20, 20, 255);
-		}
-
-		sf::Vector2f topLeft = { barPos.x, barPos.y };
-		float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
-		float barHeight = 10;
-		sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
-		ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
-		float activeBarWidth = barWidth * _lastTalkFactor;
-		sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
-		ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
-		float rootThresh = _talkThreshold;
-		float thresholdPos = barWidth * rootThresh;
-		sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
-		ImGui::DrawRectFilled(thresholdBar, {200,150,80});
-		
-		ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
-		ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
-
-		ImGui::SameLine(0.0, 10.f);
-
-		ImGui::Checkbox("Restart on swap", &_restartTalkAnim);
-		ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
-
-		ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-		if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
-		{
-			ImGui::Indent(indentSize);
-
-			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
-			ImGui::PushID("screamimport");
-			sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
-			sf::Texture* talkIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
-			_importScreamOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, screamCol);
-			ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-			fileBrowserTalk.SetStartingDir(chosenDir);
-			if (_screamImage)
-				fileBrowserTalk.SetStartingDir(_screamImagePath);
-			if (fileBrowserTalk.render(_importScreamOpen, _screamImagePath))
-			{
-				_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
-				if (_screamImage)
-				{
-					_screamImage->setSmooth(_scaleFiltering);
-					_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
-				}
-			}
-
-			ImGui::SameLine(imgBtnWidth + 16);
-			ImGui::PushID("screamanimbtn");
-			_spriteScreamOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
-			ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-			AnimPopup(*_screamSprite, _spriteScreamOpen, _oldSpriteScreamOpen);
-			ImGui::PopID();
-
-			ImGui::PushID("screamimportfile");
-			char screambuf[256] = "                           ";
-			_screamImagePath.copy(screambuf, 256);
-			if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
-			{
-				_screamImagePath = screambuf;
-				_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
-				if (_screamImage)
-				{
-					_screamImage->setSmooth(_scaleFiltering);
-					_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
-				}
-			}
-			ImGui::PopID();
-			ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-			ImGui::ColorEdit4("Tint", _screamTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-			ToolTip("Tint the sprite a different color, or change its opacity (alpha value)", &_parent->_appConfig->_hoverTimer);
-			ImGui::PopID();
-
-			float resetW = 22;
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-			ImGui::Columns(2, "scrm", false);
-			ImGui::SetColumnWidth(0, resetW);
-			ImGui::PopStyleVar(2);
-			AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style);
 			ImGui::NextColumn();
+
+			if (_useBlinkFrame)
+			{
+				sf::Vector2f blinkBtnSize = _blinkWhileTalking ? sf::Vector2f(48, 48) : sf::Vector2f(imgBtnWidth, imgBtnWidth);
+
+				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
+				ImGui::PushID("blinkimport");
+				sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
+				sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
+				ImVec2 tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
+				_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
+				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+				fileBrowserBlink.SetStartingDir(chosenDir);
+				if (_blinkImage)
+					fileBrowserBlink.SetStartingDir(_blinkImagePath);
+				if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
+				{
+					_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
+					if (_blinkImage)
+					{
+						_blinkImage->setSmooth(_scaleFiltering);
+						_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
+					}
+				}
+
+				ImGui::SameLine(blinkBtnSize.x + 16);
+				ImGui::PushID("blinkanimbtn");
+				_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
+				AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
+				ImGui::PopID();
+
+				ImGui::PushID("blinkimportfile");
+				char blinkbuf[256] = "                           ";
+				_blinkImagePath.copy(blinkbuf, 256);
+				if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					_blinkImagePath = blinkbuf;
+					_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
+					if (_blinkImage)
+					{
+						_blinkImage->setSmooth(_scaleFiltering);
+						_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
+					}
+				}
+				ImGui::PopID();
+				ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
+
+				auto preTintPos = ImGui::GetCursorPos();
+				if (_blinkWhileTalking)
+					ImGui::SetCursorPos(tintPos);
+				ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::SetCursorPos(preTintPos);
+				ImGui::PopID();
+
+				if (_blinkWhileTalking)
+				{
+					//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
+					ImGui::PushID("talkblinkimport");
+					sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
+					sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
+					tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
+					_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
+					ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+					fileBrowserBlink.SetStartingDir(chosenDir);
+					if (_talkBlinkImage)
+						fileBrowserBlink.SetStartingDir(_talkBlinkImagePath);
+					if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
+					{
+						_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
+						if (_talkBlinkImage)
+						{
+							_talkBlinkImage->setSmooth(_scaleFiltering);
+							_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+						}
+					}
+
+					ImGui::SameLine(blinkBtnSize.x + 16);
+					ImGui::PushID("talkblinkanimbtn");
+					_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+					ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
+					AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
+					ImGui::PopID();
+
+					ImGui::PushID("talkblinkimportfile");
+					char talkblinkbuf[256] = "                           ";
+					_talkBlinkImagePath.copy(talkblinkbuf, 256);
+					if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+					{
+						_talkBlinkImagePath = talkblinkbuf;
+						_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
+						if (_talkBlinkImage)
+						{
+							_talkBlinkImage->setSmooth(_scaleFiltering);
+							_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
+						}
+					}
+					ImGui::PopID();
+					ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
+
+					preTintPos = ImGui::GetCursorPos();
+					ImGui::SetCursorPos(tintPos);
+
+					ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+					ImGui::SetCursorPos(preTintPos);
+					ImGui::PopID();
+				}
+			}
+			ImGui::Columns();
+
+			sf::BlendMode oldBlendMode = _blendMode;
+			std::string bmName = "";
+			for (auto& bm : g_blendmodes)
+				if (bm.second == oldBlendMode)
+					bmName = bm.first;
+			ImGui::PushItemWidth(240);
+			if (ImGui::BeginCombo("Blend Mode", bmName.c_str()))
+			{
+				for (auto& bm : g_blendmodes)
+				{
+					if (ImGui::Selectable(bm.first.c_str(), bm.second == oldBlendMode))
+					{
+						_blendMode = bm.second;
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::SameLine();
+			if (ImGui::Checkbox("Scale Filter", &_scaleFiltering))
+			{
+				if (_idleImage)
+					_idleImage->setSmooth(_scaleFiltering);
+				if (_talkImage)
+					_talkImage->setSmooth(_scaleFiltering);
+				if (_blinkImage)
+					_blinkImage->setSmooth(_scaleFiltering);
+				if (_talkBlinkImage)
+					_talkBlinkImage->setSmooth(_scaleFiltering);
+				if (_screamImage)
+					_screamImage->setSmooth(_scaleFiltering);
+			}
+			ImGui::PopItemWidth();
+			ToolTip("On: Smooth pixel interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp edges at any size", &_parent->_appConfig->_hoverTimer);
+
+			ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
+
+			ImGui::Separator();
+
+			AddResetButton("talkThresh", _talkThreshold, 0.15f, _parent->_appConfig, &style);
 			ImVec2 barPos = ImGui::GetCursorPos();
-			ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
-			ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer);
-			ImGui::Columns(1);
+			ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
 			ImGui::NewLine();
+			ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
 
 			sf::Color barHighlight(60, 140, 60, 255);
 			sf::Color barBg(20, 60, 20, 255);
-			if (_lastTalkFactor < 0.001 || _lastTalkFactor < _screamThreshold)
+			if (_lastTalkFactor < 0.001 || _lastTalkFactor < _talkThreshold)
 			{
 				barHighlight = sf::Color(140, 60, 60, 255);
 				barBg = sf::Color(60, 20, 20, 255);
 			}
 
-			sf::Vector2f topLeft = { barPos.x - 9, barPos.y };
-			float barWidth = (ImGui::GetColumnWidth() - topLeft.x) - (150);
+			sf::Vector2f topLeft = { barPos.x, barPos.y };
+			float barWidth = (ImGui::GetWindowWidth() - topLeft.x) - 148;
 			float barHeight = 10;
 			sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
 			ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
 			float activeBarWidth = barWidth * _lastTalkFactor;
 			sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
 			ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
-			float rootThresh = _screamThreshold;
+			float rootThresh = _talkThreshold;
 			float thresholdPos = barWidth * rootThresh;
 			sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
 			ImGui::DrawRectFilled(thresholdBar, { 200,150,80 });
 
-			ImGui::Checkbox("Vibrate", &_screamVibrate);
-			ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
-			ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px");
-			ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer);
+			ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
+			ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
 
-			ImGui::Unindent(indentSize);
-		}
-		ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
-		auto oldCursorPos = ImGui::GetCursorPos();
-		ImGui::SetCursorPos(subHeaderBtnPos);
-		ImGui::Checkbox("##Scream", &_scream);
-		ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
-		ImGui::SetCursorPos(oldCursorPos);
+			ImGui::SameLine(0.0, 10.f);
 
-		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-		if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
-		{
-			ImGui::Indent(indentSize);
-			ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
-			ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
-			AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
-			ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
-			ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer);
-			AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
-			ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
-			ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer);
-			AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
-			ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
-			ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer);
-			ImGui::Unindent(indentSize);
-		}
-		ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
-		oldCursorPos = ImGui::GetCursorPos();
-		ImGui::SetCursorPos(subHeaderBtnPos);
-		ImGui::Checkbox("##Blink", &_useBlinkFrame);
-		ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
-		ImGui::SetCursorPos(oldCursorPos);
+			ImGui::Checkbox("Restart on swap", &_restartTalkAnim);
+			ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
 
-		subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-		if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
-		{
-			ImGui::Indent(indentSize);
-			if (_motionParent != "")
-			{
-				float md = _motionDelay;
-				AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
-				if (ImGui::SliderFloat("Delay", &md, 0.0, 1.0, "%.2f s"))
-					_motionDelay = Clamp(md, 0.0, 1.0);
-
-				ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer);
-
-				AddResetButton("motionDrag", _motionDrag, 0.f, _parent->_appConfig, &style);
-				if(ImGui::SliderFloat("Drag", &_motionDrag, 0.f, .999f, "%.2f"))
-					_motionDrag = Clamp(_motionDrag, 0.f, .999f);
-				ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer);
-
-				AddResetButton("motionSpring", _motionSpring, 0.f, _parent->_appConfig, &style);
-				if(ImGui::SliderFloat("Spring", &_motionSpring, 0.f, .999f, "%.2f"))
-					_motionSpring = Clamp(_motionSpring, 0.f, .999f);
-				ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer);
-
-				AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
-				ImGui::SliderFloat("Distance limit", &_distanceLimit, -1.0, 500.f, "%.1f");
-				ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer);
-
-				AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
-				ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
-				ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
-			}
-
-			ImGui::Checkbox("Hide with Parent", &_hideWithParent);
-			ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
-			ImGui::Unindent(indentSize);
-		}
-		ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
-		oldCursorPos = ImGui::GetCursorPos();
-		ImGui::SetCursorPos(subHeaderBtnPos);
-		LayerInfo* oldMp = _parent->GetLayer(_motionParent);
-		std::string mpName = oldMp ? oldMp->_name : "Off";
-		ImGui::PushItemWidth(headerBtnSize.x * 7);
-		if (ImGui::BeginCombo("##MotionInherit", mpName.c_str()))
-		{
-			if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
-				_motionParent = "-1";
-			for (auto& layer : _parent->GetLayers())
-			{
-				if (layer._id != _id && layer._motionParent != _id)
-					if (ImGui::Selectable(layer._name.c_str(), _motionParent == layer._id))
-					{
-						_motionParent = layer._id;
-					}
-			}
-			ImGui::EndCombo();
-		}
-		ToolTip("Select a layer to copy the motion from", &_parent->_appConfig->_hoverTimer);
-		ImGui::SetCursorPos(oldCursorPos);
-		ImGui::PopItemWidth();
-
-		if (_motionParent == "" || _motionParent == "-1")
-		{
-			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-			if (ImGui::CollapsingHeader("Bouncing", ImGuiTreeNodeFlags_AllowItemOverlap))
+			ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
 				ImGui::Indent(indentSize);
-				if (_bounceType != BounceNone)
+
+				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
+				ImGui::PushID("screamimport");
+				sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
+				sf::Texture* talkIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
+				_importScreamOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, screamCol);
+				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+				fileBrowserTalk.SetStartingDir(chosenDir);
+				if (_screamImage)
+					fileBrowserTalk.SetStartingDir(_screamImagePath);
+				if (fileBrowserTalk.render(_importScreamOpen, _screamImagePath))
 				{
-					AddResetButton("bobheight", _bounceHeight, 80.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0, "%.0f px");
-					ToolTip("The maximum height of the bouncing animation", &_parent->_appConfig->_hoverTimer);
-					if (_bounceType == BounceRegular)
+					_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
+					if (_screamImage)
 					{
-						AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
-						ToolTip("The time between each bounce", &_parent->_appConfig->_hoverTimer);
+						_screamImage->setSmooth(_scaleFiltering);
+						_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
 					}
 				}
+
+				ImGui::SameLine(imgBtnWidth + 16);
+				ImGui::PushID("screamanimbtn");
+				_spriteScreamOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
+				AnimPopup(*_screamSprite, _spriteScreamOpen, _oldSpriteScreamOpen);
+				ImGui::PopID();
+
+				ImGui::PushID("screamimportfile");
+				char screambuf[256] = "                           ";
+				_screamImagePath.copy(screambuf, 256);
+				if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+				{
+					_screamImagePath = screambuf;
+					_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
+					if (_screamImage)
+					{
+						_screamImage->setSmooth(_scaleFiltering);
+						_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
+					}
+				}
+				ImGui::PopID();
+				ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
+
+				ImGui::ColorEdit4("Tint", _screamTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+				ToolTip("Tint the sprite a different color, or change its opacity (alpha value)", &_parent->_appConfig->_hoverTimer);
+				ImGui::PopID();
+
+				float resetW = 22;
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+				ImGui::Columns(2, "scrm", false);
+				ImGui::SetColumnWidth(0, resetW);
+				ImGui::PopStyleVar(2);
+				AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style);
+				ImGui::NextColumn();
+				ImVec2 barPos = ImGui::GetCursorPos();
+				ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
+				ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer);
+				ImGui::Columns(1);
+				ImGui::NewLine();
+
+				sf::Color barHighlight(60, 140, 60, 255);
+				sf::Color barBg(20, 60, 20, 255);
+				if (_lastTalkFactor < 0.001 || _lastTalkFactor < _screamThreshold)
+				{
+					barHighlight = sf::Color(140, 60, 60, 255);
+					barBg = sf::Color(60, 20, 20, 255);
+				}
+
+				sf::Vector2f topLeft = { barPos.x - 9, barPos.y };
+				float barWidth = (ImGui::GetColumnWidth() - topLeft.x) - (150);
+				float barHeight = 10;
+				sf::FloatRect volumeBarBg({ topLeft.x, -18 }, { barWidth, barHeight });
+				ImGui::DrawRectFilled(volumeBarBg, barBg, 3);
+				float activeBarWidth = barWidth * _lastTalkFactor;
+				sf::FloatRect volumeBar({ topLeft.x, -18 }, { activeBarWidth, barHeight });
+				ImGui::DrawRectFilled(volumeBar, barHighlight, 3);
+				float rootThresh = _screamThreshold;
+				float thresholdPos = barWidth * rootThresh;
+				sf::FloatRect thresholdBar({ topLeft.x + thresholdPos, -23 }, { 2, barHeight + 5 });
+				ImGui::DrawRectFilled(thresholdBar, { 200,150,80 });
+
+				ImGui::Checkbox("Vibrate", &_screamVibrate);
+				ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
+				ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px");
+				ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer);
+
 				ImGui::Unindent(indentSize);
 			}
-			ToolTip("Bounce the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+			ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+			auto oldCursorPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(subHeaderBtnPos);
+			ImGui::Checkbox("##Scream", &_scream);
+			ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+			ImGui::SetCursorPos(oldCursorPos);
+
+			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
+			{
+				ImGui::Indent(indentSize);
+				ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
+				ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+				AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
+				ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
+				ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer);
+				AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
+				ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
+				ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer);
+				AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
+				ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
+				ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer);
+				ImGui::Unindent(indentSize);
+			}
+			ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
 			oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
-			std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
-			ImGui::PushItemWidth(headerBtnSize.x * 7);
-			if (ImGui::BeginCombo("##BounceType", bobOptions[_bounceType]))
+			ImGui::Checkbox("##Blink", &_useBlinkFrame);
+			ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
+			ImGui::SetCursorPos(oldCursorPos);
+
+			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+			if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
-				if (ImGui::Selectable("None", _bounceType == BounceNone))
-					_bounceType = BounceNone;
-				ToolTip("No bouncing", &_parent->_appConfig->_hoverTimer);
-				if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
-					_bounceType = BounceLoudness;
-				ToolTip("Bounce height is determined by the audio level", &_parent->_appConfig->_hoverTimer);
-				if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
-					_bounceType = BounceRegular;
-				ToolTip("Fixed bounce height, on a regular time interval", &_parent->_appConfig->_hoverTimer);
+				ImGui::Indent(indentSize);
+				if (_motionParent != "")
+				{
+					float md = _motionDelay;
+					AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
+					if (ImGui::SliderFloat("Delay", &md, 0.0, 1.0, "%.2f s"))
+						_motionDelay = Clamp(md, 0.0, 1.0);
+
+					ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("motionDrag", _motionDrag, 0.f, _parent->_appConfig, &style);
+					if (ImGui::SliderFloat("Drag", &_motionDrag, 0.f, .999f, "%.2f"))
+						_motionDrag = Clamp(_motionDrag, 0.f, .999f);
+					ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("motionSpring", _motionSpring, 0.f, _parent->_appConfig, &style);
+					if (ImGui::SliderFloat("Spring", &_motionSpring, 0.f, .999f, "%.2f"))
+						_motionSpring = Clamp(_motionSpring, 0.f, .999f);
+					ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
+					ImGui::SliderFloat("Distance limit", &_distanceLimit, -1.0, 500.f, "%.1f");
+					ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
+					ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
+					ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
+				}
+
+				ImGui::Checkbox("Hide with Parent", &_hideWithParent);
+				ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
+				ImGui::Unindent(indentSize);
+			}
+			ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
+			oldCursorPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(subHeaderBtnPos);
+			LayerInfo* oldMp = _parent->GetLayer(_motionParent);
+			std::string mpName = oldMp ? oldMp->_name : "Off";
+			ImGui::PushItemWidth(headerBtnSize.x * 7);
+			if (ImGui::BeginCombo("##MotionInherit", mpName.c_str()))
+			{
+				if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
+					_motionParent = "-1";
+				for (auto& layer : _parent->GetLayers())
+				{
+					if (layer._id != _id && layer._motionParent != _id)
+						if (ImGui::Selectable(layer._name.c_str(), _motionParent == layer._id))
+						{
+							_motionParent = layer._id;
+						}
+				}
 				ImGui::EndCombo();
 			}
-			ToolTip("Select the bouncing mode", &_parent->_appConfig->_hoverTimer);
+			ToolTip("Select a layer to copy the motion from", &_parent->_appConfig->_hoverTimer);
 			ImGui::SetCursorPos(oldCursorPos);
 			ImGui::PopItemWidth();
 
-			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-			if (ImGui::CollapsingHeader("Breathing", ImGuiTreeNodeFlags_AllowItemOverlap))
+			if (_motionParent == "" || _motionParent == "-1")
 			{
-				ImGui::Indent(indentSize);
-				if (_doBreathing)
+				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+				if (ImGui::CollapsingHeader("Bouncing", ImGuiTreeNodeFlags_AllowItemOverlap))
 				{
-					AddResetButton("breathmove", _breathMove, {0.0, 30.0}, _parent->_appConfig, &style);
-					float data[2] = {_breathMove.x, _breathMove.y};
-					if (ImGui::SliderFloat2("Breath Move", data, -50, 50, "%.2f"))
-						_breathMove = { data[0], data[1] };
-					ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
-
-					AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
-					float data2[2] = {_breathScale.x, _breathScale.y};
-					if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
+					ImGui::Indent(indentSize);
+					if (_bounceType != BounceNone)
 					{
-						if (!_breathScaleConstrain)
+						AddResetButton("bobheight", _bounceHeight, 80.f, _parent->_appConfig, &style);
+						ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0, "%.0f px");
+						ToolTip("The maximum height of the bouncing animation", &_parent->_appConfig->_hoverTimer);
+						if (_bounceType == BounceRegular)
 						{
-							_breathScale.x = data2[0];
-							_breathScale.y = data2[1];
-						}
-						else if (data2[0] != _breathScale.x)
-						{
-							_breathScale = { data2[0] , data2[0] };
-						}
-						else if (data2[1] != _breathScale.y)
-						{
-							_breathScale = { data2[1] , data2[1] };
+							AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
+							ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+							ToolTip("The time between each bounce", &_parent->_appConfig->_hoverTimer);
 						}
 					}
-					ToolTip("The amout added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
-
-					ImGui::PushID("BreathScaleConstrain");
-					ImGui::Checkbox("Constrain", &_breathScaleConstrain);
-					ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
-					ImGui::PopID();
-
-					ImGui::Checkbox("Circular Motion", &_breathCircular);
-					ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
-
-					ImGui::Checkbox("Breathe Whilst Talking", &_breatheWhileTalking);
-					ToolTip("Breathing animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
-
-					AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
+					ImGui::Unindent(indentSize);
 				}
+				ToolTip("Bounce the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+				oldCursorPos = ImGui::GetCursorPos();
+				ImGui::SetCursorPos(subHeaderBtnPos);
+				std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
+				ImGui::PushItemWidth(headerBtnSize.x * 7);
+				if (ImGui::BeginCombo("##BounceType", bobOptions[_bounceType]))
+				{
+					if (ImGui::Selectable("None", _bounceType == BounceNone))
+						_bounceType = BounceNone;
+					ToolTip("No bouncing", &_parent->_appConfig->_hoverTimer);
+					if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
+						_bounceType = BounceLoudness;
+					ToolTip("Bounce height is determined by the audio level", &_parent->_appConfig->_hoverTimer);
+					if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
+						_bounceType = BounceRegular;
+					ToolTip("Fixed bounce height, on a regular time interval", &_parent->_appConfig->_hoverTimer);
+					ImGui::EndCombo();
+				}
+				ToolTip("Select the bouncing mode", &_parent->_appConfig->_hoverTimer);
+				ImGui::SetCursorPos(oldCursorPos);
+				ImGui::PopItemWidth();
+
+				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+				if (ImGui::CollapsingHeader("Breathing", ImGuiTreeNodeFlags_AllowItemOverlap))
+				{
+					ImGui::Indent(indentSize);
+					if (_doBreathing)
+					{
+						AddResetButton("breathmove", _breathMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+						float data[2] = { _breathMove.x, _breathMove.y };
+						if (ImGui::SliderFloat2("Breath Move", data, -50, 50, "%.2f"))
+							_breathMove = { data[0], data[1] };
+						ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
+						float data2[2] = { _breathScale.x, _breathScale.y };
+						if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
+						{
+							if (!_breathScaleConstrain)
+							{
+								_breathScale.x = data2[0];
+								_breathScale.y = data2[1];
+							}
+							else if (data2[0] != _breathScale.x)
+							{
+								_breathScale = { data2[0] , data2[0] };
+							}
+							else if (data2[1] != _breathScale.y)
+							{
+								_breathScale = { data2[1] , data2[1] };
+							}
+						}
+						ToolTip("The amout added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
+
+						ImGui::PushID("BreathScaleConstrain");
+						ImGui::Checkbox("Constrain", &_breathScaleConstrain);
+						ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+						ImGui::PopID();
+
+						ImGui::Checkbox("Circular Motion", &_breathCircular);
+						ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
+
+						ImGui::Checkbox("Breathe Whilst Talking", &_breatheWhileTalking);
+						ToolTip("Breathing animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
+						ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
+					}
+					ImGui::Unindent(indentSize);
+				}
+				oldCursorPos = ImGui::GetCursorPos();
+				ImGui::SetCursorPos(subHeaderBtnPos);
+				ImGui::Checkbox("##Breathing", &_doBreathing);
+				ImGui::SetCursorPos(oldCursorPos);
+			}
+
+			if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
+			{
+				ImGui::Indent(indentSize);
+				AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
+				float pos[2] = { _pos.x, _pos.y };
+				if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f, "%.1f px"))
+				{
+					_pos.x = pos[0];
+					_pos.y = pos[1];
+				}
+
+				AddResetButton("rot", _rot, 0.f, _parent->_appConfig, &style);
+				ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f, "%.1f");
+
+				AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
+				float scale[2] = { _scale.x, _scale.y };
+				if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
+				{
+					if (!_keepAspect)
+					{
+						_scale.x = scale[0];
+						_scale.y = scale[1];
+					}
+					else if (scale[0] != _scale.x)
+					{
+						_scale = { scale[0] , scale[0] };
+					}
+					else if (scale[1] != _scale.y)
+					{
+						_scale = { scale[1] , scale[1] };
+					}
+				}
+				ImGui::Checkbox("Constrain", &_keepAspect);
+				ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
+
+				AddResetButton("pivot", _pivot, sf::Vector2f(0.5, 0.5), _parent->_appConfig, &style);
+				std::vector<float> pivot = { _pivot.x * 100, _pivot.y * 100 };
+				std::string pivunit = "%";
+				std::string pivfmt = "%.1f %%";
+				float pivmax = 100.0;
+				float pivmin = 0.0;
+				sf::Vector2f spriteSize = _idleSprite->Size();
+				if (_pivotPx)
+				{
+					pivunit = "px";
+					pivfmt = "%.1f px";
+					pivmax = Max(spriteSize.x, spriteSize.y);
+					pivot = { _pivot.x * spriteSize.x, _pivot.y * spriteSize.y };
+				}
+
+				if (ImGui::SliderFloat2("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str()))
+				{
+					if (!_pivotPx)
+					{
+						_pivot.x = pivot[0] / 100;
+						_pivot.y = pivot[1] / 100;
+					}
+					else
+					{
+						_pivot.x = pivot[0] / spriteSize.x;
+						_pivot.y = pivot[1] / spriteSize.y;
+					}
+
+				}
+				ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer);
+				ImGui::SameLine();
+				if (ImGui::SmallButton(_pivotPx ? "px" : "%"))
+				{
+					_pivotPx = !_pivotPx;
+				}
+
+
 				ImGui::Unindent(indentSize);
 			}
-			oldCursorPos = ImGui::GetCursorPos();
-			ImGui::SetCursorPos(subHeaderBtnPos);
-			ImGui::Checkbox("##Breathing", &_doBreathing);
-			ImGui::SetCursorPos(oldCursorPos);
+			ImGui::Separator();
+
 		}
-
-		if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
-		{
-			ImGui::Indent(indentSize);
-			AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
-			float pos[2] = { _pos.x, _pos.y };
-			if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f, "%.1f px"))
-			{
-				_pos.x = pos[0];
-				_pos.y = pos[1];
-			}
-
-			AddResetButton("rot", _rot, 0.f, _parent->_appConfig, &style);
-			ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f, "%.1f");
-
-			AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
-			float scale[2] = { _scale.x, _scale.y };
-			if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
-			{
-				if (!_keepAspect)
-				{
-					_scale.x = scale[0];
-					_scale.y = scale[1];
-				}
-				else if (scale[0] != _scale.x)
-				{
-					_scale = { scale[0] , scale[0] };
-				}
-				else if (scale[1] != _scale.y)
-				{
-					_scale = { scale[1] , scale[1] };
-				}
-			}
-			ImGui::Checkbox("Constrain", &_keepAspect);
-			ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
-
-			AddResetButton("pivot", _pivot, sf::Vector2f(0.5, 0.5), _parent->_appConfig, &style);
-			std::vector<float> pivot = { _pivot.x * 100, _pivot.y * 100 };
-			std::string pivunit = "%";
-			std::string pivfmt = "%.1f %%";
-			float pivmax = 100.0;
-			float pivmin = 0.0;
-			sf::Vector2f spriteSize = _idleSprite->Size();
-			if (_pivotPx)
-			{
-				pivunit = "px";
-				pivfmt = "%.1f px";
-				pivmax = Max(spriteSize.x, spriteSize.y);
-				pivot = { _pivot.x * spriteSize.x, _pivot.y * spriteSize.y };
-			}
-
-			if (ImGui::SliderFloat2("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str()))
-			{
-				if (!_pivotPx)
-				{
-					_pivot.x = pivot[0] / 100;
-					_pivot.y = pivot[1] / 100;
-				}
-				else
-				{
-					_pivot.x = pivot[0] / spriteSize.x;
-					_pivot.y = pivot[1] / spriteSize.y;
-				}
-				
-			}
-			ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer);
-			ImGui::SameLine();
-			if (ImGui::SmallButton(_pivotPx ? "px" : "%"))
-			{
-				_pivotPx = !_pivotPx;
-			}
-			
-
-			ImGui::Unindent(indentSize);
-		}
-		ImGui::Separator();
 
 		ImGui::Unindent(indentSize);
 	}

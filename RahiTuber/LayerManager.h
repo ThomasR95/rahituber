@@ -279,7 +279,7 @@ public:
 	void RemoveLayer(int toRemove);
 	void MoveLayerUp(int moveUp);
 	void MoveLayerDown(int moveDown);
-	void MoveLayerTo(int toMove, int position);
+	void MoveLayerTo(int toMove, int position, bool skipFolders = false);
 
 	bool HandleLayerDrag(float mouseX, float mouseY, bool mousePressed);
 	int GetLayerUnderCursor(float mouseX, float mouseY);
@@ -318,11 +318,17 @@ public:
 	void HandleHotkey(const sf::Event& key, bool keyDown);
 	void ResetStates();
 
-	LayerInfo* GetLayer(std::string id) 
+	LayerInfo* GetLayer(std::string id, int* idx = nullptr)
 	{
-		for (auto& layer : _layers)
-			if (layer._id == id)
-				return &layer;
+		for (int l =0; l < _layers.size(); l++)
+		{
+			if (_layers[l]._id == id)
+			{
+				if (idx != nullptr)
+					(*idx) = l;
+				return &_layers[l];
+			}
+		}
 
 		return nullptr;
 	}
