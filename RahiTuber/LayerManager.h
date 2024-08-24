@@ -55,6 +55,10 @@ public:
 
 		LayerManager* _parent = nullptr;
 
+		bool _isFolder = false;
+		std::string _inFolder = "";
+		std::vector<std::string> _folderContents;
+
 		bool _visible = true;
 		bool _oldVisible = false;
 		std::string _name = "Layer";
@@ -140,6 +144,7 @@ public:
 		bool _keepAspect = true;
 
 		sf::Vector2f _pivot = { 0.5f, 0.5f };
+		bool _pivotPx = false;
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
@@ -206,6 +211,9 @@ public:
 		sf::Clock _frameTimer;
 		sf::Clock _physicsTimer;
 
+		sf::Vector2f _lastHeaderScreenPos;
+		sf::Vector2f _lastHeaderPos;
+		sf::Vector2f _lastHeaderSize;
 	};
 
 	struct StatesInfo
@@ -267,10 +275,14 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
-	void AddLayer(const LayerInfo* toCopy = nullptr);
+	void AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false);
 	void RemoveLayer(int toRemove);
 	void MoveLayerUp(int moveUp);
 	void MoveLayerDown(int moveDown);
+	void MoveLayerTo(int toMove, int position);
+
+	bool HandleLayerDrag(float mouseX, float mouseY, bool mousePressed);
+	int GetLayerUnderCursor(float mouseX, float mouseY);
 
 	void RemoveLayer(LayerInfo* toRemove);
 	void MoveLayerUp(LayerInfo* moveUp);
@@ -382,6 +394,12 @@ private:
 	void DrawStatesGUI();
 
 	std::string _errorMessage = "";
+
+	bool _lastDragMouseDown = false;
+	int _draggedLayer = -1;
+	sf::Vector2f _layerDragPos = { 0,0 };
+	sf::Clock _layerDragTimer;
+	bool _dragActive = false;
 
 	void AppendStateToOrder(StatesInfo* state)
 	{
