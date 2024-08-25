@@ -175,7 +175,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				else
 					break;
 			}
-				
+		}
+
+		if (layer._inFolder != "")
+		{
+			LayerInfo* folder = GetLayer(layer._inFolder);
+			if (folder)
+				visible &= folder->_visible;
 		}
 
 		if (visible)
@@ -395,7 +401,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::TextColored(ImVec4(1.0,0.0,0.0,1.0), _errorMessage.c_str());
 	}
 
-	float buttonW = (frameW / 3) - style.ItemSpacing.x*2.55;
+	float buttonW = (frameW / 4) - style.ItemSpacing.x*2.2;
 
 	if (ImGui::Button("Add Layer", { buttonW, 20 }))
 		AddLayer();
@@ -467,29 +473,48 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
+	ImVec2 resetPos = ImGui::GetCursorPos();
+
+	int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
+	bool skipFolder = false;
+	if (hoveredLayer == -2)
+	{
+		hoveredLayer = 0;
+		skipFolder = true;
+	}
+	if (hoveredLayer == -3)
+	{
+		hoveredLayer = _layers.size()-1;
+		skipFolder = true;
+	}
+
 	if (_dragActive)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
 
-		int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
-
-		if (hoveredLayer != _draggedLayer && hoveredLayer != -1)
+		if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
 		{
 			LayerInfo& layerBelowInsert = _layers[hoveredLayer];
-			sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
 
-			if (hoveredLayer > _draggedLayer)
-				linePos.y += layerBelowInsert._lastHeaderSize.y;
-			else
-				linePos.y -= 1;
+			bool folderIntoFolder = _layers[_draggedLayer]._isFolder && (layerBelowInsert._isFolder || layerBelowInsert._inFolder != "");
 
-			sf::Vector2f linePos2 = linePos;
-			linePos2.x += layerBelowInsert._lastHeaderSize.x;
+			if ((layerBelowInsert._isFolder == false || skipFolder) && !folderIntoFolder)
+			{
+				sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
 
-			ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-			ImGui::DrawLine(linePos, linePos2, toSFColor(lineCol), 2);
+				if (hoveredLayer > _draggedLayer)
+					linePos.y += layerBelowInsert._lastHeaderSize.y;
+				else
+					linePos.y -= 1;
+
+				sf::Vector2f linePos2 = linePos;
+				linePos2.x += layerBelowInsert._lastHeaderSize.x;
+
+				ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+				ImGui::DrawLine(linePos, linePos2, toSFColor(lineCol), 2);
+			}
 		}
 
 		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
@@ -498,19 +523,41 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		auto& layer = _layers[l];
-		if(layer._inFolder == "")
-			layer.DrawGUI(style, l);
+		layer._parent = this;
+		if (layer._inFolder == "")
+		{
+			if (!layer.DrawGUI(style, l))
+				break;
+		}
+			
 	}
 
 	if (_dragActive)
 	{
 		ImGui::PopStyleColor(3);
+
+		if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
+		{
+			LayerInfo& layerBelowInsert = _layers[hoveredLayer];
+
+			if (!skipFolder && layerBelowInsert._isFolder == true && !_layers[_draggedLayer]._isFolder)
+			{
+				ImGui::SetCursorPos(resetPos);
+				sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
+				linePos.y -= 1;
+
+				ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+				lineCol.w = 0.5;
+				sf::FloatRect hilightRect(linePos, layerBelowInsert._lastHeaderSize);
+				ImGui::DrawRectFilled(hilightRect, toSFColor(lineCol), 2);
+			}
+		}
 	}
 
 	ImGui::EndChild();
 	ImGui::PopID();
 
-	if (_dragActive && _draggedLayer != -1 && ImGui::BeginTooltip())
+	if (_dragActive && _draggedLayer != -1 && _layers.size() > _draggedLayer && ImGui::BeginTooltip())
 	{
 		ImGui::Text(_layers[_draggedLayer]._name.c_str());
 		ImGui::EndTooltip();
@@ -518,11 +565,13 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 }
 
-void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
+LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder, int insertPosition)
 {
 	LayerInfo newLayer = LayerInfo();
 
 	LayerInfo* layer = nullptr;
+
+	int layerPosition = 0;
 
 	if (toCopy != nullptr)
 	{
@@ -537,13 +586,32 @@ void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
 		newLayer.SyncAnims(newLayer._animsSynced);
 		
 		int idx = 0;
-		for (auto lit = _layers.begin(); lit < _layers.end(); lit++, idx++)
+		if (insertPosition == -1)
 		{
-			if (&(*lit) == toCopy)
+			for (auto lit = _layers.begin(); lit < _layers.end(); lit++, idx++)
 			{
-				_layers.insert(lit, newLayer);
-				layer = &_layers[idx];
-				break;
+				if (&(*lit) == toCopy)
+				{
+					_layers.insert(lit, newLayer);
+					layer = &_layers[idx];
+					layerPosition = idx;
+					break;
+				}
+			}
+		}
+		else if (insertPosition >= 0)
+		{
+			if (insertPosition < _layers.size())
+			{
+				_layers.insert(_layers.begin() + insertPosition, newLayer);
+				layer = &_layers[insertPosition];
+				layerPosition = insertPosition;
+			}
+			else
+			{
+				_layers.insert(_layers.end(), newLayer);
+				layer = &_layers.back();
+				layerPosition = _layers.size() - 1;
 			}
 		}
 	}
@@ -551,6 +619,12 @@ void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
 	{
 		_layers.insert(_layers.begin(), newLayer);
 		layer = &_layers[0];
+
+		layerPosition = 0;
+
+		layer->_isFolder = isFolder;
+		if (layer->_isFolder)
+			layer->_name = "New Folder";
 	}
 
 	UUID uuid = { 0 };
@@ -572,19 +646,44 @@ void LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder)
 	layer->_blinkVarDelay = GetRandom11() * layer->_blinkVariation;
 	layer->_parent = this;
 	layer->_id = guid;
-	layer->_isFolder = isFolder;
-	if (layer->_isFolder)
-		layer->_name = "New Folder";
+
+	int childPosition = layerPosition + 1;
+	for (auto& id : layer->_folderContents)
+	{
+		LayerInfo* origChild = GetLayer(id);
+		LayerInfo* child = AddLayer(origChild, false, childPosition);
+		child->_inFolder = guid;
+		id = child->_id;
+		childPosition++;
+	}
+
+	return layer;
 }
 
 void LayerManager::RemoveLayer(int toRemove)
 {
+	if (toRemove < 0 || toRemove >= _layers.size())
+		return;
+
+	if (_layers[toRemove]._isFolder)
+	{
+		for (std::string& id : _layers[toRemove]._folderContents)
+		{
+			LayerInfo* lyr = GetLayer(id);
+			if (lyr)
+				lyr->_inFolder = "";
+		}
+	}
+
 	_layers.erase(_layers.begin() + toRemove);
 }
 
 void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 {
 	if (toMove < 0)
+		return;
+
+	if (toMove >= _layers.size())
 		return;
 
 	if (position < 0)
@@ -605,8 +704,13 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 	if (origID == targetID)
 		return;
 
+	int down = 0;
+	if (position > toMove)
+		down = 1;
+
 	if (origLayer._inFolder != "")
 	{
+		skipFolders = false;
 		LayerInfo* origFolder = GetLayer(origLayer._inFolder);
 		if (origFolder)
 		{
@@ -626,26 +730,41 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 	if (targetLayer._isFolder && skipFolders == false)
 	{
-		targetLayer._folderContents.push_back(origLayer._id);
-		origLayer._inFolder = targetLayer._id;
+		if (origLayer._isFolder)
+			return;
+
+		targetLayer._folderContents.push_back(origID);
+		origLayer._inFolder = targetID;
+
+		// invalidate the layer's header positions until it next gets drawn - to stop it being picked up by the drag/drop
+		origLayer._lastHeaderPos = { -1,-1 };
+		origLayer._lastHeaderScreenPos = { -1,-1 };
+		origLayer._lastHeaderSize = { 0,0 };
+
+		LayerInfo copy = _layers[toMove];
+		RemoveLayer(toMove);
 
 		// move the layer to be 1 below the folder layer in the main list
 		int targetPosition = toMove;
-		for (int c = 0; c < _layers.size(); c++)
+		for (int l = 0; l < _layers.size(); l++)
 		{
-			LayerInfo* child = &_layers[c];
-			if (child->_id == targetLayer._id)
+			LayerInfo* lyr = &_layers[l];
+			if (lyr->_id == targetID)
 			{
-				targetPosition = c;
+				targetPosition = l+1;
 				break;
 			}
 		}
 
-		LayerInfo copy = _layers[toMove];
-		RemoveLayer(toMove);
-		_layers.insert(_layers.begin() + targetPosition, copy);
+		if (targetPosition < _layers.size())
+			_layers.insert(_layers.begin() + targetPosition, copy);
+		else
+			_layers.push_back(copy);
 
-		std::sort(targetLayer._folderContents.begin(), targetLayer._folderContents.end(), [&](const std::string & a, const std::string& b) {
+		//re-find the target folder since it probably moved
+		LayerInfo* targetLayer2 = GetLayer(targetID);
+
+		std::sort(targetLayer2->_folderContents.begin(), targetLayer2->_folderContents.end(), [&](const std::string & a, const std::string& b) {
 			for (LayerInfo& l : _layers)
 			{
 				if (l._id == a)
@@ -658,6 +777,9 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 	}
 	else if (targetLayer._inFolder != "")
 	{
+		if (origLayer._isFolder)
+			return;
+
 		LayerInfo* targetFolder = GetLayer(targetLayer._inFolder);
 
 		if (origID == targetFolder->_id)
@@ -665,25 +787,30 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 		//insert the id in the folder
 		targetFolder->_folderContents.push_back(origLayer._id);
-		origLayer._inFolder = targetFolder->_id;
+		std::string targFolderID = targetFolder->_id;
+		origLayer._inFolder = targFolderID;
+
+		LayerInfo copy = _layers[toMove];
+		RemoveLayer(toMove);
 
 		// move the layer to be 1 below the target layer in the main list
 		int targetPosition = toMove;
 		for (int c = 0; c < _layers.size(); c++)
 		{
 			LayerInfo* child = &_layers[c];
-			if (child->_id == targetLayer._id)
+			if (child->_id == targetID)
 			{
-				targetPosition = c;
+				targetPosition = c + down;
 				break;
 			}
 		}
 
-		LayerInfo copy = _layers[toMove];
-		RemoveLayer(toMove);
 		_layers.insert(_layers.begin() + targetPosition, copy);
 
-		std::sort(targetFolder->_folderContents.begin(), targetFolder->_folderContents.end(), [&](const std::string& a, const std::string& b) {
+		//re-find the target folder since it probably moved
+		LayerInfo* targetLayer2 = GetLayer(targFolderID);
+
+		std::sort(targetLayer2->_folderContents.begin(), targetLayer2->_folderContents.end(), [&](const std::string& a, const std::string& b) {
 			for (LayerInfo& l : _layers)
 			{
 				if (l._id == a)
@@ -696,9 +823,51 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 	}
 	else
 	{
-		LayerInfo copy = _layers[toMove];
-		RemoveLayer(toMove);
-		_layers.insert(_layers.begin() + position, copy);
+
+		std::vector<std::pair<int, LayerInfo>> listToMove;
+		listToMove.push_back({ toMove, _layers[toMove] });
+		if (origLayer._isFolder)
+		{
+			for (std::string& child : origLayer._folderContents)
+			{
+				int childIdx = 0;
+				LayerInfo* childLyr = GetLayer(child, &childIdx);
+				listToMove.push_back({ childIdx , *childLyr });
+			}
+		}
+
+		//remove in reverse to preserve order
+		for (int r = listToMove.size()-1; r > -1 ; r--)
+		{
+			RemoveLayer(listToMove[r].first);
+		}
+
+		//re-find the target folder since it probably moved
+		int targetPosition = position;
+		LayerInfo* targetLayer2 = GetLayer(targetID, &targetPosition);
+
+		LayerInfo* movedPastFolder = nullptr;
+		if (targetLayer2->_isFolder)
+			movedPastFolder = targetLayer2;
+		else if (targetLayer2->_inFolder != "")
+			movedPastFolder = GetLayer(targetLayer2->_inFolder);
+
+		if (movedPastFolder != nullptr && down != 0)
+		{
+			for (std::string& id : movedPastFolder->_folderContents)
+			{
+				int layerIdx = 0;
+				GetLayer(id, &layerIdx);
+				targetPosition = Max(targetPosition, layerIdx);
+			}
+		}
+
+		for (int r = 0; r < listToMove.size(); r++)
+		{
+			_layers.insert(_layers.begin() + targetPosition + r + down, listToMove[r].second);
+		}
+
+		
 	}
 }
 
@@ -717,12 +886,18 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 		{
 			if (hoveredLayer != -1)
 			{
-				MoveLayerTo(_draggedLayer, hoveredLayer);
-
-				_draggedLayer = -1;
-				_dragActive = false;
-				useInput = true;
+				if(hoveredLayer == -2)
+					// above all, put at the absolute top, skipping folders
+					MoveLayerTo(_draggedLayer, 0, true);
+				else if (hoveredLayer == -3)
+					// below all, put at the absolute bottom, skipping folders
+					MoveLayerTo(_draggedLayer, _layers.size(), true);
+				else
+					MoveLayerTo(_draggedLayer, hoveredLayer);
 			}
+			_draggedLayer = -1;
+			_dragActive = false;
+			useInput = true;
 		}
 	}
 
@@ -752,6 +927,8 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 
 int LayerManager::GetLayerUnderCursor(float mouseX, float mouseY)
 {
+	bool aboveAll = true;
+	bool belowAll = true;
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		auto& layer = _layers[l];
@@ -759,11 +936,25 @@ int LayerManager::GetLayerUnderCursor(float mouseX, float mouseY)
 		float minY = layer._lastHeaderScreenPos.y;
 		float maxX = minX + layer._lastHeaderSize.x;
 		float maxY = minY + layer._lastHeaderSize.y;
+
+		if (mouseY > minY)
+			aboveAll = false;
+
+		if (mouseY < maxY)
+			belowAll = false;
+
 		if (mouseX >= minX && mouseX <= maxX && mouseY >= minY && mouseY <= maxY)
 		{
 			return l;
 		}
 	}
+
+	if (aboveAll)
+		return -2;
+
+	if (belowAll)
+		return -3;
+
 	return -1;
 }
 
@@ -828,7 +1019,10 @@ void LayerManager::MoveLayerUp(LayerInfo* moveUp)
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		if (&_layers[l] == moveUp)
+		{
 			MoveLayerUp(l);
+			break;
+		}
 	}
 }
 
@@ -837,7 +1031,10 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 	for (int l = 0; l < _layers.size(); l++)
 	{
 		if (&_layers[l] == moveDown)
+		{
 			MoveLayerDown(l);
+			break;
+		}
 	}
 }
 
@@ -973,6 +1170,19 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("blendMode", bmName.c_str());
 
 		thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
+
+		thisLayer->SetAttribute("isFolder", layer._isFolder);
+		thisLayer->SetAttribute("inFolder", layer._inFolder.c_str());
+
+		auto folderContent = thisLayer->FirstChildElement("folderContent");
+		if (!folderContent)
+			folderContent = thisLayer->InsertFirstChild(doc.NewElement("folderContent"))->ToElement();
+
+		for (int h = 0; h < layer._folderContents.size(); h++)
+		{
+			auto thisID = folderContent->InsertEndChild(doc.NewElement("id"))->ToElement();
+			thisID->SetText(layer._folderContents[h].c_str());
+		}
 	}
 
 	root->SetAttribute("globalScaleX", _globalScale.x);
@@ -1241,6 +1451,24 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			layer._blinkImage->setSmooth(layer._scaleFiltering);
 		if (layer._talkBlinkImage)
 			layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
+
+		thisLayer->QueryAttribute("isFolder", &layer._isFolder);
+
+		const char* inFolder = thisLayer->Attribute("inFolder");
+		if (inFolder)
+			layer._inFolder = inFolder;
+
+		auto folderContent = thisLayer->FirstChildElement("folderContent");
+		if (folderContent)
+		{
+			auto thisID = folderContent->FirstChildElement("id");
+
+			while (thisID)
+			{
+				layer._folderContents.push_back(thisID->GetText());
+				thisID = thisID->NextSiblingElement("id");
+			}
+		}
 
 		thisLayer = thisLayer->NextSiblingElement("layer");
 	}
@@ -2287,7 +2515,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 }
 
-void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
+bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
 
 	if (_animIcon == nullptr)
@@ -2320,7 +2548,12 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	sf::Color btnColor = { sf::Uint8(255*col.x), sf::Uint8(255*col.y), sf::Uint8(255*col.z) };
 
 	ImGui::PushID(_id.c_str());
+
+#ifdef DEBUG
 	std::string name = "[" + std::to_string(layerID) + "] " + _name;
+#else
+	std::string name = _name;
+#endif
 	if(_isFolder)
 		name = "[" + _name + "]";
 
@@ -2333,8 +2566,22 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	_lastHeaderPos = toSFVector(ImGui::GetCursorPos());
 	_lastHeaderSize = sf::Vector2f(ImGui::GetWindowWidth() - 8, 20);
 
+	if (_isFolder)
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+		ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+	}
+
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
+		if (_isFolder)
+		{
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor();
+		}
+			
+
 		ImGui::Indent(indentSize);
 
 		for (int l = 0; l < _folderContents.size(); l++)
@@ -2995,6 +3242,14 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		ImGui::Unindent(indentSize);
 	}
+	else
+	{
+		if (_isFolder)
+		{
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor();
+		}
+	}
 
 	auto oldCursorPos = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(headerButtonsPos);
@@ -3024,6 +3279,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 
+	bool allowContinue = true;
+
 	ImGui::SameLine();
 	ImGui::PushID("upbtn");
 	if (ImGui::ImageButton(*_upIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
@@ -3052,7 +3309,10 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImGui::SameLine();
 	ImGui::PushID("duplicateBtn");
 	if (ImGui::ImageButton(*_dupeIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
+	{
+		allowContinue = false;
 		_parent->AddLayer(this);
+	}
 	ToolTip("Duplicate the layer", &_parent->_appConfig->_hoverTimer);
 	ImGui::PopID();
 	ImGui::SameLine();
@@ -3061,8 +3321,11 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
 	ImGui::PushStyleColor(ImGuiCol_Text, { 255/255,200/255,170/255, 1 });
 	ImGui::PushID("deleteBtn");
-	if (ImGui::ImageButton(*_delIcon, headerBtnSize, 1, sf::Color::Transparent, sf::Color(255,200,170)))
+	if (ImGui::ImageButton(*_delIcon, headerBtnSize, 1, sf::Color::Transparent, sf::Color(255, 200, 170)))
+	{
+		allowContinue = false;
 		_parent->RemoveLayer(this);
+	}
 	ToolTip("Delete the layer", &_parent->_appConfig->_hoverTimer);
 	ImGui::PopID();
 	ImGui::PopStyleColor(4);
@@ -3092,6 +3355,8 @@ void LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImGui::SetCursorPos(oldCursorPos);
 
 	ImGui::PopID();
+
+	return allowContinue;
 }
 
 void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen)
