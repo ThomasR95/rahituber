@@ -169,6 +169,14 @@ public:
 		bool _renamePopupOpen = false;
 		std::string _renamingString = "";
 
+		bool AnyPopupOpen()
+		{
+			return _importIdleOpen || _importTalkOpen || _importBlinkOpen || _importTalkBlinkOpen ||
+				_importScreamOpen ||
+				_spriteIdleOpen || _spriteTalkOpen || _spriteBlinkOpen || _spriteTalkBlinkOpen || _spriteScreamOpen ||
+				_renamePopupOpen;
+		}
+
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 

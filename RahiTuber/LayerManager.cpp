@@ -873,6 +873,19 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed)
 {
+	if (_statesMenuOpen)
+	{
+		_draggedLayer = -1;
+		_dragActive = false;
+		return false;
+	}
+
+	for (LayerInfo& l : _layers)
+	{
+		if (l.AnyPopupOpen())
+			return false;
+	}
+
 	int hoveredLayer = GetLayerUnderCursor(mouseX, mouseY);
 
 	bool useInput = false;
