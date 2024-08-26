@@ -27,7 +27,6 @@
 #include <Dwmapi.h>
 #pragma comment (lib, "Dwmapi.lib")
 
-
 AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
 UIConfig* uiConfig = nullptr;
@@ -310,13 +309,33 @@ void menuHelp(ImGuiStyle& style)
 	{
 		float h = ImGui::GetWindowHeight();
 		ImGui::SetNextWindowSize({ 400, h });
+
+		if (appConfig->_menuWindow.isOpen())
+		{
+			ImVec2 wSize = ImGui::GetCurrentWindow()->Size;
+			ImGui::SetNextWindowPos({ wSize.x / 2 - 200, wSize.y / 4 });
+		}
+		else
+		{
+			ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 4 });
+		}
 		ImGui::OpenPopup("Help");
 	}
-	ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, 80 });
 	ImGui::SetNextWindowSize({ 400,-1 });
 	//ImGui::SetNextWindowSizeConstraints({ 400, 400 }, { -1,-1 });
-	if (ImGui::BeginPopup("Help", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
+
+	uiConfig->_helpPopupActive = false;
+
+	bool p_open = true;
+	if (ImGui::BeginPopupModal("Help", &p_open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
 	{
+		uiConfig->_helpPopupActive = true;
+
+		if (ImGui::Button("FAQ (web link)"))
+		{
+			OsOpenInShell("https://itch.io/t/3967527/faq");
+		}
+
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 		ImGui::TextWrapped("Hover over any control to see an explanation of what it does.");
 		ImGui::TextWrapped("CTRL+click any input field to manually type the value. For some sliders you can type a value outside of the sliding range.");
@@ -605,12 +624,27 @@ void menuPresets(ImGuiStyle& style)
 {
 	if (ImGui::Button("Window Presets", { -1,20 }))
 	{
+		if (appConfig->_menuWindow.isOpen())
+		{
+			ImVec2 wSize = ImGui::GetCurrentWindow()->Size;
+			ImGui::SetNextWindowPos({ wSize.x / 2 - 225, wSize.y / 3 });
+		}
+		else
+		{
+			ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 225, appConfig->_scrH / 3 });
+		}
 		ImGui::OpenPopup("Window Presets");
 	}
-	if (ImGui::BeginPopup("Window Presets", ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
+
+	uiConfig->_presetPopupActive = false;
+
+	bool p_open = true;
+	if (ImGui::BeginPopupModal("Window Presets", &p_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
 	{
-		ImGui::SetWindowSize({ 400,-1 });
-		ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
+		uiConfig->_presetPopupActive = true;
+
+		ImGui::SetWindowSize({ 450,-1 });
+		//ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
 
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Save or load presets for window attributes");
 		ImGui::Separator();
@@ -629,7 +663,7 @@ void menuPresets(ImGuiStyle& style)
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Load", { 100,20 }) && uiConfig->_presetNames.size())
+		if (ImGui::Button("Load", { -1,20 }) && uiConfig->_presetNames.size())
 		{
 			//gameConfig->loadFromSettingsFile(gameConfig->m_presetNames[gameConfig->m_presetIdx]);
 			if (appConfig->_loader->loadPreset(uiConfig->_presetNames[uiConfig->_presetIdx]))
@@ -938,7 +972,8 @@ void handleEvents()
 				break;
 			}
 
-			if ((menuEvt.type == menuEvt.MouseButtonPressed || menuEvt.type == menuEvt.MouseButtonReleased || menuEvt.type == menuEvt.MouseMoved))
+			if (uiConfig->_menuShowing && !uiConfig->_presetPopupActive && !uiConfig->_helpPopupActive &&
+				(menuEvt.type == menuEvt.MouseButtonPressed || menuEvt.type == menuEvt.MouseButtonReleased || menuEvt.type == menuEvt.MouseMoved))
 			{
 				auto pos = sf::Mouse::getPosition(appConfig->_menuWindow);
 				bool mousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Left);
@@ -984,7 +1019,8 @@ void handleEvents()
 			appConfig->_window.requestFocus();
 		}
 
-		if (appConfig->_menuWindow.isOpen() == false && (evt.type == evt.MouseButtonPressed || evt.type == evt.MouseButtonReleased || evt.type == evt.MouseMoved))
+		if (uiConfig->_menuShowing && !uiConfig->_presetPopupActive && !uiConfig->_helpPopupActive &&
+			appConfig->_menuWindow.isOpen() == false && (evt.type == evt.MouseButtonPressed || evt.type == evt.MouseButtonReleased || evt.type == evt.MouseMoved))
 		{
 			auto pos = sf::Mouse::getPosition(appConfig->_window);
 			bool mousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Left);
