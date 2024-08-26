@@ -938,6 +938,14 @@ void handleEvents()
 				break;
 			}
 
+			if ((menuEvt.type == menuEvt.MouseButtonPressed || menuEvt.type == menuEvt.MouseButtonReleased || menuEvt.type == menuEvt.MouseMoved))
+			{
+				auto pos = sf::Mouse::getPosition(appConfig->_menuWindow);
+				bool mousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Left);
+				if (layerMan->HandleLayerDrag(pos.x, pos.y, mousePressed))
+					continue;
+			}
+
 			if (menuEvt.type == menuEvt.Resized)
 			{
 				sf::Vector2u windSize = appConfig->_menuWindow.getSize();
@@ -976,7 +984,7 @@ void handleEvents()
 			appConfig->_window.requestFocus();
 		}
 
-		if (evt.type == evt.MouseButtonPressed || evt.type == evt.MouseButtonReleased || evt.type == evt.MouseMoved)
+		if (appConfig->_menuWindow.isOpen() == false && (evt.type == evt.MouseButtonPressed || evt.type == evt.MouseButtonReleased || evt.type == evt.MouseMoved))
 		{
 			auto pos = sf::Mouse::getPosition(appConfig->_window);
 			bool mousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Left);

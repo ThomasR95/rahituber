@@ -172,7 +172,7 @@ public:
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
-		void DrawGUI(ImGuiStyle& style, int layerID);
+		bool DrawGUI(ImGuiStyle& style, int layerID);
 
 		std::vector<int> _animGrid = { 1, 1 };
 		int _animFCount = 1;
@@ -275,7 +275,7 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
-	void AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false);
+	LayerInfo* AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false, int insertPosition = -1);
 	void RemoveLayer(int toRemove);
 	void MoveLayerUp(int moveUp);
 	void MoveLayerDown(int moveDown);
@@ -333,7 +333,7 @@ public:
 		return nullptr;
 	}
 
-	const std::vector<LayerInfo>& GetLayers()
+	const std::deque<LayerInfo>& GetLayers()
 	{
 		return _layers;
 	}
@@ -359,7 +359,7 @@ private:
 
 	std::vector<StatesInfo> _states;
 
-	std::vector<LayerInfo> _layers;
+	std::deque<LayerInfo> _layers;
 
 	sf::RenderTexture _blendingRT;
 
