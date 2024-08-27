@@ -929,8 +929,11 @@ void menu()
 	if (menuPoppedNow)
 	{
 		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
+
 		appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);
 		appConfig->_menuWindow.requestFocus();
+
 
 		sf::Event dummyFocus;
 		dummyFocus.type = sf::Event::GainedFocus;

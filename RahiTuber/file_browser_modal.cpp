@@ -237,8 +237,6 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       //Update paths based on current path
       get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
 
-     
-
       ImVec2 wSize = ImGui::GetWindowSize();
       ImVec2 wPos = ImGui::GetWindowPos();
 

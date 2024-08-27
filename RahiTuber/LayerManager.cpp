@@ -517,8 +517,13 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	{
 		auto& layer = _layers[l];
 		layer._parent = this;
+
 		if (layer._inFolder == "")
 		{
+			layer._lastHeaderPos = { -1,-1 };
+			layer._lastHeaderScreenPos = { -1,-1 };
+			layer._lastHeaderSize = { 0,0 };
+
 			if (!layer.DrawGUI(style, l))
 				break;
 		}
@@ -2588,6 +2593,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 	}
 
+	for (int l = 0; l < _folderContents.size(); l++)
+	{
+		auto* layer = _parent->GetLayer(_folderContents[l]);
+		layer->_lastHeaderPos = { -1,-1 };
+		layer->_lastHeaderScreenPos = { -1,-1 };
+		layer->_lastHeaderSize = { 0,0 };
+	}
+
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
 		if (_isFolder)
@@ -2603,7 +2616,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			int layerIdx = 0;
 			auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
-				layer->DrawGUI(style, layerIdx);
+			layer->DrawGUI(style, layerIdx);
 		}
 
 		if (_isFolder == false)
