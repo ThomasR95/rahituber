@@ -157,6 +157,9 @@ struct UIConfig
 	sf::Color* _editingColour;
 	bool _showLayerBounds = true;
 
+	bool _helpPopupActive = false;
+	bool _presetPopupActive = false;
+
 	sf::RectangleShape _topLeftBox;
 	sf::RectangleShape _bottomRightBox;
 	sf::RectangleShape _outlineBox;

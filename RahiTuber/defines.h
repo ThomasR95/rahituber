@@ -9,6 +9,13 @@
 
 #define PI 3.14159265359
 
+#include <Windows.h>
+
+static inline void OsOpenInShell(const char* path) {
+	// Note: executable path must use  backslashes! 
+	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
+}
+
 static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
 {
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())

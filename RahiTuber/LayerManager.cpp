@@ -16,13 +16,6 @@
 #include <Rpc.h>
 #pragma comment(lib, "Rpcrt4.lib")
 
-//#include <shellapi.h>
-
-void OsOpenInShell(const char* path) {
-	// Note: executable path must use  backslashes! 
-	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
-}
-
 LayerManager::~LayerManager()
 {
 	_textureMan->Reset();
@@ -67,7 +60,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	}
 
 	// activate timed states
-	for (UINT stateIdx = 0; stateIdx < _states.size(); stateIdx++)
+	for (size_t stateIdx = 0; stateIdx < _states.size(); stateIdx++)
 	{
 		auto& state = _states[stateIdx];
 		if (!state._active && state._schedule && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
@@ -873,18 +866,18 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed)
 {
-	if (_statesMenuOpen)
+	if (_statesMenuOpen || _loadXMLOpen || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
 	{
 		_draggedLayer = -1;
 		_dragActive = false;
 		return false;
 	}
 
-	for (LayerInfo& l : _layers)
-	{
-		if (l.AnyPopupOpen())
-			return false;
-	}
+	//for (LayerInfo& l : _layers)
+	//{
+	//	if (l.AnyPopupOpen())
+	//		return false;
+	//}
 
 	int hoveredLayer = GetLayerUnderCursor(mouseX, mouseY);
 
@@ -1717,7 +1710,16 @@ void LayerManager::DrawStatesGUI()
 		if (_statesMenuOpen)
 		{
 			auto size = ImGui::GetWindowSize();
-			ImGui::SetNextWindowPos({ _appConfig->_scrW / 2 - 200, _appConfig->_scrH / 2 - 200 });
+			if (_appConfig->_menuWindow.isOpen())
+			{
+				ImVec2 wSize = ImGui::GetWindowSize();
+
+				ImGui::SetNextWindowPos({ wSize.x/2 - 200, wSize.y/2 - 200 });
+			}
+			else
+			{
+				ImGui::SetNextWindowPos({ _appConfig->_scrW / 2 - 200, _appConfig->_scrH / 2 - 200 });
+			}
 			ImGui::SetNextWindowSize({ 400, 400 });
 			ImGui::OpenPopup("States Setup");
 		}
