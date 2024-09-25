@@ -14,6 +14,8 @@ public:
 
 	void HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown);
 
+  void HandleMousePress(int button, bool keyDown);
+
   LayerManager* _layerMan = nullptr;
 
 private:
@@ -21,6 +23,8 @@ private:
 	bool _hookEnabled = false;
 
 	HHOOK _hookHandle = NULL;
+
+  HHOOK _mouseHookHandle = NULL;
 
 	std::map<sf::Keyboard::Key, bool> _keysPressed;
 

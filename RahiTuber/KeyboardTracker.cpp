@@ -3,6 +3,7 @@
 #include "LayerManager.h"
 
 std::function<void(PKBDLLHOOKSTRUCT, bool)> keyHandleFnc = nullptr;
+std::function<void(int, bool)> mouseHandleFnc = nullptr;
 
 LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -29,6 +30,61 @@ LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam)
   return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
+LRESULT CALLBACK MouseCallback(int nCode, WPARAM wParam, LPARAM lParam)
+{
+  if (mouseHandleFnc != nullptr && nCode == HC_ACTION)
+  {
+    bool keydown = false;
+    int button = -1;
+    switch (wParam)
+    {
+    case WM_LBUTTONDOWN:
+    case WM_NCLBUTTONDOWN:
+      keydown = true;
+      __fallthrough;
+    case WM_LBUTTONUP:
+    case WM_NCLBUTTONUP:
+      button = 0;
+      break;
+
+    case WM_RBUTTONDOWN:
+    case WM_NCRBUTTONDOWN:
+      keydown = true;
+      __fallthrough;
+    case WM_RBUTTONUP:
+    case WM_NCRBUTTONUP:
+      button = 1;
+      break;
+
+    case WM_MBUTTONDOWN:
+    case WM_NCMBUTTONDOWN:
+      keydown = true;
+      __fallthrough;
+    case WM_MBUTTONUP:
+    case WM_NCMBUTTONUP:
+      button = 2;
+      break;
+
+    case WM_XBUTTONDOWN:
+    case WM_NCXBUTTONDOWN:
+      keydown = true;
+      __fallthrough;
+    case WM_XBUTTONUP:
+    case WM_NCXBUTTONUP:
+      MSLLHOOKSTRUCT p = *(MSLLHOOKSTRUCT*)lParam;
+      WORD btn = p.mouseData >> 16;
+      button = (btn == XBUTTON1) ? 3 : 4;
+      break;
+    }
+
+    if (button != -1)
+    {
+      mouseHandleFnc(button, keydown);
+    }
+  }
+  return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
 void KeyboardTracker::SetHook(bool enable)
 {
 	if (enable && !_hookEnabled)
@@ -37,17 +93,30 @@ void KeyboardTracker::SetHook(bool enable)
     if (_hookHandle != NULL)
     {
       keyHandleFnc = std::bind(&KeyboardTracker::HandleKeystroke, this, std::placeholders::_1, std::placeholders::_2);
-      _hookEnabled = true;
     }
+    _mouseHookHandle = SetWindowsHookEx(WH_MOUSE_LL, MouseCallback, GetModuleHandle(L"kernel32.dll"), 0);
+    if (_mouseHookHandle != NULL)
+    {
+      mouseHandleFnc = std::bind(&KeyboardTracker::HandleMousePress, this, std::placeholders::_1, std::placeholders::_2);
+    }
+
+    _hookEnabled = true;
 			
 	}
 	else if (!enable && _hookEnabled)
 	{
-    if (UnhookWindowsHookEx(_hookHandle))
+    bool unhookKey = UnhookWindowsHookEx(_hookHandle);
+    if (unhookKey)
     {
       keyHandleFnc = nullptr;
-      _hookEnabled = false;
     }
+    bool unhookMouse = UnhookWindowsHookEx(_mouseHookHandle);
+    if (unhookMouse)
+    {
+      mouseHandleFnc = nullptr;
+    }
+
+    _hookEnabled = false;
 	}
 		
 }
@@ -97,6 +166,34 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
   else
     evt.type = sf::Event::KeyReleased;
 
+
+  if (_layerMan)
+  {
+    if (_layerMan->PendingHotkey() && keyDown)
+    {
+      _layerMan->SetHotkeys(evt);
+    }
+    else
+    {
+      _layerMan->HandleHotkey(evt, keyDown);
+    }
+  }
+}
+
+void KeyboardTracker::HandleMousePress(int button, bool keyDown)
+{
+  sf::Event evt;
+
+  evt.key.control = _keysPressed[sf::Keyboard::LControl] || _keysPressed[sf::Keyboard::RControl];
+  evt.key.shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
+  evt.key.alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
+
+  if (keyDown)
+    evt.type = sf::Event::MouseButtonPressed;
+  else
+    evt.type = sf::Event::MouseButtonReleased;
+
+  evt.mouseButton.button = (sf::Mouse::Button)button;
 
   if (_layerMan)
   {

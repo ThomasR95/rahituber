@@ -1037,9 +1037,11 @@ void handleEvents()
 		}
 
 		if (evt.type == evt.JoystickButtonPressed 
-			|| evt.type == evt.JoystickButtonReleased)
+			|| evt.type == evt.JoystickButtonReleased
+			|| evt.type == evt.MouseButtonPressed
+			|| evt.type == evt.MouseButtonReleased)
 		{
-			bool keyDown = evt.type == evt.JoystickButtonPressed;
+			bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.MouseButtonPressed;
 
 			if (layerMan->PendingHotkey() && keyDown)
 			{
