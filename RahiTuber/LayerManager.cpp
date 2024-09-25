@@ -939,7 +939,7 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 	}
 
 	// If a mouse is newly down on a layer, save which layer and start the clock
-	if (mousePressed == true && hoveredLayer != -1)
+	if (mousePressed == true && hoveredLayer >= 0)
 	{
 		if (_lastDragMouseDown == false)
 		{
