@@ -1270,6 +1270,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("jpadID", stateInfo._jPadID);
 		thisHotkey->SetAttribute("axisDir", stateInfo._jDir);
 
+		thisHotkey->SetAttribute("mouseButton", stateInfo._mouseButton);
+
 		thisHotkey->SetAttribute("timeout", stateInfo._timeout);
 		thisHotkey->SetAttribute("useTimeout", stateInfo._useTimeout);
 		thisHotkey->SetAttribute("activeType", stateInfo._activeType);
@@ -1571,6 +1573,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisHotkey->QueryAttribute("jpadID", &hkey._jPadID);
 		thisHotkey->QueryAttribute("axisDir", &hkey._jDir);
 
+		thisHotkey->QueryAttribute("mouseButton", &hkey._mouseButton);
+
 		hkey._activeType = StatesInfo::ActiveType::Toggle;
 		bool toggle = true;
 		thisHotkey->QueryAttribute("toggle", &toggle);
@@ -1625,6 +1629,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 	bool ctrl = evt.key.control;
 	bool shift = evt.key.shift;
 	bool alt = evt.key.alt;
+	int mButton = (int)evt.mouseButton.button;
 
 	auto axis = evt.joystickMove.axis;
 	float jDir = evt.joystickMove.position;
@@ -1666,7 +1671,25 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 			match = true;
 		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton && stateInfo._jPadID == jPadID)
+		{
 			match = true;
+			keyDown = true;
+		}
+		else if (evt.type == sf::Event::JoystickButtonReleased && stateInfo._jButton == jButton && stateInfo._jPadID == jPadID)
+		{
+			match = true;
+			keyDown = false;
+		}
+		else if ( ImGui::IsAnyItemHovered() == false && evt.type == sf::Event::MouseButtonPressed && stateInfo._mouseButton == mButton && stateInfo._mouseButton != -1)
+		{
+			match = true;
+			keyDown = true;
+		}
+		else if (evt.type == sf::Event::MouseButtonReleased && stateInfo._mouseButton == mButton && stateInfo._mouseButton != -1)
+		{
+			match = true;
+			keyDown = false;
+		}
 		else if (_statesIgnoreStick == false && evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jAxis == (int)axis && stateInfo._jPadID == jPadID)
 		{
 			if (keyDown && std::signbit(stateInfo._jDir) == std::signbit(jDir))
@@ -1831,7 +1854,9 @@ void LayerManager::DrawStatesGUI()
 				if (state._jButton != -1)
 					keyName = "Joystick Btn " + std::to_string(state._jButton);
 				else if (state._jDir != 0.f && state._jAxis != -1)
-					keyName = g_axis_names[(sf::Joystick::Axis)state._jAxis] + ((state._jDir > 0) ? "+" : "-");
+					keyName = "Joystick Axis " + g_axis_names[(sf::Joystick::Axis)state._jAxis] + ((state._jDir > 0) ? "+" : "-");
+				else if (state._mouseButton != -1)
+					keyName = "Mouse Btn " + std::to_string(state._mouseButton);
 				else if (state._schedule)
 					keyName = "";
 				else
@@ -1891,7 +1916,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::SetColumnWidth(1, 100);
 				ImGui::SetColumnWidth(2, 300);
 				std::string btnName = keyName;
-				if (state._key == sf::Keyboard::Unknown)
+				if (state._key == sf::Keyboard::Unknown && state._jButton == -1 && state._jPadID == -1 && state._mouseButton == -1)
 					btnName = " Click to\nrecord key";
 				if (state._awaitingHotkey)
 					btnName = "(press a key)";
@@ -1908,6 +1933,8 @@ void LayerManager::DrawStatesGUI()
 					_pendingJButton = -1;
 					_pendingJPadID = -1;
 
+					_pendingMouseButton = -1;
+
 					_waitingForHotkey = true;
 					state._awaitingHotkey = true;
 				}
@@ -1923,6 +1950,8 @@ void LayerManager::DrawStatesGUI()
 					state._ctrl = false;
 					state._shift = false;
 					state._alt = false;
+
+					state._mouseButton = -1;
 
 					_waitingForHotkey = false;
 					state._awaitingHotkey = false;
@@ -1945,6 +1974,11 @@ void LayerManager::DrawStatesGUI()
 					state._jPadID = -1;
 
 					bool set = false;
+					if (_pendingMouseButton != -1)
+					{
+						state._mouseButton = _pendingMouseButton;
+						set = true;
+					}
 					if (_pendingKey != sf::Keyboard::Unknown)
 					{
 						state._key = _pendingKey;

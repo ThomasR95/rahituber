@@ -238,6 +238,7 @@ public:
 		float _jDir = 0.f;
 		int _jButton = -1;
 		int _jPadID = -1;
+		int _mouseButton = -1;
 
 		bool _renaming = false;
 		std::string _name = "";
@@ -303,12 +304,21 @@ public:
 	bool PendingHotkey() { return _waitingForHotkey; }
 	void SetHotkeys(const sf::Event& evt)
 	{
+		_pendingMouseButton = -1;
 		if (evt.type == sf::Event::KeyPressed)
 		{
 			_pendingKey = evt.key.code;
 			_pendingCtrl = evt.key.control;
 			_pendingShift = evt.key.shift;
 			_pendingAlt = evt.key.alt;
+		}
+
+		if (evt.type == sf::Event::MouseButtonPressed)
+		{
+			_pendingMouseButton = (int)evt.mouseButton.button;
+			_pendingCtrl = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::RControl);
+			_pendingShift = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift);
+			_pendingAlt = sf::Keyboard::isKeyPressed(sf::Keyboard::LAlt) || sf::Keyboard::isKeyPressed(sf::Keyboard::RAlt);
 		}
 
 		_pendingJPadID = -1;
@@ -404,6 +414,7 @@ private:
 	float _pendingJDir = 0.f;
 	int _pendingJButton = -1;
 	int _pendingJPadID = -1;
+	int _pendingMouseButton = -1;
 
 	sf::Vector2f _globalScale = { 1.f, 1.f };
 	sf::Vector2f _globalPos;
