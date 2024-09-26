@@ -306,6 +306,9 @@ public:
 	bool PendingHotkey() { return _waitingForHotkey; }
 	void SetHotkeys(const sf::Event& evt)
 	{
+		if (evt.type == sf::Event::JoystickMoved && _statesIgnoreStick)
+			return;
+
 		_pendingMouseButton = -1;
 		if (evt.type == sf::Event::KeyPressed)
 		{
@@ -326,7 +329,7 @@ public:
 		_pendingJPadID = -1;
 
 		//_pendingJStick = evt.joystickMove.joystickId;
-		if (evt.type == sf::Event::JoystickMoved && _statesIgnoreStick == false)
+		if (evt.type == sf::Event::JoystickMoved)
 		{
 			_pendingJAxis = evt.joystickMove.axis;
 			_pendingJDir = evt.joystickMove.position;
