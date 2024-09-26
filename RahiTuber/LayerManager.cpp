@@ -649,10 +649,35 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	for (auto& id : layer->_folderContents)
 	{
 		LayerInfo* origChild = GetLayer(id);
-		LayerInfo* child = AddLayer(origChild, false, childPosition);
-		child->_inFolder = guid;
-		id = child->_id;
-		childPosition++;
+		if (origChild != nullptr)
+		{
+			LayerInfo* child = AddLayer(origChild, false, childPosition);
+			child->_inFolder = guid;
+			id = child->_id;
+			childPosition++;
+		}
+	}
+
+	if (layer->_inFolder != "")
+	{
+		int folderIdx = 0;
+		LayerInfo* folder = GetLayer(layer->_inFolder, &folderIdx);
+		if (folder != nullptr)
+		{
+			folder->_folderContents.push_back(layer->_id);
+			//MoveLayerTo(layerPosition, folderIdx + 1);
+
+			std::sort(folder->_folderContents.begin(), folder->_folderContents.end(), [&](const std::string& a, const std::string& b) {
+				for (LayerInfo& l : _layers)
+				{
+					if (l._id == a)
+						return true;
+					if (l._id == b)
+						return false;
+				}
+				return false;
+				});
+		}
 	}
 
 	return layer;
@@ -716,7 +741,7 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 			for (int c = 0; c < origFolder->_folderContents.size(); c++)
 			{
 				LayerInfo* child = GetLayer(origFolder->_folderContents[c]);
-				if (child->_id == origID)
+				if (child != nullptr && child->_id == origID)
 				{
 					origFolder->_folderContents.erase(origFolder->_folderContents.begin() + c);
 					origLayer._inFolder = "";
@@ -830,7 +855,8 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 			{
 				int childIdx = 0;
 				LayerInfo* childLyr = GetLayer(child, &childIdx);
-				listToMove.push_back({ childIdx , *childLyr });
+				if(childLyr != nullptr)
+					listToMove.push_back({ childIdx , *childLyr });
 			}
 		}
 
@@ -1097,93 +1123,100 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisLayer->SetAttribute("name", layer._name.c_str());
 		thisLayer->SetAttribute("visible", layer._visible);
 
-		thisLayer->SetAttribute("talking", layer._swapWhenTalking);
-		thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
-		thisLayer->SetAttribute("restartOnSwap", layer._restartTalkAnim);
+		if (layer._isFolder == false)
+		{
+			thisLayer->SetAttribute("talking", layer._swapWhenTalking);
+			thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
+			thisLayer->SetAttribute("restartOnSwap", layer._restartTalkAnim);
 
-		thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
-		thisLayer->SetAttribute("talkBlink", layer._blinkWhileTalking);
-		thisLayer->SetAttribute("blinkTime", layer._blinkDelay);
-		thisLayer->SetAttribute("blinkDur", layer._blinkDuration);
-		thisLayer->SetAttribute("blinkVar", layer._blinkVariation);
+			thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
+			thisLayer->SetAttribute("talkBlink", layer._blinkWhileTalking);
+			thisLayer->SetAttribute("blinkTime", layer._blinkDelay);
+			thisLayer->SetAttribute("blinkDur", layer._blinkDuration);
+			thisLayer->SetAttribute("blinkVar", layer._blinkVariation);
 
-		thisLayer->SetAttribute("bounceType", layer._bounceType);
-		thisLayer->SetAttribute("bounceHeight", layer._bounceHeight);
-		thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
+			thisLayer->SetAttribute("bounceType", layer._bounceType);
+			thisLayer->SetAttribute("bounceHeight", layer._bounceHeight);
+			thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
 
-		thisLayer->SetAttribute("breathing", layer._doBreathing);
-		thisLayer->SetAttribute("breathHeight", layer._breathMove.y);
-		thisLayer->SetAttribute("breathTime", layer._breathFrequency);
-		thisLayer->SetAttribute("breathMoveX", layer._breathMove.x);
-		thisLayer->SetAttribute("breathScaleX", layer._breathScale.x);
-		thisLayer->SetAttribute("breathScaleY", layer._breathScale.y);
-		thisLayer->SetAttribute("breathCircular", layer._breathCircular);
-		thisLayer->SetAttribute("breatheWhileTalking", layer._breatheWhileTalking);
+			thisLayer->SetAttribute("breathing", layer._doBreathing);
+			thisLayer->SetAttribute("breathHeight", layer._breathMove.y);
+			thisLayer->SetAttribute("breathTime", layer._breathFrequency);
+			thisLayer->SetAttribute("breathMoveX", layer._breathMove.x);
+			thisLayer->SetAttribute("breathScaleX", layer._breathScale.x);
+			thisLayer->SetAttribute("breathScaleY", layer._breathScale.y);
+			thisLayer->SetAttribute("breathCircular", layer._breathCircular);
+			thisLayer->SetAttribute("breatheWhileTalking", layer._breatheWhileTalking);
 
-		thisLayer->SetAttribute("screaming", layer._scream);
-		thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
-		thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
-		thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
+			thisLayer->SetAttribute("screaming", layer._scream);
+			thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
+			thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
+			thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
 
-		thisLayer->SetAttribute("restartAnimsOnVisible", layer._restartAnimsOnVisible);
+			thisLayer->SetAttribute("restartAnimsOnVisible", layer._restartAnimsOnVisible);
 
-		thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
-		thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
-		thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
-		thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
-		thisLayer->SetAttribute("screamPath", layer._screamImagePath.c_str());
+			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
+			thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
+			thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
+			thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
+			thisLayer->SetAttribute("screamPath", layer._screamImagePath.c_str());
 
-		if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1,1) || layer._animsSynced == true)
-			SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite, layer._animsSynced);
+			if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+				SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite, layer._animsSynced);
 
-		if (layer._talkSprite->FrameCount() > 1 || layer._talkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-			SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite, layer._animsSynced);
+			if (layer._talkSprite->FrameCount() > 1 || layer._talkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+				SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite, layer._animsSynced);
 
-		if (layer._blinkSprite->FrameCount() > 1 || layer._blinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-			SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite, layer._animsSynced);
+			if (layer._blinkSprite->FrameCount() > 1 || layer._blinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+				SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite, layer._animsSynced);
 
-		if (layer._talkBlinkSprite->FrameCount() > 1 || layer._talkBlinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-			SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite, layer._animsSynced);
+			if (layer._talkBlinkSprite->FrameCount() > 1 || layer._talkBlinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+				SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite, layer._animsSynced);
 
-		if (layer._screamSprite->FrameCount() > 1 || layer._screamSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-			SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite, layer._animsSynced);
+			if (layer._screamSprite->FrameCount() > 1 || layer._screamSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+				SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite, layer._animsSynced);
 
-		thisLayer->SetAttribute("syncAnims", layer._animsSynced);
+			thisLayer->SetAttribute("syncAnims", layer._animsSynced);
 
-		SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
-		SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
-		SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
-		SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
-		SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
+			SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
+			SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
+			SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
+			SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
+			SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
-		thisLayer->SetAttribute("scaleX", layer._scale.x);
-		thisLayer->SetAttribute("scaleY", layer._scale.y);
-		thisLayer->SetAttribute("posX", layer._pos.x);
-		thisLayer->SetAttribute("posY", layer._pos.y);
-		thisLayer->SetAttribute("rot", layer._rot);
+			thisLayer->SetAttribute("scaleX", layer._scale.x);
+			thisLayer->SetAttribute("scaleY", layer._scale.y);
+			thisLayer->SetAttribute("posX", layer._pos.x);
+			thisLayer->SetAttribute("posY", layer._pos.y);
+			thisLayer->SetAttribute("rot", layer._rot);
 
-		thisLayer->SetAttribute("pivotX", layer._pivot.x);
-		thisLayer->SetAttribute("pivotY", layer._pivot.y);
+			thisLayer->SetAttribute("pivotX", layer._pivot.x);
+			thisLayer->SetAttribute("pivotY", layer._pivot.y);
 
-		thisLayer->SetAttribute("motionParent", layer._motionParent.c_str());
-		thisLayer->SetAttribute("motionDelayTime", layer._motionDelay);
-		thisLayer->SetAttribute("hideWithParent", layer._hideWithParent);
-		thisLayer->SetAttribute("motionDrag", layer._motionDrag);
-		thisLayer->SetAttribute("motionSpring", layer._motionSpring);
-		thisLayer->SetAttribute("distanceLimit", layer._distanceLimit);
-		thisLayer->SetAttribute("rotationEffect", layer._rotationEffect);
+			thisLayer->SetAttribute("motionParent", layer._motionParent.c_str());
+			thisLayer->SetAttribute("motionDelayTime", layer._motionDelay);
+			thisLayer->SetAttribute("hideWithParent", layer._hideWithParent);
+			thisLayer->SetAttribute("motionDrag", layer._motionDrag);
+			thisLayer->SetAttribute("motionSpring", layer._motionSpring);
+			thisLayer->SetAttribute("distanceLimit", layer._distanceLimit);
+			thisLayer->SetAttribute("rotationEffect", layer._rotationEffect);
 
-		std::string bmName = "Normal";
-		for (auto& bm : g_blendmodes)
-			if (bm.second == layer._blendMode)
-				bmName = bm.first;
+			std::string bmName = "Normal";
+			for (auto& bm : g_blendmodes)
+				if (bm.second == layer._blendMode)
+					bmName = bm.first;
 
-		thisLayer->SetAttribute("blendMode", bmName.c_str());
+			thisLayer->SetAttribute("blendMode", bmName.c_str());
 
-		thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
+			thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
+		}
 
 		thisLayer->SetAttribute("isFolder", layer._isFolder);
-		thisLayer->SetAttribute("inFolder", layer._inFolder.c_str());
+
+		if (layer._isFolder == false)
+		{
+			thisLayer->SetAttribute("inFolder", layer._inFolder.c_str());
+		}
 
 		auto folderContent = thisLayer->FirstChildElement("folderContent");
 		if (!folderContent)
@@ -1204,6 +1237,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	root->SetAttribute("statesPassThrough", _statesPassThrough);
 	root->SetAttribute("statesHideUnaffected", _statesHideUnaffected);
+	root->SetAttribute("statesIgnoreAxis", _statesIgnoreStick);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
@@ -1230,6 +1264,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		thisHotkey->SetAttribute("ctrl", stateInfo._ctrl);
 		thisHotkey->SetAttribute("shift", stateInfo._shift);
 		thisHotkey->SetAttribute("alt", stateInfo._alt);
+
+		thisHotkey->SetAttribute("axis", (int)stateInfo._jAxis);
+		thisHotkey->SetAttribute("btn", stateInfo._jButton);
+		thisHotkey->SetAttribute("jpadID", stateInfo._jPadID);
+		thisHotkey->SetAttribute("axisDir", stateInfo._jDir);
+
 		thisHotkey->SetAttribute("timeout", stateInfo._timeout);
 		thisHotkey->SetAttribute("useTimeout", stateInfo._useTimeout);
 		thisHotkey->SetAttribute("activeType", stateInfo._activeType);
@@ -1244,9 +1284,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 		for (auto& state : stateInfo._layerStates)
 		{
-			auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
-			thisState->SetAttribute("id", state.first.c_str());
-			thisState->SetAttribute("state", state.second);
+			if (state.second != StatesInfo::State::NoChange)
+			{
+				auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
+				thisState->SetAttribute("id", state.first.c_str());
+				thisState->SetAttribute("state", state.second);
+			}
 		}
 	}
 
@@ -1492,6 +1535,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 	root->QueryAttribute("statesPassThrough", &_statesPassThrough);
 	root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
+	root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
@@ -1521,6 +1565,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		thisHotkey->QueryAttribute("alt", &hkey._alt);
 		thisHotkey->QueryAttribute("timeout", &hkey._timeout);
 		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
+
+		thisHotkey->QueryAttribute("axis", (int*)(&hkey._jAxis));
+		thisHotkey->QueryAttribute("btn", &hkey._jButton);
+		thisHotkey->QueryAttribute("jpadID", &hkey._jPadID);
+		thisHotkey->QueryAttribute("axisDir", &hkey._jDir);
 
 		hkey._activeType = StatesInfo::ActiveType::Toggle;
 		bool toggle = true;
@@ -1579,7 +1628,12 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 	auto axis = evt.joystickMove.axis;
 	float jDir = evt.joystickMove.position;
-	float jButton = evt.joystickButton.button;
+	int jButton = evt.joystickButton.button;
+	int jPadID = -1;
+	if(evt.type == evt.JoystickMoved)
+		jPadID = evt.joystickMove.joystickId;
+	if (evt.type == evt.JoystickButtonPressed || evt.type == evt.JoystickButtonReleased)
+		jPadID = evt.joystickButton.joystickId;
 
 	float talkFactor = 0;
 	if (_lastTalkMax > 0)
@@ -1603,23 +1657,27 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 		if (!canTrigger)
 			continue;
 
+		float timeout = 0.2;
+
 		bool match = false;
 		if ((evt.type == sf::Event::KeyPressed || evt.type == sf::Event::KeyReleased)
+			&& key != sf::Keyboard::Unknown
 			&& stateInfo._key == key
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 			match = true;
-		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton)
+		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton && stateInfo._jPadID == jPadID)
 			match = true;
-		else if (evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jAxis == (int)axis)
+		else if (_statesIgnoreStick == false && evt.type == sf::Event::JoystickMoved && stateInfo._axisWasTriggered == false && stateInfo._jAxis == (int)axis && stateInfo._jPadID == jPadID)
 		{
 			if (keyDown && std::signbit(stateInfo._jDir) == std::signbit(jDir))
 				match = true;
 			else if (keyDown == false)
+			{
 				match = true;
+				timeout = 0;
+			}
 		}
-			
 
-		float timeout = 0.2;
 		if (stateInfo._activeType == StatesInfo::Held)
 			timeout = 0;
 
@@ -1744,6 +1802,9 @@ void LayerManager::DrawStatesGUI()
 		ImGui::NextColumn();
 		ImGui::Checkbox("Hide \"No Change\"", &_statesHideUnaffected);
 		ToolTip("Hide all layers with \"No Change\" under\neach state effect", &_appConfig->_hoverTimer);
+		ImGui::NextColumn();
+		ImGui::Checkbox("Ignore joystick axis", &_statesIgnoreStick);
+		ToolTip("Ignore events from joystick analog axis movement", &_appConfig->_hoverTimer);
 		ImGui::Columns();
 
 		if(_appConfig->_useKeyboardHooks == false)
@@ -1845,6 +1906,7 @@ void LayerManager::DrawStatesGUI()
 					_pendingJAxis = sf::Joystick::Axis::X;
 					_pendingJDir = 0.f;
 					_pendingJButton = -1;
+					_pendingJPadID = -1;
 
 					_waitingForHotkey = true;
 					state._awaitingHotkey = true;
@@ -1856,6 +1918,7 @@ void LayerManager::DrawStatesGUI()
 					state._jDir = 0.f;
 					state._jButton = -1;
 					state._key = sf::Keyboard::Unknown;
+					state._jPadID = -1;
 
 					state._ctrl = false;
 					state._shift = false;
@@ -1879,6 +1942,7 @@ void LayerManager::DrawStatesGUI()
 					state._jButton = -1;
 					state._key = sf::Keyboard::Unknown;
 					state._jAxis = -1;
+					state._jPadID = -1;
 
 					bool set = false;
 					if (_pendingKey != sf::Keyboard::Unknown)
@@ -1886,15 +1950,17 @@ void LayerManager::DrawStatesGUI()
 						state._key = _pendingKey;
 						set = true;
 					}
-					else if (_pendingJDir != 0.f)
+					else if (_pendingJDir != 0.f && _pendingJPadID != -1)
 					{
 						state._jDir = _pendingJDir;
 						state._jAxis = _pendingJAxis;
+						state._jPadID = _pendingJPadID;
 						set = true;
 					}
-					else if (_pendingJButton != -1)
+					else if (_pendingJButton != -1 && _pendingJPadID != -1)
 					{
 						state._jButton = _pendingJButton;
+						state._jPadID = _pendingJPadID;
 						set = true;
 					}
 					
@@ -2593,12 +2659,24 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 	}
 
+	std::vector<int> toRemove;
+
 	for (int l = 0; l < _folderContents.size(); l++)
 	{
 		auto* layer = _parent->GetLayer(_folderContents[l]);
-		layer->_lastHeaderPos = { -1,-1 };
-		layer->_lastHeaderScreenPos = { -1,-1 };
-		layer->_lastHeaderSize = { 0,0 };
+		if (layer != nullptr)
+		{
+			layer->_lastHeaderPos = { -1,-1 };
+			layer->_lastHeaderScreenPos = { -1,-1 };
+			layer->_lastHeaderSize = { 0,0 };
+		}
+		else
+			toRemove.insert(toRemove.begin(),l);
+	}
+
+	for (int rem : toRemove)
+	{
+		_folderContents.erase(_folderContents.begin() + rem);
 	}
 
 	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
@@ -2616,7 +2694,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		{
 			int layerIdx = 0;
 			auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
-			layer->DrawGUI(style, layerIdx);
+			if (layer != nullptr)
+				layer->DrawGUI(style, layerIdx);
 		}
 
 		if (_isFolder == false)
@@ -3082,7 +3161,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					_motionParent = "-1";
 				for (auto& layer : _parent->GetLayers())
 				{
-					if (layer._id != _id && layer._motionParent != _id)
+					if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
 						if (ImGui::Selectable(layer._name.c_str(), _motionParent == layer._id))
 						{
 							_motionParent = layer._id;

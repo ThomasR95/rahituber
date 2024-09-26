@@ -237,6 +237,7 @@ public:
 		int _jAxis = -1;
 		float _jDir = 0.f;
 		int _jButton = -1;
+		int _jPadID = -1;
 
 		bool _renaming = false;
 		std::string _name = "";
@@ -310,16 +311,22 @@ public:
 			_pendingAlt = evt.key.alt;
 		}
 
+		_pendingJPadID = -1;
+
 		//_pendingJStick = evt.joystickMove.joystickId;
-		if (evt.type == sf::Event::JoystickMoved)
+		if (evt.type == sf::Event::JoystickMoved && _statesIgnoreStick == false)
 		{
 			_pendingJAxis = evt.joystickMove.axis;
 			_pendingJDir = evt.joystickMove.position;
+			_pendingJPadID = evt.joystickMove.joystickId;
 		}
 
 		//_pendingJButtonSID = evt.joystickButton.joystickId;
 		if (evt.type == sf::Event::JoystickButtonPressed)
+		{
 			_pendingJButton = evt.joystickButton.button;
+			_pendingJPadID = evt.joystickButton.joystickId;
+		}
 		else
 			_pendingJButton = -1;
 	}
@@ -377,6 +384,7 @@ private:
 
 	bool _statesPassThrough = false;
 	bool _statesHideUnaffected = false;
+	bool _statesIgnoreStick = false;
 
 	std::string _lastSavedLocation = "";
 	std::string _loadedXML = "lastLayers";
@@ -395,6 +403,7 @@ private:
 	sf::Joystick::Axis _pendingJAxis = sf::Joystick::Axis::X;
 	float _pendingJDir = 0.f;
 	int _pendingJButton = -1;
+	int _pendingJPadID = -1;
 
 	sf::Vector2f _globalScale = { 1.f, 1.f };
 	sf::Vector2f _globalPos;
