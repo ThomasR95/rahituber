@@ -7,7 +7,10 @@ std::function<void(int, bool)> mouseHandleFnc = nullptr;
 
 LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam)
 {
-  if (keyHandleFnc != nullptr && nCode == HC_ACTION)
+  if(nCode != HC_ACTION)
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+  if (keyHandleFnc != nullptr)
   {
     switch (wParam)
     {
@@ -32,7 +35,16 @@ LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK MouseCallback(int nCode, WPARAM wParam, LPARAM lParam)
 {
-  if (mouseHandleFnc != nullptr && nCode == HC_ACTION)
+  if (nCode != HC_ACTION 
+    || wParam == WM_MOUSEMOVE || wParam == WM_NCMOUSEMOVE 
+    || wParam == WM_MOUSEACTIVATE
+    || wParam == WM_MOUSEHOVER || wParam == WM_NCMOUSEHOVER)
+  {
+    //call CallNextHookEx without further processing
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+  }
+
+  if (mouseHandleFnc != nullptr)
   {
     bool keydown = false;
     int button = -1;
@@ -73,6 +85,7 @@ LRESULT CALLBACK MouseCallback(int nCode, WPARAM wParam, LPARAM lParam)
     case WM_NCXBUTTONUP:
       MSLLHOOKSTRUCT p = *(MSLLHOOKSTRUCT*)lParam;
       WORD btn = p.mouseData >> 16;
+      std::cout << p.mouseData << std::endl;
       button = (btn == XBUTTON1) ? 3 : 4;
       break;
     }
@@ -87,6 +100,8 @@ LRESULT CALLBACK MouseCallback(int nCode, WPARAM wParam, LPARAM lParam)
 
 void KeyboardTracker::SetHook(bool enable)
 {
+  return;
+
 	if (enable && !_hookEnabled)
 	{
 		_hookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardCallback, GetModuleHandle(L"kernel32.dll"), 0);

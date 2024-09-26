@@ -12,6 +12,8 @@
 
 #include <windows.h>
 
+#include <thread>
+
 // For UUID
 #include <Rpc.h>
 #pragma comment(lib, "Rpcrt4.lib")
@@ -40,6 +42,19 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 {
 	_lastTalkLevel = talkLevel;
 	_lastTalkMax = talkMax;
+
+	if (_layersLoaded == false)
+	{
+		return;
+	}
+	else if (_loadingThread != nullptr)
+	{
+		if (_loadingThread->joinable())
+			_loadingThread->join();
+
+		delete _loadingThread;
+		_loadingThread = nullptr;
+	}
 
 	// reset to default states
 	if (_statesDirty)
@@ -312,6 +327,17 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 {
+	if (_layersLoaded == false)
+	{
+		ImGui::AlignTextToFramePadding();
+		std::string txt = "Loading " + _loadingProgress + "...";
+		ImVec2 txtSize = ImGui::CalcTextSize(txt.c_str());
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() / 2 - txtSize.x / 2);
+		ImGui::Text(txt.c_str());
+
+		return;
+	}
+
 	float topBarBegin = ImGui::GetCursorPosY();
 
 	ImGui::PushID("layermanager");
@@ -1077,6 +1103,19 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 
 bool LayerManager::SaveLayers(const std::string& settingsFileName)
 {
+	if (_layersLoaded == false)
+	{
+		return false;
+	}
+	else if (_loadingThread != nullptr)
+	{
+		if (_loadingThread->joinable())
+			_loadingThread->join();
+
+		delete _loadingThread;
+		_loadingThread = nullptr;
+	}
+
 	_errorMessage = "";
 
 	tinyxml2::XMLDocument doc;
@@ -1317,310 +1356,325 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 bool LayerManager::LoadLayers(const std::string& settingsFileName)
 {
 	_errorMessage = "";
-	tinyxml2::XMLDocument doc;
+	_loadingProgress = "";
 
-	//_chatReader.Cleanup();
-	//_chatReader.Init();
-	//_chatReader.SetUsername("rahisaurus");
+	_loadingPath = settingsFileName;
 
-	//_chatReader.Refresh();
-
-	doc.LoadFile(settingsFileName.c_str());
-
-	if (doc.Error())
+	if (_loadingThread != nullptr)
 	{
-		doc.LoadFile((_appConfig->_appLocation + settingsFileName).c_str());
+		if (_loadingThread->joinable())
+			_loadingThread->join();
 
-		if (doc.Error())
-		{
-			_errorMessage = "Could not read document: " + settingsFileName;
-			return false;
-		}
+		delete _loadingThread;
+		_loadingThread = nullptr;
 	}
-
-	auto root = doc.FirstChildElement("Config");
-	if (!root)
-	{
-		_errorMessage = "Invalid config element: " + settingsFileName;
-		return false;
-	}
-
-	auto layers = root->FirstChildElement("layers");
-	if (!layers)
-	{
-		_errorMessage = "Invalid layers element: " + settingsFileName;
-		return false;
-	}
-
-	_statesOrder.clear();
-	_layers.clear();
-
-	_lastSavedLocation = settingsFileName;
-
-	auto thisLayer = layers->FirstChildElement("layer");
-	int layerCount = 0;
-	while (thisLayer)
-	{
-		layerCount++;
-		_layers.emplace_back(LayerInfo());
-
-		LayerInfo& layer = _layers.back();
-
-		layer._parent = this;
-
-		const char* guid = thisLayer->Attribute("id");
-		if (!guid)
-			break;
-		layer._id = guid;
-
-		const char* name = thisLayer->Attribute("name");
-		if (!name)
-			break;
-
-		layer._name = name;
-		thisLayer->QueryAttribute("visible", &layer._visible);
-
-		thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
-		thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
-		thisLayer->QueryAttribute("restartOnSwap", &layer._restartTalkAnim);
-
-		thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
-		thisLayer->QueryAttribute("talkBlink", &layer._blinkWhileTalking);
-		thisLayer->QueryAttribute("blinkTime", &layer._blinkDelay);
-		thisLayer->QueryAttribute("blinkDur", &layer._blinkDuration);
-		thisLayer->QueryAttribute("blinkVar", &layer._blinkVariation);
-
-		int bobtype = 0;
-		thisLayer->QueryIntAttribute("bounceType", &bobtype);
-		layer._bounceType = (LayerInfo::BounceType)bobtype;
-		thisLayer->QueryAttribute("bounceHeight", &layer._bounceHeight);
-		thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
-
-		thisLayer->QueryAttribute("breathing", &layer._doBreathing);
-		thisLayer->QueryAttribute("breathHeight", &layer._breathMove.y);
-		thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
-		thisLayer->QueryAttribute("breathMoveX", &layer._breathMove.x);
-		thisLayer->QueryAttribute("breathScaleX", &layer._breathScale.x);
-		thisLayer->QueryAttribute("breathScaleY", &layer._breathScale.y);
-		if (layer._breathScale.x != layer._breathScale.y)
-			layer._breathScaleConstrain = false;
-
-		thisLayer->QueryAttribute("breathCircular", &layer._breathCircular);
-		thisLayer->QueryAttribute("breatheWhileTalking", &layer._breatheWhileTalking);
-
-		thisLayer->QueryAttribute("screaming", &layer._scream);
-		thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
-		thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
-		thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
-
-		thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
-
-		if(const char* idlePth = thisLayer->Attribute("idlePath"))
-			layer._idleImagePath = idlePth;
-		if (const char* talkPth = thisLayer->Attribute("talkPath"))
-			layer._talkImagePath = talkPth;
-		if (const char* blkPth = thisLayer->Attribute("blinkPath"))
-			layer._blinkImagePath = blkPth;
-		if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
-			layer._talkBlinkImagePath = talkBlkPth;
-		if (const char* screamPth = thisLayer->Attribute("screamPath"))
-			layer._screamImagePath = screamPth;
-
-		layer._idleImage = _textureMan->GetTexture(layer._idleImagePath, &_errorMessage);
-		layer._talkImage = _textureMan->GetTexture(layer._talkImagePath, &_errorMessage);
-		layer._blinkImage = _textureMan->GetTexture(layer._blinkImagePath, &_errorMessage);
-		layer._talkBlinkImage = _textureMan->GetTexture(layer._talkBlinkImagePath, &_errorMessage);
-		layer._screamImage = _textureMan->GetTexture(layer._screamImagePath, &_errorMessage);
-
-		if(layer._idleImage)
-			layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
-		if (layer._talkImage)
-			layer._talkSprite->LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
-		if(layer._blinkImage)
-			layer._blinkSprite->LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
-		if (layer._talkBlinkImage)
-			layer._talkBlinkSprite->LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
-		if (layer._screamImage)
-			layer._screamSprite->LoadFromTexture(*layer._screamImage, 1, 1, 1, 1);
-
-		LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
-		LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
-		LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
-		LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
-		LoadAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
-
-		thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
-
-		if (layer._animsSynced)
-			layer.SyncAnims(layer._animsSynced);
-
-		LoadColor(thisLayer, &doc, "idleTint", layer._idleTint);
-		LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
-		LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
-		LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
-		LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
-
-		layer._blinkTimer.restart();
-		layer._isBlinking = false;
-		layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
-
-		thisLayer->QueryAttribute("scaleX", &layer._scale.x);
-		thisLayer->QueryAttribute("scaleY", &layer._scale.y);
-		thisLayer->QueryAttribute("posX", &layer._pos.x);
-		thisLayer->QueryAttribute("posY", &layer._pos.y);
-		thisLayer->QueryAttribute("rot", &layer._rot);
-
-		thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
-		thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
-
-		const char* mpguid = thisLayer->Attribute("motionParent");
-		if (mpguid)
-			layer._motionParent = mpguid;
-
-		float motionDelayFrames = 0;
-		if(thisLayer->QueryAttribute("motionDelay", &motionDelayFrames) == tinyxml2::XML_SUCCESS)
+	
+	_loadingThread = new std::thread([&]
 		{
-			layer._motionDelay = motionDelayFrames * (1.0 / 60.0);
-		}
+			tinyxml2::XMLDocument doc;
+			doc.LoadFile(_loadingPath.c_str());
 
-		thisLayer->QueryAttribute("motionDelayTime", &layer._motionDelay);
-		thisLayer->QueryAttribute("hideWithParent", &layer._hideWithParent);
-		thisLayer->QueryAttribute("motionDrag", &layer._motionDrag);
-		thisLayer->QueryAttribute("motionSpring", &layer._motionSpring);
-		thisLayer->QueryAttribute("distanceLimit",&layer._distanceLimit);
-		thisLayer->QueryAttribute("rotationEffect", &layer._rotationEffect);
-
-		layer._blendMode = g_blendmodes["Normal"];
-		if (const char* blend = thisLayer->Attribute("blendMode"))
-		{
-			if (g_blendmodes.find(blend) != g_blendmodes.end())
-				layer._blendMode = g_blendmodes[blend];
-		}
-
-		thisLayer->QueryAttribute("scaleFilter", &layer._scaleFiltering);
-
-		if (layer._idleImage)
-			layer._idleImage->setSmooth(layer._scaleFiltering);
-		if (layer._talkImage)
-			layer._talkImage->setSmooth(layer._scaleFiltering);
-		if (layer._blinkImage)
-			layer._blinkImage->setSmooth(layer._scaleFiltering);
-		if (layer._talkBlinkImage)
-			layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
-
-		thisLayer->QueryAttribute("isFolder", &layer._isFolder);
-
-		const char* inFolder = thisLayer->Attribute("inFolder");
-		if (inFolder)
-			layer._inFolder = inFolder;
-
-		auto folderContent = thisLayer->FirstChildElement("folderContent");
-		if (folderContent)
-		{
-			auto thisID = folderContent->FirstChildElement("id");
-
-			while (thisID)
+			if (doc.Error())
 			{
-				layer._folderContents.push_back(thisID->GetText());
-				thisID = thisID->NextSiblingElement("id");
-			}
-		}
+				doc.LoadFile((_appConfig->_appLocation + _loadingPath).c_str());
 
-		thisLayer = thisLayer->NextSiblingElement("layer");
-	}
-
-	root->QueryAttribute("globalScaleX", &_globalScale.x);
-	root->QueryAttribute("globalScaleY", &_globalScale.y);
-	root->QueryAttribute("globalPosX", &_globalPos.x);
-	root->QueryAttribute("globalPosY", &_globalPos.y);
-	root->QueryAttribute("globalRot", &_globalRot);
-
-	root->QueryAttribute("statesPassThrough", &_statesPassThrough);
-	root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
-	root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
-
-	auto hotkeys = root->FirstChildElement("hotkeys");
-	if (!hotkeys)
-	{
-		_errorMessage = "Invalid hotkeys element: " + settingsFileName;
-		return false;
-	}
-
-	_states.clear();
-
-	auto thisHotkey = hotkeys->FirstChildElement("hotkey");
-	while (thisHotkey)
-	{
-		_states.emplace_back(StatesInfo());
-		StatesInfo& hkey = _states.back();
-
-		thisHotkey->QueryAttribute("enabled", &hkey._enabled);
-
-		if (const char* storedName = thisHotkey->Attribute("name"))
-			hkey._name = storedName;
-
-		int key;
-		thisHotkey->QueryAttribute("key", &key);
-		hkey._key = (sf::Keyboard::Key)key;
-		thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
-		thisHotkey->QueryAttribute("shift", &hkey._shift);
-		thisHotkey->QueryAttribute("alt", &hkey._alt);
-		thisHotkey->QueryAttribute("timeout", &hkey._timeout);
-		thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
-
-		thisHotkey->QueryAttribute("axis", (int*)(&hkey._jAxis));
-		thisHotkey->QueryAttribute("btn", &hkey._jButton);
-		thisHotkey->QueryAttribute("jpadID", &hkey._jPadID);
-		thisHotkey->QueryAttribute("axisDir", &hkey._jDir);
-
-		thisHotkey->QueryAttribute("mouseButton", &hkey._mouseButton);
-
-		hkey._activeType = StatesInfo::ActiveType::Toggle;
-		bool toggle = true;
-		thisHotkey->QueryAttribute("toggle", &toggle);
-		if(!toggle)
-			hkey._activeType = StatesInfo::ActiveType::Held;
-			
-		thisHotkey->QueryIntAttribute("activeType", (int*)(& hkey._activeType));
-		thisHotkey->QueryIntAttribute("canTrigger", (int*)(&hkey._canTrigger));
-		thisHotkey->QueryAttribute("threshold", &hkey._threshold);
-
-		thisHotkey->QueryAttribute("schedule", &hkey._schedule);
-		thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
-		thisHotkey->QueryAttribute("variation", &hkey._intervalVariation);
-
-		auto thisLayerState = thisHotkey->FirstChildElement("state");
-		while (thisLayerState)
-		{
-			std::string id;
-			bool vis = true;
-			int state = StatesInfo::NoChange;
-
-			const char* stateguid = thisLayerState->Attribute("id");
-			if (stateguid)
-				id = stateguid;
-
-			if (thisLayerState->QueryAttribute("visible", &vis) == tinyxml2::XML_SUCCESS)
-			{
-				state = (int)vis;
+				if (doc.Error())
+				{
+					_errorMessage = "Could not read document: " + _loadingPath;
+					return;
+				}
 			}
 
-			thisLayerState->QueryIntAttribute("state", &state);
+			auto root = doc.FirstChildElement("Config");
+			if (!root)
+			{
+				_errorMessage = "Invalid config element in " + _loadingPath;
+				return;
+			}
 
-			hkey._layerStates[id] = (StatesInfo::State)state;
+			auto layers = root->FirstChildElement("layers");
+			if (!layers)
+			{
+				_errorMessage = "Invalid layers element in " + _loadingPath;
+				return;
+			}
 
-			thisLayerState = thisLayerState->NextSiblingElement("state");
-		}
+			_layersLoaded = false;
 
-		thisHotkey = thisHotkey->NextSiblingElement("hotkey");
-	}
+			_statesOrder.clear();
+			_layers.clear();
 
+			_lastSavedLocation = _loadingPath;
+
+			auto thisLayer = layers->FirstChildElement("layer");
+			int layerCount = 0;
+			while (thisLayer)
+			{
+				layerCount++;
+				_layers.emplace_back(LayerInfo());
+
+				LayerInfo& layer = _layers.back();
+
+				layer._parent = this;
+
+				const char* guid = thisLayer->Attribute("id");
+				if (!guid)
+					break;
+				layer._id = guid;
+
+				const char* name = thisLayer->Attribute("name");
+				if (!name)
+					break;
+
+				layer._name = name;
+				thisLayer->QueryAttribute("visible", &layer._visible);
+				_loadingProgress = name;
+
+				thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
+				thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
+				thisLayer->QueryAttribute("restartOnSwap", &layer._restartTalkAnim);
+
+				thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
+				thisLayer->QueryAttribute("talkBlink", &layer._blinkWhileTalking);
+				thisLayer->QueryAttribute("blinkTime", &layer._blinkDelay);
+				thisLayer->QueryAttribute("blinkDur", &layer._blinkDuration);
+				thisLayer->QueryAttribute("blinkVar", &layer._blinkVariation);
+
+				int bobtype = 0;
+				thisLayer->QueryIntAttribute("bounceType", &bobtype);
+				layer._bounceType = (LayerInfo::BounceType)bobtype;
+				thisLayer->QueryAttribute("bounceHeight", &layer._bounceHeight);
+				thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
+
+				thisLayer->QueryAttribute("breathing", &layer._doBreathing);
+				thisLayer->QueryAttribute("breathHeight", &layer._breathMove.y);
+				thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
+				thisLayer->QueryAttribute("breathMoveX", &layer._breathMove.x);
+				thisLayer->QueryAttribute("breathScaleX", &layer._breathScale.x);
+				thisLayer->QueryAttribute("breathScaleY", &layer._breathScale.y);
+				if (layer._breathScale.x != layer._breathScale.y)
+					layer._breathScaleConstrain = false;
+
+				thisLayer->QueryAttribute("breathCircular", &layer._breathCircular);
+				thisLayer->QueryAttribute("breatheWhileTalking", &layer._breatheWhileTalking);
+
+				thisLayer->QueryAttribute("screaming", &layer._scream);
+				thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
+				thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
+				thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
+
+				thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
+
+				if (const char* idlePth = thisLayer->Attribute("idlePath"))
+					layer._idleImagePath = idlePth;
+				if (const char* talkPth = thisLayer->Attribute("talkPath"))
+					layer._talkImagePath = talkPth;
+				if (const char* blkPth = thisLayer->Attribute("blinkPath"))
+					layer._blinkImagePath = blkPth;
+				if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
+					layer._talkBlinkImagePath = talkBlkPth;
+				if (const char* screamPth = thisLayer->Attribute("screamPath"))
+					layer._screamImagePath = screamPth;
+
+				layer._idleImage = _textureMan->GetTexture(layer._idleImagePath, &_errorMessage);
+				layer._talkImage = _textureMan->GetTexture(layer._talkImagePath, &_errorMessage);
+				layer._blinkImage = _textureMan->GetTexture(layer._blinkImagePath, &_errorMessage);
+				layer._talkBlinkImage = _textureMan->GetTexture(layer._talkBlinkImagePath, &_errorMessage);
+				layer._screamImage = _textureMan->GetTexture(layer._screamImagePath, &_errorMessage);
+
+				if (layer._idleImage)
+					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
+				if (layer._talkImage)
+					layer._talkSprite->LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
+				if (layer._blinkImage)
+					layer._blinkSprite->LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
+				if (layer._talkBlinkImage)
+					layer._talkBlinkSprite->LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
+				if (layer._screamImage)
+					layer._screamSprite->LoadFromTexture(*layer._screamImage, 1, 1, 1, 1);
+
+				LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
+				LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
+				LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
+				LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
+				LoadAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
+
+				thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
+
+				if (layer._animsSynced)
+					layer.SyncAnims(layer._animsSynced);
+
+				LoadColor(thisLayer, &doc, "idleTint", layer._idleTint);
+				LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
+				LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
+				LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
+				LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
+
+				layer._blinkTimer.restart();
+				layer._isBlinking = false;
+				layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
+
+				thisLayer->QueryAttribute("scaleX", &layer._scale.x);
+				thisLayer->QueryAttribute("scaleY", &layer._scale.y);
+				thisLayer->QueryAttribute("posX", &layer._pos.x);
+				thisLayer->QueryAttribute("posY", &layer._pos.y);
+				thisLayer->QueryAttribute("rot", &layer._rot);
+
+				thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
+				thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
+
+				const char* mpguid = thisLayer->Attribute("motionParent");
+				if (mpguid)
+					layer._motionParent = mpguid;
+
+				float motionDelayFrames = 0;
+				if (thisLayer->QueryAttribute("motionDelay", &motionDelayFrames) == tinyxml2::XML_SUCCESS)
+				{
+					layer._motionDelay = motionDelayFrames * (1.0 / 60.0);
+				}
+
+				thisLayer->QueryAttribute("motionDelayTime", &layer._motionDelay);
+				thisLayer->QueryAttribute("hideWithParent", &layer._hideWithParent);
+				thisLayer->QueryAttribute("motionDrag", &layer._motionDrag);
+				thisLayer->QueryAttribute("motionSpring", &layer._motionSpring);
+				thisLayer->QueryAttribute("distanceLimit", &layer._distanceLimit);
+				thisLayer->QueryAttribute("rotationEffect", &layer._rotationEffect);
+
+				layer._blendMode = g_blendmodes["Normal"];
+				if (const char* blend = thisLayer->Attribute("blendMode"))
+				{
+					if (g_blendmodes.find(blend) != g_blendmodes.end())
+						layer._blendMode = g_blendmodes[blend];
+				}
+
+				thisLayer->QueryAttribute("scaleFilter", &layer._scaleFiltering);
+
+				if (layer._idleImage)
+					layer._idleImage->setSmooth(layer._scaleFiltering);
+				if (layer._talkImage)
+					layer._talkImage->setSmooth(layer._scaleFiltering);
+				if (layer._blinkImage)
+					layer._blinkImage->setSmooth(layer._scaleFiltering);
+				if (layer._talkBlinkImage)
+					layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
+
+				thisLayer->QueryAttribute("isFolder", &layer._isFolder);
+
+				const char* inFolder = thisLayer->Attribute("inFolder");
+				if (inFolder)
+					layer._inFolder = inFolder;
+
+				auto folderContent = thisLayer->FirstChildElement("folderContent");
+				if (folderContent)
+				{
+					auto thisID = folderContent->FirstChildElement("id");
+
+					while (thisID)
+					{
+						layer._folderContents.push_back(thisID->GetText());
+						thisID = thisID->NextSiblingElement("id");
+					}
+				}
+
+				thisLayer = thisLayer->NextSiblingElement("layer");
+			}
+
+			root->QueryAttribute("globalScaleX", &_globalScale.x);
+			root->QueryAttribute("globalScaleY", &_globalScale.y);
+			root->QueryAttribute("globalPosX", &_globalPos.x);
+			root->QueryAttribute("globalPosY", &_globalPos.y);
+			root->QueryAttribute("globalRot", &_globalRot);
+
+			root->QueryAttribute("statesPassThrough", &_statesPassThrough);
+			root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
+			root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
+
+			auto hotkeys = root->FirstChildElement("hotkeys");
+			if (!hotkeys)
+			{
+				_errorMessage = "Invalid hotkeys element in " + _loadingPath;
+				return;
+			}
+
+			_states.clear();
+
+			auto thisHotkey = hotkeys->FirstChildElement("hotkey");
+			while (thisHotkey)
+			{
+				_states.emplace_back(StatesInfo());
+				StatesInfo& hkey = _states.back();
+
+				thisHotkey->QueryAttribute("enabled", &hkey._enabled);
+
+				if (const char* storedName = thisHotkey->Attribute("name"))
+					hkey._name = storedName;
+
+				int key;
+				thisHotkey->QueryAttribute("key", &key);
+				hkey._key = (sf::Keyboard::Key)key;
+				thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
+				thisHotkey->QueryAttribute("shift", &hkey._shift);
+				thisHotkey->QueryAttribute("alt", &hkey._alt);
+				thisHotkey->QueryAttribute("timeout", &hkey._timeout);
+				thisHotkey->QueryAttribute("useTimeout", &hkey._useTimeout);
+
+				thisHotkey->QueryAttribute("axis", (int*)(&hkey._jAxis));
+				thisHotkey->QueryAttribute("btn", &hkey._jButton);
+				thisHotkey->QueryAttribute("jpadID", &hkey._jPadID);
+				thisHotkey->QueryAttribute("axisDir", &hkey._jDir);
+
+				thisHotkey->QueryAttribute("mouseButton", &hkey._mouseButton);
+
+				hkey._activeType = StatesInfo::ActiveType::Toggle;
+				bool toggle = true;
+				thisHotkey->QueryAttribute("toggle", &toggle);
+				if (!toggle)
+					hkey._activeType = StatesInfo::ActiveType::Held;
+
+				thisHotkey->QueryIntAttribute("activeType", (int*)(&hkey._activeType));
+				thisHotkey->QueryIntAttribute("canTrigger", (int*)(&hkey._canTrigger));
+				thisHotkey->QueryAttribute("threshold", &hkey._threshold);
+
+				thisHotkey->QueryAttribute("schedule", &hkey._schedule);
+				thisHotkey->QueryAttribute("interval", &hkey._intervalTime);
+				thisHotkey->QueryAttribute("variation", &hkey._intervalVariation);
+
+				auto thisLayerState = thisHotkey->FirstChildElement("state");
+				while (thisLayerState)
+				{
+					std::string id;
+					bool vis = true;
+					int state = StatesInfo::NoChange;
+
+					const char* stateguid = thisLayerState->Attribute("id");
+					if (stateguid)
+						id = stateguid;
+
+					if (thisLayerState->QueryAttribute("visible", &vis) == tinyxml2::XML_SUCCESS)
+					{
+						state = (int)vis;
+					}
+
+					thisLayerState->QueryIntAttribute("state", &state);
+
+					hkey._layerStates[id] = (StatesInfo::State)state;
+
+					thisLayerState = thisLayerState->NextSiblingElement("state");
+				}
+
+				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
+			}
+
+			_layersLoaded = true;
+		});
 
 	return true;
 }
 
 void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 {
+	__debugbreak();
+
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
@@ -1772,6 +1826,142 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 	return;
 }
 
+void LayerManager::CheckHotkeys()
+{
+	for (auto& l : _layers)
+		if (l._renamePopupOpen)
+			return;
+
+	float talkFactor = 0;
+	if (_lastTalkMax > 0)
+	{
+		talkFactor = _lastTalkLevel / _lastTalkMax;
+		talkFactor = pow(talkFactor, 0.5);
+	}
+
+	bool ctrl = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::RControl);
+	bool alt = sf::Keyboard::isKeyPressed(sf::Keyboard::LAlt) || sf::Keyboard::isKeyPressed(sf::Keyboard::RAlt);
+	bool shift = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift);
+
+	for (int h = 0; h < _states.size(); h++)
+	{
+		bool keyDown = false;
+
+		auto& stateInfo = _states[h];
+
+		bool canTrigger = stateInfo._enabled;
+		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::Always)
+		{
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+				canTrigger &= talkFactor >= stateInfo._threshold;
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+				canTrigger &= talkFactor < stateInfo._threshold;
+		}
+		if (!canTrigger)
+			continue;
+
+		float timeout = 0.2;
+
+		bool changed = false;
+
+		if (stateInfo._key != -1 && sf::Keyboard::isKeyPressed(stateInfo._key)
+			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
+		{
+			if (stateInfo._wasTriggered == false)
+				changed = true;
+			keyDown = true;
+		}
+		else if (stateInfo._jButton != -1 && sf::Joystick::isButtonPressed(stateInfo._jPadID, stateInfo._jButton))
+		{
+			if (stateInfo._wasTriggered == false)
+				changed = true;
+			keyDown = true;
+		}
+		else if (ImGui::IsAnyItemHovered() == false && stateInfo._mouseButton != -1 && sf::Mouse::isButtonPressed((sf::Mouse::Button)stateInfo._mouseButton))
+		{
+			if (stateInfo._wasTriggered == false)
+				changed = true;
+			keyDown = true;
+		}
+		else if (_statesIgnoreStick == false && stateInfo._jAxis != -1)
+		{
+			float jDir = sf::Joystick::getAxisPosition(stateInfo._jPadID, (sf::Joystick::Axis)stateInfo._jAxis);
+			if (Abs(jDir) > 30 && std::signbit(jDir) == std::signbit(stateInfo._jDir))
+			{
+				if (stateInfo._wasTriggered == false)
+					changed = true;
+				keyDown = true;
+			}
+		}
+
+		if (stateInfo._wasTriggered == true && keyDown == false)
+			changed = true;
+
+		if (stateInfo._activeType == StatesInfo::Held)
+			timeout = 0;
+
+		stateInfo._wasTriggered = keyDown;
+
+		if (changed && stateInfo._timer.getElapsedTime().asSeconds() > timeout)
+		{
+			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
+			{
+				stateInfo._keyIsHeld = false;
+				// deactivate
+				stateInfo._active = false;
+				RemoveStateFromOrder(&stateInfo);
+				stateInfo._timer.restart();
+			}
+			else if (!stateInfo._active && keyDown)
+			{
+				if (stateInfo._activeType == StatesInfo::Permanent)
+				{
+					// activate immediately & alter the default states
+					for (auto& state : stateInfo._layerStates)
+					{
+						LayerInfo* layer = GetLayer(state.first);
+						if (layer && state.second != StatesInfo::NoChange)
+						{
+							layer->_visible = state.second;
+							const std::string& layerId = layer->_id;
+							if (_defaultLayerStates.count(layerId))
+								_defaultLayerStates[layerId] = state.second;
+						}
+					}
+					// never "activates" because it can't be undone
+					stateInfo._active = false;
+				}
+				else
+				{
+					if (stateInfo._activeType == StatesInfo::Held)
+						stateInfo._keyIsHeld = true;
+
+					// activate and add to stack
+					SaveDefaultStates();
+
+					for (auto& state : stateInfo._layerStates)
+					{
+						LayerInfo* layer = GetLayer(state.first);
+						if (layer && state.second != StatesInfo::NoChange)
+						{
+							layer->_visible = state.second;
+						}
+					}
+					AppendStateToOrder(&stateInfo);
+					stateInfo._timer.restart();
+					stateInfo._active = true;
+					_statesTimer.restart();
+				}
+			}
+
+			if (!_statesPassThrough && keyDown)
+				break;
+		}
+	}
+
+	return;
+}
+
 void LayerManager::ResetStates()
 {
 	if (!AnyStateActive())
@@ -1829,9 +2019,6 @@ void LayerManager::DrawStatesGUI()
 		ImGui::Checkbox("Ignore joystick axis", &_statesIgnoreStick);
 		ToolTip("Ignore events from joystick analog axis movement", &_appConfig->_hoverTimer);
 		ImGui::Columns();
-
-		if(_appConfig->_useKeyboardHooks == false)
-			ImGui::TextWrapped("Keyboard Hook is disabled. Hotkeys will not work if Rahituber is not in focus.");
 
 		if (ImGui::Button("Add"))
 		{

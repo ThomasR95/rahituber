@@ -265,6 +265,8 @@ public:
 		std::map<std::string, State> _layerStates;
 		bool _awaitingHotkey = false;
 
+		bool _wasTriggered = false;
+
 		enum CanTrigger {
 			Always,
 			WhileTalking,
@@ -341,6 +343,9 @@ public:
 			_pendingJButton = -1;
 	}
 	void HandleHotkey(const sf::Event& key, bool keyDown);
+
+	void CheckHotkeys();
+
 	void ResetStates();
 
 	LayerInfo* GetLayer(std::string id, int* idx = nullptr)
@@ -375,6 +380,11 @@ public:
 	}
 
 private:
+
+	bool _layersLoaded = false;
+	std::thread* _loadingThread = nullptr;
+	std::string _loadingPath = "";
+	std::string _loadingProgress = "";
 
 	float _lastTalkLevel = 0.0;
 	float _lastTalkMax = 1.0;
