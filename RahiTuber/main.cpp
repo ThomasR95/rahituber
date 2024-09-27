@@ -31,7 +31,7 @@ AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
 UIConfig* uiConfig = nullptr;
 LayerManager* layerMan = nullptr;
-KeyboardTracker* kbdTrack = nullptr;
+//KeyboardTracker* kbdTrack = nullptr;
 
 float mean(float a, float b) { return a + (b-a)*0.5f;}
 float between(float a, float b) { return a*0.5f + b*0.5f; }
@@ -161,6 +161,8 @@ void LoadCustomFont()
 	}
 	
 	io.Fonts->SetTexID((ImTextureID)uiConfig->fontTex.getNativeHandle());
+
+	uiConfig->_font.loadFromFile(appConfig->_appLocation + "res/monof55.ttf");
 }
 
 void getWindowSizes()
@@ -470,13 +472,13 @@ void menuAdvanced(ImGuiStyle& style)
 		}
 		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
+		//ImGui::TableNextColumn();
 
-		if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
-		{
-			kbdTrack->SetHook(appConfig->_useKeyboardHooks);
-		}
-		ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
+		//if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
+		//{
+		//	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
+		//}
+		//ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
 
@@ -1014,6 +1016,8 @@ void handleEvents()
 		appConfig->_window.requestFocus();
 	}
 
+	layerMan->CheckHotkeys();
+
 	sf::Event evt;
 	while (appConfig->_window.pollEvent(evt))
 	{
@@ -1047,14 +1051,9 @@ void handleEvents()
 			{
 				layerMan->SetHotkeys(evt);
 			}
-			else
-			{
-				layerMan->HandleHotkey(evt, keyDown);
-			}
 		}
 
-		if (kbdTrack->IsHooked() == false
-			&& (evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
+		if ((evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
 			&& evt.key.code != sf::Keyboard::LControl
 			&& evt.key.code != sf::Keyboard::LShift
 			&& evt.key.code != sf::Keyboard::LAlt
@@ -1073,10 +1072,6 @@ void handleEvents()
 				if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
 					ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 				continue;
-			}
-			else
-			{
-				layerMan->HandleHotkey(evt, keyDown);
 			}
 		}
 
@@ -1197,8 +1192,6 @@ void handleEvents()
 				// active / held
 				if (layerMan->PendingHotkey())
 					layerMan->SetHotkeys(posn.second);
-				else
-					layerMan->HandleHotkey(posn.second, true);
 
 				// update it in case it's been released and didn't trigger an event
 				jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
@@ -1207,8 +1200,6 @@ void handleEvents()
 			{
 				jMove.position = 0.f;
 				// released
-				layerMan->HandleHotkey(posn.second, false);
-
 				// update it in case it's been released and didn't trigger an event
 				jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
 			}
@@ -1484,11 +1475,8 @@ int main()
 	layerMan = new LayerManager();
 	layerMan->Init(appConfig, uiConfig);
 
-	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
-	layerMan->LoadLayers(lastLayerSettingsFile);
-
-	kbdTrack = new KeyboardTracker();
-	kbdTrack->_layerMan = layerMan;
+	//kbdTrack = new KeyboardTracker();
+	//kbdTrack->_layerMan = layerMan;
 					
 	getWindowSizes();
 
@@ -1538,17 +1526,23 @@ int main()
 				delete uiConfig;
 				delete audioConfig;
 				delete layerMan;
-				delete kbdTrack;
+				//delete kbdTrack;
 				return 1;
 			}
 		}
 	}
 
+	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
+
+	if (appConfig->_lastLayerSet.empty())
+		layerMan->LoadLayers(lastLayerSettingsFile);
+
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
+
 	if(appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
 
-	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
+	//kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 
 	uiConfig->_menuShowing = uiConfig->_showMenuOnStart;
 
@@ -1670,7 +1664,7 @@ int main()
 		sf::sleep(sf::milliseconds(8));
 	}
 
-	kbdTrack->SetHook(false);
+	//kbdTrack->SetHook(false);
 
 	Pa_StopStream(audioConfig->_audioStr);
 	Pa_CloseStream(audioConfig->_audioStr);
@@ -1696,7 +1690,7 @@ int main()
 	delete uiConfig;
 	delete audioConfig;
 	
-	delete kbdTrack;
+	//delete kbdTrack;
 
 	return 0;
 

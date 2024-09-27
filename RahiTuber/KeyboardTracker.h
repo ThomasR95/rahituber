@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include <map>
+#include <thread>
 #include "defines.h"
 
 class LayerManager;

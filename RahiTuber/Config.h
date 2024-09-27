@@ -149,6 +149,8 @@ struct UIConfig
 	sf::Sprite _moveIconSprite;
 	sf::Vector2f _moveTabSize = { 80,32 };
 
+	sf::Font _font;
+
 	bool _showMenuOnStart = true;
 	bool _menuShowing = true;
 	bool _advancedMenuShowing = false;
