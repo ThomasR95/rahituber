@@ -2038,7 +2038,9 @@ void LayerManager::DrawStatesGUI()
 			std::string keyName = g_key_names[state._key];
 			if (state._key == sf::Keyboard::Unknown)
 			{
-				if (state._jButton != -1)
+				if (state._awaitingHotkey)
+					keyName = "---";
+				else if (state._jButton != -1)
 					keyName = "Joystick Btn " + std::to_string(state._jButton);
 				else if (state._jDir != 0.f && state._jAxis != -1)
 					keyName = "Joystick Axis " + g_axis_names[(sf::Joystick::Axis)state._jAxis] + ((state._jDir > 0) ? "+" : "-");
