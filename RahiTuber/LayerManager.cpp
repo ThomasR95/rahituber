@@ -43,7 +43,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	_lastTalkLevel = talkLevel;
 	_lastTalkMax = talkMax;
 
-	if (_layersLoaded == false)
+	if (_loadingFinished == false)
 	{
 		return;
 	}
@@ -327,17 +327,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 {
-	if (_layersLoaded == false)
-	{
-		ImGui::AlignTextToFramePadding();
-		std::string txt = "Loading " + _loadingProgress + "...";
-		ImVec2 txtSize = ImGui::CalcTextSize(txt.c_str());
-		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() / 2 - txtSize.x / 2);
-		ImGui::Text(txt.c_str());
-
-		return;
-	}
-
 	float topBarBegin = ImGui::GetCursorPosY();
 
 	ImGui::PushID("layermanager");
@@ -488,97 +477,112 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	ImGui::Separator();
 
-	float topBarHeight = ImGui::GetCursorPosY() - topBarBegin;
-
-	ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
-
-	ImVec2 resetPos = ImGui::GetCursorPos();
-
-	int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
-	bool skipFolder = false;
-	if (hoveredLayer == -2)
+	if (_loadingFinished == false)
 	{
-		hoveredLayer = 0;
-		skipFolder = true;
-	}
-	if (hoveredLayer == -3)
-	{
-		hoveredLayer = _layers.size()-1;
-		skipFolder = true;
-	}
-
-	if (_dragActive)
-	{
-		ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-
-		if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
+		if (_loadingPath != "")
 		{
-			LayerInfo& layerBelowInsert = _layers[hoveredLayer];
+			ImGui::AlignTextToFramePadding();
+			std::string txt = "Loading " + _loadingProgress + "...";
+			ImVec2 txtSize = ImGui::CalcTextSize(txt.c_str());
+			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() / 2 - txtSize.x / 2);
+			ImGui::Text(txt.c_str());
+		}
+	}
+	else
+	{
+		float topBarHeight = ImGui::GetCursorPosY() - topBarBegin;
 
-			bool folderIntoFolder = _layers[_draggedLayer]._isFolder && (layerBelowInsert._isFolder || layerBelowInsert._inFolder != "");
+		ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
-			if ((layerBelowInsert._isFolder == false || skipFolder) && !folderIntoFolder)
+		ImVec2 resetPos = ImGui::GetCursorPos();
+
+		int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
+		bool skipFolder = false;
+		if (hoveredLayer == -2)
+		{
+			hoveredLayer = 0;
+			skipFolder = true;
+		}
+		if (hoveredLayer == -3)
+		{
+			hoveredLayer = _layers.size() - 1;
+			skipFolder = true;
+		}
+
+		if (_dragActive)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+
+			if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
 			{
-				sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
+				LayerInfo& layerBelowInsert = _layers[hoveredLayer];
 
-				if (hoveredLayer > _draggedLayer)
-					linePos.y += layerBelowInsert._lastHeaderSize.y;
-				else
+				bool folderIntoFolder = _layers[_draggedLayer]._isFolder && (layerBelowInsert._isFolder || layerBelowInsert._inFolder != "");
+
+				if ((layerBelowInsert._isFolder == false || skipFolder) && !folderIntoFolder)
+				{
+					sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
+
+					if (hoveredLayer > _draggedLayer)
+						linePos.y += layerBelowInsert._lastHeaderSize.y;
+					else
+						linePos.y -= 1;
+
+					sf::Vector2f linePos2 = linePos;
+					linePos2.x += layerBelowInsert._lastHeaderSize.x;
+
+					ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+					ImGui::DrawLine(linePos, linePos2, toSFColor(lineCol), 2);
+				}
+			}
+
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+		}
+
+		for (int l = 0; l < _layers.size(); l++)
+		{
+			auto& layer = _layers[l];
+			layer._parent = this;
+
+			if (layer._inFolder == "")
+			{
+				layer._lastHeaderPos = { -1,-1 };
+				layer._lastHeaderScreenPos = { -1,-1 };
+				layer._lastHeaderSize = { 0,0 };
+
+				if (!layer.DrawGUI(style, l))
+					break;
+			}
+
+		}
+
+		if (_dragActive)
+		{
+			ImGui::PopStyleColor(3);
+
+			if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
+			{
+				LayerInfo& layerBelowInsert = _layers[hoveredLayer];
+
+				if (!skipFolder && layerBelowInsert._isFolder == true && !_layers[_draggedLayer]._isFolder)
+				{
+					ImGui::SetCursorPos(resetPos);
+					sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
 					linePos.y -= 1;
 
-				sf::Vector2f linePos2 = linePos;
-				linePos2.x += layerBelowInsert._lastHeaderSize.x;
-
-				ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-				ImGui::DrawLine(linePos, linePos2, toSFColor(lineCol), 2);
+					ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+					lineCol.w = 0.5;
+					sf::FloatRect hilightRect(linePos, layerBelowInsert._lastHeaderSize);
+					ImGui::DrawRectFilled(hilightRect, toSFColor(lineCol), 2);
+				}
 			}
 		}
 
-		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+		ImGui::EndChild();
 	}
 
-	for (int l = 0; l < _layers.size(); l++)
-	{
-		auto& layer = _layers[l];
-		layer._parent = this;
-
-		if (layer._inFolder == "")
-		{
-			layer._lastHeaderPos = { -1,-1 };
-			layer._lastHeaderScreenPos = { -1,-1 };
-			layer._lastHeaderSize = { 0,0 };
-
-			if (!layer.DrawGUI(style, l))
-				break;
-		}
-			
-	}
-
-	if (_dragActive)
-	{
-		ImGui::PopStyleColor(3);
-
-		if (hoveredLayer != _draggedLayer && hoveredLayer != -1 && _draggedLayer >= 0)
-		{
-			LayerInfo& layerBelowInsert = _layers[hoveredLayer];
-
-			if (!skipFolder && layerBelowInsert._isFolder == true && !_layers[_draggedLayer]._isFolder)
-			{
-				ImGui::SetCursorPos(resetPos);
-				sf::Vector2f linePos = layerBelowInsert._lastHeaderPos;
-				linePos.y -= 1;
-
-				ImVec4 lineCol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-				lineCol.w = 0.5;
-				sf::FloatRect hilightRect(linePos, layerBelowInsert._lastHeaderSize);
-				ImGui::DrawRectFilled(hilightRect, toSFColor(lineCol), 2);
-			}
-		}
-	}
-
-	ImGui::EndChild();
 	ImGui::PopID();
 
 	if (_dragActive && _draggedLayer != -1 && _layers.size() > _draggedLayer && ImGui::BeginTooltip())
@@ -591,6 +595,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder, int insertPosition)
 {
+	_errorMessage = "";
+
 	LayerInfo newLayer = LayerInfo();
 
 	LayerInfo* layer = nullptr;
@@ -1103,7 +1109,7 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 
 bool LayerManager::SaveLayers(const std::string& settingsFileName)
 {
-	if (_layersLoaded == false)
+	if (_loadingFinished == false)
 	{
 		return false;
 	}
@@ -1380,7 +1386,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				if (doc.Error())
 				{
-					_errorMessage = "Could not read document: " + _loadingPath;
+					if(_loadingPath != "lastLayers.xml")
+						_errorMessage = "Could not read document: " + _loadingPath;
+
+					_loadingPath = "";
+					_loadingFinished = true;
+					_uiConfig->_menuShowing = true;
 					return;
 				}
 			}
@@ -1389,6 +1400,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			if (!root)
 			{
 				_errorMessage = "Invalid config element in " + _loadingPath;
+				_loadingPath = "";
+				_loadingFinished = true;
+				_uiConfig->_menuShowing = true;
 				return;
 			}
 
@@ -1396,10 +1410,13 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			if (!layers)
 			{
 				_errorMessage = "Invalid layers element in " + _loadingPath;
+				_loadingPath = "";
+				_loadingFinished = true;
+				_uiConfig->_menuShowing = true;
 				return;
 			}
 
-			_layersLoaded = false;
+			_loadingFinished = false;
 
 			_statesOrder.clear();
 			_layers.clear();
@@ -1665,7 +1682,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
 
-			_layersLoaded = true;
+			_loadingFinished = true;
+			_loadingPath = "";
 		});
 
 	return true;

@@ -954,6 +954,11 @@ void handleEvents()
 	{
 		while (appConfig->_menuWindow.pollEvent(menuEvt))
 		{
+
+			int retFlag;
+			RecordHotkey(menuEvt, retFlag);
+			if (retFlag == 3) continue;
+
 			if (menuEvt.type == menuEvt.Closed)
 			{
 				appConfig->_menuPopPending = false;
@@ -1035,45 +1040,9 @@ void handleEvents()
 				continue;
 		}
 
-		if (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30)
-		{
-			axisEvents[evt.joystickMove.axis] = evt;
-		}
-
-		if (evt.type == evt.JoystickButtonPressed 
-			|| evt.type == evt.JoystickButtonReleased
-			|| evt.type == evt.MouseButtonPressed
-			|| evt.type == evt.MouseButtonReleased)
-		{
-			bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.MouseButtonPressed;
-
-			if (layerMan->PendingHotkey() && keyDown)
-			{
-				layerMan->SetHotkeys(evt);
-			}
-		}
-
-		if ((evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
-			&& evt.key.code != sf::Keyboard::LControl
-			&& evt.key.code != sf::Keyboard::LShift
-			&& evt.key.code != sf::Keyboard::LAlt
-			&& evt.key.code != sf::Keyboard::LSystem
-			&& evt.key.code != sf::Keyboard::RControl
-			&& evt.key.code != sf::Keyboard::RShift
-			&& evt.key.code != sf::Keyboard::RAlt
-			&& evt.key.code != sf::Keyboard::RSystem
-			&& evt.key.code != sf::Keyboard::Escape)
-		{
-			bool keyDown = evt.type == evt.KeyPressed;
-
-			if (layerMan->PendingHotkey() && keyDown)
-			{
-				layerMan->SetHotkeys(evt);
-				if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
-					ImGui::SFML::ProcessEvent(appConfig->_window, evt);
-				continue;
-			}
-		}
+		int retFlag;
+		RecordHotkey(evt, retFlag);
+		if (retFlag == 3) continue;
 
 		if (evt.type == evt.Closed)
 		{
@@ -1203,6 +1172,50 @@ void handleEvents()
 				// update it in case it's been released and didn't trigger an event
 				jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
 			}
+		}
+	}
+}
+
+void RecordHotkey(sf::Event& evt, int& retFlag)
+{
+	retFlag = 1;
+	if (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30)
+	{
+		axisEvents[evt.joystickMove.axis] = evt;
+	}
+
+	if (evt.type == evt.JoystickButtonPressed
+		|| evt.type == evt.JoystickButtonReleased
+		|| evt.type == evt.MouseButtonPressed
+		|| evt.type == evt.MouseButtonReleased)
+	{
+		bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.MouseButtonPressed;
+
+		if (layerMan->PendingHotkey() && keyDown)
+		{
+			layerMan->SetHotkeys(evt);
+		}
+	}
+
+	if ((evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
+		&& evt.key.code != sf::Keyboard::LControl
+		&& evt.key.code != sf::Keyboard::LShift
+		&& evt.key.code != sf::Keyboard::LAlt
+		&& evt.key.code != sf::Keyboard::LSystem
+		&& evt.key.code != sf::Keyboard::RControl
+		&& evt.key.code != sf::Keyboard::RShift
+		&& evt.key.code != sf::Keyboard::RAlt
+		&& evt.key.code != sf::Keyboard::RSystem
+		&& evt.key.code != sf::Keyboard::Escape)
+	{
+		bool keyDown = evt.type == evt.KeyPressed;
+
+		if (layerMan->PendingHotkey() && keyDown)
+		{
+			layerMan->SetHotkeys(evt);
+			if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
+				ImGui::SFML::ProcessEvent(appConfig->_window, evt);
+			{ retFlag = 3; return; };
 		}
 	}
 }

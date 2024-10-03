@@ -384,7 +384,7 @@ public:
 
 private:
 
-	bool _layersLoaded = false;
+	bool _loadingFinished = false;
 	std::thread* _loadingThread = nullptr;
 	std::string _loadingPath = "";
 	std::string _loadingProgress = "";
