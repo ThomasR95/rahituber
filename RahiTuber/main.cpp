@@ -367,6 +367,9 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::NewLine();
 		ImGui::TextWrapped("RahiTuber (c) 2018-%d Tom Rule", year);
 		ImGui::PopStyleColor();
+
+		ImGui::TextWrapped("Version: %s", appConfig->_versionNumber.c_str());
+
 		ImGui::Separator();
 		if (ImGui::Button("OK", { -1,20 }))
 		{
@@ -1506,6 +1509,19 @@ int main()
 
 	layerMan = new LayerManager();
 	layerMan->Init(appConfig, uiConfig);
+
+	std::ifstream verFile;
+	verFile.open("buildnumber.txt");
+	if (verFile)
+	{
+		verFile.seekg(0, verFile.end);
+		int length = verFile.tellg();
+		verFile.seekg(0, verFile.beg);
+
+		char* buffer = new char[length];
+		verFile.read(buffer, length);
+		appConfig->_versionNumber = buffer;
+	}
 
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;
