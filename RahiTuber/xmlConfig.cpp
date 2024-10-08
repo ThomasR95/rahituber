@@ -69,6 +69,8 @@ bool xmlConfigLoader::loadCommon()
 
 	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
 
+	common->QueryBoolAttribute("createMinimal", &_appConfig->_createMinimalLayers);
+
 	int r = -1;
 	int g = -1; 
 	int b = -1;
@@ -157,6 +159,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);
 
 			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);
+
+			common->SetAttribute("createMinimal", _appConfig->_createMinimalLayers);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
