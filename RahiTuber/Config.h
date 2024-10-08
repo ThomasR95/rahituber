@@ -86,6 +86,8 @@ struct AppConfig
 	TextureManager _textureMan;
 
 	std::string _appLocation = "";
+
+	bool _useSpout2Sender = false;
 };
 
 typedef struct

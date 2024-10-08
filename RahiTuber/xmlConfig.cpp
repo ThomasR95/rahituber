@@ -67,6 +67,8 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("audioExpanded", &_uiConfig->_audioExpanded);
 	common->QueryBoolAttribute("showBounds", &_uiConfig->_showLayerBounds);
 
+	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
+
 	int r = -1;
 	int g = -1; 
 	int b = -1;
@@ -153,6 +155,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
 			common->SetAttribute("audioExpanded", _uiConfig->_audioExpanded);
 			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);
+
+			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);
