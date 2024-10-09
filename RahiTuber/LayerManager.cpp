@@ -2574,7 +2574,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	if (_motionParent == "" || _motionParent == "-1")
 	{
-
 		sf::Vector2f pos;
 
 		float newMotionY = 0;
@@ -2687,7 +2686,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 			pos += mouseDiff;
 		}
-
 
 		if (screaming && _screamVibrate)
 		{
@@ -2853,6 +2851,15 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				}
 
 				mpPos = newMpPos;
+			}
+
+			if (_followMouse)
+			{
+				sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
+				const sf::Vector2f mouseMult = _mouseMoveLimits / _mouseAreaSize;
+				const sf::Vector2f mouseDiff = (mousePos - _mouseNeutralPos) * mouseMult;
+
+				mpPos += mouseDiff;
 			}
 
 			MotionLinkData thisFrame;
