@@ -19,6 +19,9 @@
     <Filter Include="Source Files\tinyxml2">
       <UniqueIdentifier>{134c5321-8cd1-46eb-8209-cdf645408687}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\spout2">
+      <UniqueIdentifier>{40a369a6-690c-4ea6-8421-d1e3a49eb860}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -74,6 +77,39 @@
     </ClCompile>
     <ClCompile Include="TextureManager.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\Spout.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutCopy.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutDirectX.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutFrameCount.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutGL.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutGLextensions.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutReceiver.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutSender.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutSenderNames.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutSharedMemory.cpp">
+      <Filter>Source Files\spout2</Filter>
+    </ClCompile>
+    <ClCompile Include="spout2\SpoutUtils.cpp">
+      <Filter>Source Files\spout2</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -133,6 +169,42 @@
     </ClInclude>
     <ClInclude Include="TextureManager.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\Spout.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutCommon.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutCopy.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutDirectX.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutFrameCount.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutGL.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutGLextensions.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutReceiver.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutSender.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutSenderNames.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutSharedMemory.h">
+      <Filter>Source Files\spout2</Filter>
+    </ClInclude>
+    <ClInclude Include="spout2\SpoutUtils.h">
+      <Filter>Source Files\spout2</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

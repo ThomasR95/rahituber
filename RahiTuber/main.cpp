@@ -20,6 +20,8 @@
 
 #include "defines.h"
 
+#include "spout2/Spout.h"
+
 #include <fstream>
 
 #include <Windows.h>
@@ -31,6 +33,7 @@ AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
 UIConfig* uiConfig = nullptr;
 LayerManager* layerMan = nullptr;
+Spout* spout = nullptr;
 //KeyboardTracker* kbdTrack = nullptr;
 
 float mean(float a, float b) { return a + (b-a)*0.5f;}
@@ -497,6 +500,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
 		ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+		ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
 
@@ -1251,6 +1259,14 @@ void render()
 
  	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
+	if (appConfig->_useSpout2Sender)
+	{
+		if (spout == nullptr)
+			spout = new Spout();
+
+		spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
+	}
+
 	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
 	if (uiConfig->_menuShowing)
@@ -1539,6 +1555,12 @@ int main()
 				delete uiConfig;
 				delete audioConfig;
 				delete layerMan;
+
+				if (spout != nullptr)
+				{
+					spout->ReleaseSender();
+					delete spout;
+				}
 				//delete kbdTrack;
 				return 1;
 			}
@@ -1702,6 +1724,12 @@ int main()
 	delete appConfig;
 	delete uiConfig;
 	delete audioConfig;
+
+	if (spout != nullptr)
+	{
+		spout->ReleaseSender();
+		delete spout;
+	}
 	
 	//delete kbdTrack;
 
