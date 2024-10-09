@@ -508,6 +508,9 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::TableNextColumn();
 
+		ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
+		ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
+
 		ImGui::EndTable();
 
 		ImGui::PopStyleColor();

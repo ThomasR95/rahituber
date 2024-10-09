@@ -106,7 +106,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (auto state : statesOrderCopy)
 	{
 		if (state->_active &&																											//     Is active
-			(state->_useTimeout || state->_schedule) &&															// AND On a schedule
+			(state->_useTimeout || state->_schedule) &&															// AND On a schedule/using the timeout
 			state->_timer.getElapsedTime().asSeconds() >= state->_timeout &&				// AND Has timed out
 																																							// AND Not currently being held on
 			(state->_activeType == state->Toggle || (state->_activeType == state->Held && state->_keyIsHeld == false)))
@@ -712,6 +712,14 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 		}
 	}
 
+	if (_appConfig->_createMinimalLayers == false)
+	{
+		layer->_useBlinkFrame = true;
+		layer->_doBreathing = true;
+		layer->_swapWhenTalking = true;
+		layer->_bounceType = LayerInfo::BounceLoudness;
+	}
+
 	return layer;
 }
 
@@ -1246,6 +1254,17 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("distanceLimit", layer._distanceLimit);
 			thisLayer->SetAttribute("rotationEffect", layer._rotationEffect);
 
+			thisLayer->SetAttribute("followMouse", layer._followMouse);
+			if (layer._followMouse)
+			{
+				thisLayer->SetAttribute("mouseNeutralX", layer._mouseNeutralPos.x);
+				thisLayer->SetAttribute("mouseNeutralY", layer._mouseNeutralPos.y);
+				thisLayer->SetAttribute("mouseAreaX", layer._mouseAreaSize.x);
+				thisLayer->SetAttribute("mouseAreaY", layer._mouseAreaSize.y);
+				thisLayer->SetAttribute("mouseLimitX", layer._mouseMoveLimits.x);
+				thisLayer->SetAttribute("mouseLimitY", layer._mouseMoveLimits.y);
+			}
+
 			std::string bmName = "Normal";
 			for (auto& bm : g_blendmodes)
 				if (bm.second == layer._blendMode)
@@ -1539,6 +1558,17 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
 				thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
+
+				thisLayer->QueryBoolAttribute("followMouse", &layer._followMouse);
+				if (layer._followMouse)
+				{
+					thisLayer->QueryAttribute("mouseNeutralX", &layer._mouseNeutralPos.x);
+					thisLayer->QueryAttribute("mouseNeutralY", &layer._mouseNeutralPos.y);
+					thisLayer->QueryAttribute("mouseAreaX", &layer._mouseAreaSize.x);
+					thisLayer->QueryAttribute("mouseAreaY", &layer._mouseAreaSize.y);
+					thisLayer->QueryAttribute("mouseLimitX", &layer._mouseMoveLimits.x);
+					thisLayer->QueryAttribute("mouseLimitY", &layer._mouseMoveLimits.y);
+				}
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
 				if (mpguid)
@@ -2649,6 +2679,16 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		pos.x += _motionX;
 		pos.y -= _motionY;
 
+		if (_followMouse)
+		{
+			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
+			const sf::Vector2f mouseMult = _mouseMoveLimits / _mouseAreaSize;
+			const sf::Vector2f mouseDiff = (mousePos - _mouseNeutralPos) * mouseMult;
+
+			pos += mouseDiff;
+		}
+
+
 		if (screaming && _screamVibrate)
 		{
 			if (!_isScreaming)
@@ -3579,6 +3619,40 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				if (ImGui::SmallButton(_pivotPx ? "px" : "%"))
 				{
 					_pivotPx = !_pivotPx;
+				}
+
+				const sf::Vector2f halfFullscreen(_parent->_appConfig->_fullScrW / 2, _parent->_appConfig->_fullScrH / 2);
+
+				if (ImGui::Checkbox("Track Mouse", &_followMouse))
+				{
+					if (_followMouse)
+					{
+						if (_mouseNeutralPos == sf::Vector2f(-1.f, -1.f))
+						{
+							_mouseNeutralPos = halfFullscreen;
+						}
+
+						if (_mouseAreaSize == sf::Vector2f(-1.f, -1.f))
+						{
+							_mouseAreaSize = halfFullscreen;
+						}
+					}
+				}
+				ToolTip("Move this layer to follow mouse movement.", &_parent->_appConfig->_hoverTimer);
+
+				if (_followMouse)
+				{
+					AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
+					ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
+					ToolTip("The screen position that results in 0 movement.", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
+					ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
+					ToolTip("The maximum mouse distance from the Neutral position.", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("moveLimits", _mouseMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
+					ImGui::SliderFloat2("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px");
+					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer);
 				}
 
 

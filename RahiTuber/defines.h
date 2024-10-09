@@ -42,6 +42,38 @@ inline sf::Vector2f toSFVector(const ImVec2& vec)
 	return sf::Vector2f(vec.x, vec.y);
 }
 
+////////////////////////////////////////////////////////////
+/// \relates Vector2
+/// \brief Overload of binary operator *
+///
+/// \param left  Left operand (a vector)
+/// \param right Right operand (a vector)
+///
+/// \return Hadamard product of the two vectors
+///
+////////////////////////////////////////////////////////////
+template <typename T>
+inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
+{
+	return sf::Vector2<T>(left.x * right.x, left.y * right.y);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates Vector2
+/// \brief Overload of binary operator *
+///
+/// \param left  Left operand (a vector)
+/// \param right Right operand (a vector)
+///
+/// \return Hadamard division of the two vectors
+///
+////////////////////////////////////////////////////////////
+template <typename T>
+inline sf::Vector2<T> operator /(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
+{
+	return sf::Vector2<T>(left.x / right.x, left.y / right.y);
+}
+
 inline float Clamp(float in, float min, float max)
 {
 	if (in < min)

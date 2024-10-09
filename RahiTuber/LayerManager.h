@@ -63,12 +63,12 @@ public:
 		bool _oldVisible = false;
 		std::string _name = "Layer";
 
-		bool _swapWhenTalking = true;
+		bool _swapWhenTalking = false;
 		float _talkThreshold = 0.15f;
 		bool _restartTalkAnim = false;
 		bool _wasTalking = false;
 
-		bool _useBlinkFrame = true;
+		bool _useBlinkFrame = false;
 		bool _blinkWhileTalking = false;
 		float _blinkDuration = 0.2;
 		float _blinkDelay = 6.0;
@@ -84,12 +84,12 @@ public:
 			BounceRegular = 2,
 		};
 
-		BounceType _bounceType = BounceLoudness;
+		BounceType _bounceType = BounceNone;
 		float _bounceHeight = 80;
 		float _bounceFrequency = 0.333;
 		bool _isBouncing = false;
 
-		bool _doBreathing = true;
+		bool _doBreathing = false;
 		float _breathFrequency = 4.0;
 		bool _isBreathing = false;
 		sf::Vector2f _breathAmount = { 0.0f, 0.0f };
@@ -222,6 +222,11 @@ public:
 		sf::Vector2f _lastHeaderScreenPos;
 		sf::Vector2f _lastHeaderPos;
 		sf::Vector2f _lastHeaderSize;
+
+		bool _followMouse = false;
+		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
+		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
+		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };
 	};
 
 	struct StatesInfo

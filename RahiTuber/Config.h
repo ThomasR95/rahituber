@@ -88,6 +88,8 @@ struct AppConfig
 	std::string _appLocation = "";
 
 	bool _useSpout2Sender = false;
+
+	bool _createMinimalLayers = false;
 };
 
 typedef struct
