@@ -90,6 +90,8 @@ struct AppConfig
 	bool _useSpout2Sender = false;
 
 	bool _createMinimalLayers = false;
+
+	std::string _versionNumber = "";
 };
 
 typedef struct
