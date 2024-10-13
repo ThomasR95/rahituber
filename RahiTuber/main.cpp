@@ -544,7 +544,7 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::TableNextColumn();
 
-		ImGui::Checkbox("Check for updates", &appConfig->_mouseTrackingEnabled);
+		ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
 		ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
