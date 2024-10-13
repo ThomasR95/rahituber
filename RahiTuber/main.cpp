@@ -310,6 +310,11 @@ void swapFullScreen()
 
 void menuHelp(ImGuiStyle& style)
 {
+	ImVec2 preButtonPos = ImGui::GetCursorScreenPos();
+	sf::Vector2f dotpos = toSFVector(preButtonPos);
+	dotpos.x += ImGui::GetWindowWidth() / 2 - 18;
+	uiConfig->_helpBtnPosition = dotpos;
+
 	if (ImGui::Button("Help", { ImGui::GetWindowWidth() / 2 - 10, 20 }))
 	{
 		float h = ImGui::GetWindowHeight();
@@ -335,6 +340,22 @@ void menuHelp(ImGuiStyle& style)
 	if (ImGui::BeginPopupModal("Help", &p_open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
 	{
 		uiConfig->_helpPopupActive = true;
+
+		if (appConfig->_updateAvailable)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_ButtonActive]);
+			ImGui::TextWrapped("Update available!");
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Go to Downloads page"))
+			{
+				OsOpenInShell("https://rahisaurus.itch.io/rahituber/download/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys");
+			}
+
+			ImGui::NewLine();
+		}
+
 
 		if (ImGui::Button("FAQ (web link)"))
 		{
@@ -368,7 +389,7 @@ void menuHelp(ImGuiStyle& style)
 		ImGui::TextWrapped("RahiTuber (c) 2018-%d Tom Rule", year);
 		ImGui::PopStyleColor();
 
-		ImGui::TextWrapped("Version: %s", appConfig->_versionNumber.c_str());
+		ImGui::TextWrapped("Version: %.3f", appConfig->_versionNumber);
 
 		ImGui::Separator();
 		if (ImGui::Button("OK", { -1,20 }))
@@ -513,6 +534,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
 		ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
+		ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 
@@ -894,11 +920,12 @@ void menu()
 	tm timeStruct;
 	localtime_s(&timeStruct, &timeNow);
 
-	int milliseconds = appConfig->_timer.getElapsedTime().asMilliseconds();
+	float milliseconds = appConfig->_runTime.getElapsedTime().asMilliseconds();
+	float pulse = sin(milliseconds / 300.f);
 
 	//	EXIT
 	ImGui::PushStyleColor(ImGuiCol_Button, col_dark);
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * ((milliseconds/300) % 2), 0.f, 0.f, 1.0f });
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
 	if (ImGui::Button("Exit RahiTuber", { -1, 20 }))
 	{
@@ -934,6 +961,21 @@ void menu()
 
 	ImGui::EndFrame();
 	ImGui::SFML::Render(appConfig->_menuRT);
+
+	if (appConfig->_updateAvailable)
+	{
+		sf::Color pulseColor(255u, 255u, 255u, 128u+127u * pulse);
+		sf::CircleShape dotShape(4, 12);
+		dotShape.setFillColor(toSFColor(col_light2) * pulseColor);
+		dotShape.setOutlineThickness(0.5);
+		dotShape.setOutlineColor(toSFColor(col_light) * pulseColor);
+		dotShape.setPosition(uiConfig->_helpBtnPosition);
+
+		if (appConfig->_menuPopped)
+			appConfig->_menuWindow.draw(dotShape);
+		else
+			appConfig->_menuRT.draw(dotShape);
+	}
 
 	if (menuUnpopped)
 	{
@@ -1511,17 +1553,46 @@ int main()
 	layerMan->Init(appConfig, uiConfig);
 
 	std::ifstream verFile;
-	verFile.open("buildnumber.txt");
+	verFile.open(appConfig->_appLocation + "buildnumber.txt");
 	if (verFile)
 	{
 		verFile.seekg(0, verFile.end);
 		int length = verFile.tellg();
 		verFile.seekg(0, verFile.beg);
 
-		char* buffer = new char[length];
-		verFile.read(buffer, length);
-		appConfig->_versionNumber = buffer;
+		std::string buf;
+		buf.resize(length+1, 0);
+		verFile.read(buf.data(), length);
+		appConfig->_versionNumber = std::stod(buf, nullptr);
+
+		std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
+
+		system(("curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > " + queryTxt).c_str());
+
+		std::ifstream updateFile;
+		updateFile.open(queryTxt);
+		if (updateFile)
+		{
+			updateFile.seekg(0, updateFile.end);
+			int length2 = updateFile.tellg();
+			updateFile.seekg(0, updateFile.beg);
+
+			std::string buf2;
+			buf2.resize(length2 + 1, 0);
+			updateFile.read(buf2.data(), length2);
+
+			size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+
+			float latest = std::stod(buf2.substr(numPos), nullptr);
+			appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+
+			updateFile.close();
+
+			std::remove(queryTxt.c_str());
+		}
+
 	}
+	verFile.close();
 
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;

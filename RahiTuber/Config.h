@@ -78,6 +78,8 @@ struct AppConfig
 
 	sf::Clock _hoverTimer;
 
+	sf::Clock _runTime;
+
 	std::string _lastLayerSet = "lastLayers";
 
 	//debug audio bars
@@ -91,7 +93,10 @@ struct AppConfig
 
 	bool _createMinimalLayers = false;
 
-	std::string _versionNumber = "";
+	bool _mouseTrackingEnabled = true;
+
+	float _versionNumber = 0.0;
+	bool _updateAvailable = false;
 };
 
 typedef struct
@@ -154,6 +159,8 @@ struct UIConfig
 	sf::Texture _moveIcon;
 	sf::Sprite _moveIconSprite;
 	sf::Vector2f _moveTabSize = { 80,32 };
+
+	sf::Vector2f _helpBtnPosition = { 0,0 };
 
 	sf::Font _font;
 
