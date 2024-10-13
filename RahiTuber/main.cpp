@@ -352,6 +352,7 @@ void menuHelp(ImGuiStyle& style)
 			{
 				OsOpenInShell("https://rahisaurus.itch.io/rahituber/download/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys");
 			}
+			ToolTip("Opens the RahiTuber Downloads page in your default web browser.", &appConfig->_hoverTimer);
 
 			ImGui::NewLine();
 		}
@@ -361,6 +362,7 @@ void menuHelp(ImGuiStyle& style)
 		{
 			OsOpenInShell("https://itch.io/t/3967527/faq");
 		}
+		ToolTip("Opens the RahiTuber FAQ page in your default web browser.", &appConfig->_hoverTimer);
 
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 		ImGui::TextWrapped("Hover over any control to see an explanation of what it does.");
@@ -539,6 +541,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
 		ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		ImGui::Checkbox("Check for updates", &appConfig->_mouseTrackingEnabled);
+		ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 
@@ -1530,6 +1537,58 @@ void doAudioAnalysis()
 	}
 }
 
+static void CheckUpdates()
+{
+	std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
+
+	std::string cmd = "cmd /c curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
+
+	STARTUPINFOA si;
+	PROCESS_INFORMATION procInfo;
+
+	ZeroMemory(&si, sizeof(si));
+
+	si.lpTitle = NULL;// (char*)"Get_Update_Version";
+	si.dwFlags = STARTF_USESHOWWINDOW;
+	si.wShowWindow = SW_HIDE;
+	si.cb = sizeof(si);
+
+	ZeroMemory(&procInfo, sizeof(procInfo));
+
+	if (CreateProcessA(NULL, cmd.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
+	{
+		WaitForSingleObject(procInfo.hProcess, INFINITE);
+		CloseHandle(procInfo.hProcess);
+		CloseHandle(procInfo.hThread);
+
+		std::ifstream updateFile;
+		updateFile.open(queryTxt);
+		if (updateFile)
+		{
+			updateFile.seekg(0, updateFile.end);
+			int length2 = updateFile.tellg();
+			updateFile.seekg(0, updateFile.beg);
+
+			std::string buf2;
+			buf2.resize(length2 + 1, 0);
+			updateFile.read(buf2.data(), length2);
+
+			size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+
+			float latest = std::stod(buf2.substr(numPos), nullptr);
+			appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+
+			updateFile.close();
+
+			std::remove(queryTxt.c_str());
+		}
+	}
+	else
+	{
+		printf("CreateProcess failed (%d).\n", GetLastError());
+	}
+}
+
 int main()
 {
 	PaError err = paNoError;
@@ -1565,32 +1624,10 @@ int main()
 		verFile.read(buf.data(), length);
 		appConfig->_versionNumber = std::stod(buf, nullptr);
 
-		std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
-
-		system(("curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > " + queryTxt).c_str());
-
-		std::ifstream updateFile;
-		updateFile.open(queryTxt);
-		if (updateFile)
+		if (appConfig->_checkForUpdates)
 		{
-			updateFile.seekg(0, updateFile.end);
-			int length2 = updateFile.tellg();
-			updateFile.seekg(0, updateFile.beg);
-
-			std::string buf2;
-			buf2.resize(length2 + 1, 0);
-			updateFile.read(buf2.data(), length2);
-
-			size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
-
-			float latest = std::stod(buf2.substr(numPos), nullptr);
-			appConfig->_updateAvailable = appConfig->_versionNumber < latest;
-
-			updateFile.close();
-
-			std::remove(queryTxt.c_str());
+			CheckUpdates();
 		}
-
 	}
 	verFile.close();
 
