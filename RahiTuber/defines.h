@@ -85,6 +85,24 @@ inline float Clamp(float in, float min, float max)
 	return in;
 }
 
+template <typename T>
+inline sf::Vector2<T> Clamp(sf::Vector2<T> in, T min, T max)
+{
+	if (in.x < min)
+		in.x = min;
+
+	if (in.x > max)
+		in.x = max;
+
+	if (in.y < min)
+		in.y = min;
+
+	if (in.y > max)
+		in.y = max;
+
+	return in;
+}
+
 inline float Abs(float in)
 {
 	if (in < 0)

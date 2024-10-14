@@ -2678,14 +2678,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		pos.x += _motionX;
 		pos.y -= _motionY;
 
-		if (_followMouse)
-		{
-			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
-			const sf::Vector2f mouseMult = _mouseMoveLimits / _mouseAreaSize;
-			const sf::Vector2f mouseDiff = (mousePos - _mouseNeutralPos) * mouseMult;
-
-			pos += mouseDiff;
-		}
+		AddMouseMovement(pos);
 
 		if (screaming && _screamVibrate)
 		{
@@ -2853,14 +2846,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				mpPos = newMpPos;
 			}
 
-			if (_followMouse)
-			{
-				sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
-				const sf::Vector2f mouseMult = _mouseMoveLimits / _mouseAreaSize;
-				const sf::Vector2f mouseDiff = (mousePos - _mouseNeutralPos) * mouseMult;
-
-				mpPos += mouseDiff;
-			}
+			AddMouseMovement(mpPos);
 
 			MotionLinkData thisFrame;
 			thisFrame._frameTime = frameTime;
@@ -2887,6 +2873,18 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		}
 	}
 
+}
+
+void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
+{
+	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled)
+	{
+		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
+		const sf::Vector2f mouseMult = Clamp((mousePos - _mouseNeutralPos) / _mouseAreaSize, -1.f, 1.f);
+		const sf::Vector2f mouseDiff = _mouseMoveLimits * mouseMult;
+
+		mpPos += mouseDiff;
+	}
 }
 
 bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)

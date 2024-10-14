@@ -180,6 +180,8 @@ public:
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
+		void AddMouseMovement(sf::Vector2f& mpPos);
+
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
 		std::vector<int> _animGrid = { 1, 1 };
