@@ -73,6 +73,8 @@ bool xmlConfigLoader::loadCommon()
 
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
 
+	common->QueryBoolAttribute("checkForUpdates", &_appConfig->_checkForUpdates);
+
 	int r = -1;
 	int g = -1; 
 	int b = -1;
@@ -165,6 +167,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("createMinimal", _appConfig->_createMinimalLayers);
 
 			common->SetAttribute("trackMouse", _appConfig->_mouseTrackingEnabled);
+
+			common->SetAttribute("checkForUpdates", _appConfig->_checkForUpdates);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);

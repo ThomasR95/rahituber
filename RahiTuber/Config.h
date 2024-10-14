@@ -96,6 +96,7 @@ struct AppConfig
 	bool _mouseTrackingEnabled = true;
 
 	float _versionNumber = 0.0;
+	bool _checkForUpdates = true;
 	bool _updateAvailable = false;
 };
 
