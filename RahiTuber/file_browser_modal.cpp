@@ -128,7 +128,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
             if (valid)
             {
               files.push_back({
-              "[Switch to " + drive.string() + "]",
+              "[Switch to " + drive.u8string() + "]",
               drive
                 });
             }
@@ -155,7 +155,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
 
     if(fs::is_directory(dirPath))
       files.push_back({
-          dirPath.filename().string() + "/",
+          dirPath.filename().u8string() + "/",
           dirPath
         });
   }
@@ -165,7 +165,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
 
     if (!fs::is_directory(dirPath))
     {
-      std::string ext = dirPath.extension().string();
+      std::string ext = dirPath.extension().u8string();
       for (char& c : ext)
         c = tolower(c);
 
@@ -176,7 +176,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
 
       if(accepted)
       files.push_back({
-          " " + dirPath.filename().string(),
+          " " + dirPath.filename().u8string(),
           dirPath
         });
     }
@@ -252,9 +252,9 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
   bool isOpen = true;
   if (ImGui::BeginPopupModal(m_title, &isOpen, modal_flags)) {
 
-    std::string dir = m_currentPath.parent_path().string();
+    std::string dir = m_currentPath.parent_path().u8string();
     if(fs::is_directory(m_currentPath))
-      dir = m_currentPath.string();
+      dir = m_currentPath.u8string();
 
     ImGui::PushItemWidth(-1);
 
@@ -281,7 +281,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     }
     ImGui::PopID();
     
-    ImGui::PushID(m_currentPath.string().c_str());
+    ImGui::PushID(m_currentPath.u8string().c_str());
     if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, m_filesInScope.size(), 20)) {
 
       //Update current path to the selected list item.
@@ -299,7 +299,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     std::string file = "";
     if (!fs::is_directory(m_currentPath))
-      file = m_currentPath.filename().string();
+      file = m_currentPath.filename().u8string();
     ImGui::TextWrapped(file.data());
 
     ImGui::Spacing();

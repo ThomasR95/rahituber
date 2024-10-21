@@ -5,6 +5,7 @@
 #include <deque>
 #include "wtypes.h"
 
+#define IMGUI_DISABLE_WIN32_FUNCTIONS
 #define IMGUI_ENABLE_FREETYPE
 #include "imgui.h"
 #include "imgui/misc/freetype/imgui_freetype.h"
@@ -809,6 +810,12 @@ void menu()
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
+#ifdef _DEBUG
+	auto io = ImGui::GetIO();
+	io.ConfigDebugHighlightIdConflicts = true;
+	io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent();
+#endif
+
 	if (ImGui::IsAnyItemHovered() == false)
 		appConfig->_hoverTimer.restart();
 
@@ -828,6 +835,11 @@ void menu()
 	ImVec4 col_light2a(mean(baseColor.x, 0.6f), mean(baseColor.y, 0.6f), mean(baseColor.z, 0.6f), 1.f);
 	ImVec4 col_light3(powf(baseColor.x, .3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
 	ImVec4 greyoutCol(0.3f, 0.3f, 0.3f, 1.0f);
+
+	if (appConfig->_menuWindow.isOpen())
+	{
+		appConfig->_menuWindow.clear(toSFColor(col_dark));
+	}
 
 	style.Colors[ImGuiCol_WindowBg] = col_dark2;
 	style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
@@ -862,6 +874,7 @@ void menu()
 	else
 	{
 		sf::Vector2u windSize = appConfig->_menuWindow.getSize();
+		windSize.y -= 4;
 		windowHeight = windSize.y;
 		ImGui::SetNextWindowPos(ImVec2(0, 0));
 		ImGui::SetNextWindowSize(ImVec2(windSize.x, windSize.y));
@@ -993,7 +1006,7 @@ void menu()
 	
 	if (menuPoppedNow)
 	{
-		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH+4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
 		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 		appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);
@@ -1006,6 +1019,133 @@ void menu()
 	}
 
 	uiConfig->_firstMenu = false;
+}
+
+void render()
+{
+	auto dt = appConfig->_timer.restart();
+	appConfig->_fps = (1.0f / dt.asSeconds());
+
+	if (appConfig->_transparent)
+	{
+		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
+		appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
+	}
+	else
+	{
+		appConfig->_window.clear(appConfig->_bgColor);
+		appConfig->_layersRT.clear(appConfig->_bgColor);
+	}
+
+	appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
+
+	float audioLevel = audioConfig->_midAverage;
+	if (audioConfig->_doFiltering)
+		audioLevel = Max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
+
+	if (audioConfig->_compression)
+	{
+		audioLevel = Clamp(audioLevel, 0.0, 1.0);
+		audioLevel = (1.0 - audioLevel) * sin(PI * 0.5 * audioLevel) + audioLevel * sin(PI * 0.5 * powf(audioLevel, 0.5));
+		audioLevel = Clamp(audioLevel, 0.0, 1.0);
+	}
+
+	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
+
+	if (appConfig->_useSpout2Sender)
+	{
+		if (spout == nullptr)
+			spout = new Spout();
+
+		spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
+	}
+
+	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
+
+	if (uiConfig->_menuShowing)
+	{
+		if (!appConfig->_isFullScreen)
+		{
+			if (appConfig->_transparent)
+			{
+				uiConfig->_outlineBox.setSize({ appConfig->_scrW - 4, appConfig->_scrH - 4 });
+				appConfig->_menuRT.draw(uiConfig->_outlineBox);
+			}
+
+			appConfig->_menuRT.draw(uiConfig->_topLeftBox);
+			appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
+		}
+		menu();
+	}
+	else if (appConfig->_menuWindow.isOpen())
+	{
+		menu();
+	}
+
+	if (uiConfig->_showFPS && (!uiConfig->_menuShowing || appConfig->_menuPopped))
+	{
+		if (dt <= sf::Time::Zero)
+			dt = sf::milliseconds(1);
+
+		ImGui::SFML::Update(appConfig->_window, dt);
+
+		ImGui::Begin("FPS", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
+
+		ImGui::Text("FPS: %d", (int)appConfig->_fps);
+
+		ImGui::End();
+		ImGui::EndFrame();
+		ImGui::SFML::Render(appConfig->_menuRT);
+	}
+
+#ifdef _DEBUG
+	//draw debug audio bars
+	{
+		std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
+
+		auto frames = audioConfig->_frequencyData;
+		float barW = appConfig->_scrW / (frames.size() / 2);
+
+		for (UINT bar = 0; bar < frames.size() / 2; bar++)
+		{
+			float height = (frames[bar] / audioConfig->_bassMax) * appConfig->_scrH;
+			appConfig->bars[bar].setSize({ barW, height });
+			appConfig->bars[bar].setOrigin({ 0.f, height });
+			appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
+			appConfig->_menuRT.draw(appConfig->bars[bar]);
+		}
+	}
+#endif
+
+	if (uiConfig->_cornerGrabbed.first)
+	{
+		appConfig->_menuRT.draw(uiConfig->_topLeftBox);
+		appConfig->_menuRT.draw(uiConfig->_resizeBox);
+	}
+	else if (uiConfig->_cornerGrabbed.second)
+	{
+		appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
+		appConfig->_menuRT.draw(uiConfig->_resizeBox);
+	}
+
+	appConfig->_layersRT.display();
+	appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
+	auto states = sf::RenderStates::Default;
+	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+	appConfig->_window.draw(appConfig->_RTPlane);
+
+	appConfig->_menuRT.display();
+	appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
+	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+	appConfig->_window.draw(appConfig->_RTPlane, states);
+
+	appConfig->_window.display();
+	if (appConfig->_menuWindow.isOpen())
+	{
+		appConfig->_menuWindow.display();
+	}
 }
 
 std::map<sf::Joystick::Axis, sf::Event> axisEvents;
@@ -1059,6 +1199,7 @@ void handleEvents()
 				sf::Vector2u windSize = appConfig->_menuWindow.getSize();
 				windSize.x = 480u;
 				appConfig->_menuWindow.setSize(windSize);
+				render();
 			}
 
 			if (menuEvt.type == menuEvt.KeyPressed || menuEvt.type == menuEvt.MouseButtonPressed)
@@ -1281,131 +1422,6 @@ void RecordHotkey(sf::Event& evt, int& retFlag)
 			{ retFlag = 3; return; };
 		}
 	}
-}
-
-void render()
-{
-	auto dt = appConfig->_timer.restart();
-	appConfig->_fps = (1.0f / dt.asSeconds());
-
-	if (appConfig->_transparent)
-	{
-		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
-		appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
-	}
-	else
-	{
-		appConfig->_window.clear(appConfig->_bgColor);
-		appConfig->_layersRT.clear(appConfig->_bgColor);
-	}
-
-	appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
-
-	float audioLevel = audioConfig->_midAverage;
-	if (audioConfig->_doFiltering)
-		audioLevel = Max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
-
-	if (audioConfig->_compression)
-	{
-		audioLevel = Clamp(audioLevel, 0.0, 1.0);
-		audioLevel = (1.0 - audioLevel) * sin(PI * 0.5 * audioLevel) + audioLevel * sin(PI * 0.5 * powf(audioLevel, 0.5));
-		audioLevel = Clamp(audioLevel, 0.0, 1.0);
-	}
-
- 	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
-
-	if (appConfig->_useSpout2Sender)
-	{
-		if (spout == nullptr)
-			spout = new Spout();
-
-		spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
-	}
-
-	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
-
-	if (uiConfig->_menuShowing)
-	{
-		if (!appConfig->_isFullScreen)
-		{
-			if (appConfig->_transparent)
-			{
-				uiConfig->_outlineBox.setSize({ appConfig->_scrW - 4, appConfig->_scrH - 4 });
-				appConfig->_menuRT.draw(uiConfig->_outlineBox);
-			}
-
-			appConfig->_menuRT.draw(uiConfig->_topLeftBox);
-			appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
-		}
-		menu();
-	}
-	else if (appConfig->_menuWindow.isOpen())
-	{
-		menu();
-	}
-	
-	if(uiConfig->_showFPS && (!uiConfig->_menuShowing || appConfig->_menuPopped))
-	{
-		if (dt <= sf::Time::Zero)
-			dt = sf::milliseconds(1);
-
-		ImGui::SFML::Update(appConfig->_window, dt);
-
-		ImGui::Begin("FPS", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
-
-		ImGui::Text("FPS: %d", (int)appConfig->_fps);
-
-		ImGui::End();
-		ImGui::EndFrame();
-		ImGui::SFML::Render(appConfig->_menuRT);
-	}
-
-#ifdef _DEBUG
-	//draw debug audio bars
-	{
-		std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
-
-		auto frames = audioConfig->_frequencyData;
-		float barW = appConfig->_scrW / (frames.size() / 2);
-
-		for (UINT bar = 0; bar < frames.size() / 2; bar++)
-		{
-			float height = (frames[bar] / audioConfig->_bassMax)*appConfig->_scrH;
-			appConfig->bars[bar].setSize({ barW, height });
-			appConfig->bars[bar].setOrigin({ 0.f, height });
-			appConfig->bars[bar].setPosition({ barW*bar, appConfig->_scrH });
-			appConfig->_menuRT.draw(appConfig->bars[bar]);
-	}
-}
-#endif
-
-	if (uiConfig->_cornerGrabbed.first)
-	{
-		appConfig->_menuRT.draw(uiConfig->_topLeftBox);
-		appConfig->_menuRT.draw(uiConfig->_resizeBox);
-	}
-	else if (uiConfig->_cornerGrabbed.second)
-	{
-		appConfig->_menuRT.draw(uiConfig->_bottomRightBox);
-		appConfig->_menuRT.draw(uiConfig->_resizeBox);
-	}
-
-	appConfig->_layersRT.display();
-	appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
-	auto states = sf::RenderStates::Default;
-	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
-	appConfig->_window.draw(appConfig->_RTPlane);
-
-	appConfig->_menuRT.display();
-	appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
-	states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-																		sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
-	appConfig->_window.draw(appConfig->_RTPlane, states);
-
-	appConfig->_window.display();
-	if (appConfig->_menuWindow.isOpen())
-		appConfig->_menuWindow.display();
 }
 
 void doAudioAnalysis()
