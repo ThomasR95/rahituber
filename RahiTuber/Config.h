@@ -80,14 +80,14 @@ struct AppConfig
 
 	sf::Clock _runTime;
 
-	std::string _lastLayerSet = "lastLayers";
+	std::string _lastLayerSet = u8"lastLayers";
 
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;
 
 	TextureManager _textureMan;
 
-	std::string _appLocation = "";
+	std::string _appLocation = u8"";
 
 	bool _useSpout2Sender = false;
 

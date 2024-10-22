@@ -109,23 +109,23 @@ public:
 		bool _screamVibrate = true;
 		float _screamVibrateAmount = 5;
 
-		std::string _idleImagePath = "";
+		std::string _idleImagePath = u8"";
 		sf::Texture* _idleImage = nullptr;
 		float _idleTint[4] = { 1,1,1,1 };
 
-		std::string _talkImagePath = "";
+		std::string _talkImagePath = u8"";
 		sf::Texture* _talkImage = nullptr;
 		float _talkTint[4] = { 1,1,1,1 };
 
-		std::string _blinkImagePath = "";
+		std::string _blinkImagePath = u8"";
 		sf::Texture* _blinkImage = nullptr;
 		float _blinkTint[4] = { 1,1,1,1 };
 
-		std::string _talkBlinkImagePath = "";
+		std::string _talkBlinkImagePath = u8"";
 		sf::Texture* _talkBlinkImage = nullptr;
 		float _talkBlinkTint[4] = { 1,1,1,1 };
 
-		std::string _screamImagePath = "";
+		std::string _screamImagePath = u8"";
 		sf::Texture* _screamImage = nullptr;
 		float _screamTint[4] = { 1,1,1,1 };
 
@@ -393,8 +393,8 @@ private:
 
 	bool _loadingFinished = false;
 	std::thread* _loadingThread = nullptr;
-	std::string _loadingPath = "";
-	std::string _loadingProgress = "";
+	std::string _loadingPath = u8"";
+	std::string _loadingProgress = u8"";
 
 	float _lastTalkLevel = 0.0;
 	float _lastTalkMax = 1.0;
@@ -416,10 +416,10 @@ private:
 	bool _statesHideUnaffected = false;
 	bool _statesIgnoreStick = false;
 
-	std::string _lastSavedLocation = "";
-	std::string _loadedXML = "lastLayers";
-	std::string _loadedXMLPath = "";
-	std::string _fullLoadedXMLPath = "";
+	std::string _lastSavedLocation = u8"";
+	std::string _loadedXML = u8"lastLayers";
+	std::string _loadedXMLPath = u8"";
+	std::string _fullLoadedXMLPath = u8"";
 	bool _loadedXMLExists = true;
 	bool _loadXMLOpen = false;
 
@@ -447,7 +447,7 @@ private:
 	bool _statesDirty = false;
 	void DrawStatesGUI();
 
-	std::string _errorMessage = "";
+	std::string _errorMessage = u8"";
 
 	bool _lastDragMouseDown = false;
 	int _draggedLayer = -1;
@@ -594,6 +594,8 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 	if (_resetIcon == nullptr)
 		_resetIcon = appConfig->_textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
 
+	_resetIcon->setSmooth(true);
+
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 	if (style)
 		col = style->Colors[ImGuiCol_Text];
@@ -601,7 +603,7 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 	sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
 
 	ImGui::PushID(id);
-	if (ImGui::ImageButton(*_resetIcon, sf::Vector2f(13, 13), -1, sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton(id, *_resetIcon, sf::Vector2f(13, 13), sf::Color::Transparent, btnColor))
 		if (enabled)
 			value = resetValue;
 	ImGui::PopID();

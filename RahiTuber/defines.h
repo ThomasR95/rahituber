@@ -42,6 +42,44 @@ inline sf::Vector2f toSFVector(const ImVec2& vec)
 	return sf::Vector2f(vec.x, vec.y);
 }
 
+inline std::string ANSIToUTF8(const std::string& input)
+{
+	int size = MultiByteToWideChar(CP_ACP, 0, input.c_str(),
+		input.length(), nullptr, 0);
+	std::wstring utf16_str(size, '\0');
+	MultiByteToWideChar(CP_ACP, 0, input.c_str(),
+		input.length(), &utf16_str[0], size);
+
+	int utf8_size = WideCharToMultiByte(CP_UTF8, 0, utf16_str.c_str(),
+		utf16_str.length(), nullptr, 0,
+		nullptr, nullptr);
+	std::string utf8_str(utf8_size, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, utf16_str.c_str(),
+		utf16_str.length(), &utf8_str[0], utf8_size,
+		nullptr, nullptr);
+
+	return utf8_str;
+}
+
+inline std::string UTF8ToANSI(const std::string& input)
+{
+	int size = MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
+		input.length(), nullptr, 0);
+	std::wstring utf16_str(size, '\0');
+	MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
+		input.length(), &utf16_str[0], size);
+
+	int ansi_size = WideCharToMultiByte(CP_ACP, 0, utf16_str.c_str(),
+		utf16_str.length(), nullptr, 0,
+		nullptr, nullptr);
+	std::string ansi_str(ansi_size, '\0');
+	WideCharToMultiByte(CP_ACP, 0, utf16_str.c_str(),
+		utf16_str.length(), &ansi_str[0], ansi_size,
+		nullptr, nullptr);
+
+	return ansi_str;
+}
+
 ////////////////////////////////////////////////////////////
 /// \relates Vector2
 /// \brief Overload of binary operator *

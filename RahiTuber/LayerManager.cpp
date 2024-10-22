@@ -339,12 +339,17 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 	ImGui::SameLine();
 	ImGui::PushID("layersXMLInput");
 	char inputStr[MAX_PATH] = " ";
-	_loadedXML.copy(inputStr, MAX_PATH);
-	if (ImGui::InputText("", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
-	{
-		_loadedXML = inputStr;
-		fs::path appFolder = _appConfig->_appLocation;
+	
+	fs::path appFolder = _appConfig->_appLocation;
+
+	ANSIToUTF8(_loadedXML).copy(inputStr, MAX_PATH);
+
+	if (ImGui::InputText("", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll ))
+	{	
+		_loadedXML = UTF8ToANSI(inputStr);
+
 		fs::path xmlPath = appFolder.append(_loadedXML);
+		
 		if (xmlPath.extension().string() != ".xml")
 			xmlPath.replace_extension(".xml");
 
@@ -406,7 +411,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	if (_errorMessage.empty() == false)
 	{
-		ImGui::TextColored(ImVec4(1.0,0.0,0.0,1.0), _errorMessage.c_str());
+		ImGui::TextColored(ImVec4(1.0,0.0,0.0,1.0), ANSIToUTF8(_errorMessage).c_str());
 	}
 
 	float buttonW = (frameW / 4) - style.ItemSpacing.x*2.2;
@@ -484,7 +489,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			ImGui::AlignTextToFramePadding();
 			std::string txt = "Loading " + _loadingProgress + "...";
 			ImVec2 txtSize = ImGui::CalcTextSize(txt.c_str());
-			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() / 2 - txtSize.x / 2);
+			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x / 2 - txtSize.x / 2);
 			ImGui::Text(txt.c_str());
 		}
 	}
@@ -2359,7 +2364,7 @@ void LayerManager::DrawStatesGUI()
 						ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
 
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text(l._name.c_str());
+					ImGui::Text(ANSIToUTF8(l._name).c_str());
 
 					ImGui::NextColumn();
 					if (layerIdx % 2)
@@ -2392,17 +2397,21 @@ void LayerManager::DrawStatesGUI()
 				headerTxtPos.y -= 3;
 				ImGui::SetCursorPos(headerTxtPos);
 				char inputStr[32] = " ";
-				state._name.copy(inputStr, 32);
-				if (ImGui::InputText("##rename", inputStr, 32, ImGuiInputTextFlags_EscapeClearsAll | ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+				ANSIToUTF8(state._name).copy(inputStr, MAX_PATH);
+				if (ImGui::InputText("##rename", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll ))
 				{
-					state._name = inputStr;
+					state._name = UTF8ToANSI(inputStr);
+				}
+				if (ImGui::IsItemDeactivatedAfterEdit()
+					|| (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered() == false))
+				{
 					state._renaming = false;
 				}
 			}
 			else
 			{
 				ImGui::SetCursorPos(headerTxtPos);
-				ImGui::Text(name.c_str());
+				ImGui::Text(ANSIToUTF8(name).c_str());
 			}
 
 			ImGui::SetCursorPos(delButtonPos);
@@ -2425,13 +2434,12 @@ void LayerManager::DrawStatesGUI()
 			ToolTip("Enable this state to be triggered", &_appConfig->_hoverTimer);
 
 			ImGui::SetCursorPos(renameButtonPos);
-			ImGui::PushID("renameBtn");
-			if (ImGui::ImageButton(*_editIcon, {17,17}, 1, sf::Color::Transparent, btnColor))
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+			if (ImGui::ImageButton("renameBtn", * _editIcon, {17,17}, sf::Color::Transparent, btnColor))
 			{
-				state._renaming = true;
+				state._renaming = !state._renaming;
 			}
-			ImGui::PopID();
-
+			ImGui::PopStyleVar();
 			ImGui::PopID();
 
 			ImGui::SetCursorPos(endHeaderPos);
@@ -2930,7 +2938,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		name = "[" + _name + "]";
 
 	sf::Vector2f headerBtnSize(17, 17);
-	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - headerBtnSize.x*8, ImGui::GetCursorPosY()};
+	ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - 134, ImGui::GetCursorPosY()};
 
 	float indentSize = 8;
 
@@ -2965,7 +2973,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		_folderContents.erase(_folderContents.begin() + rem);
 	}
 
-	if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
+	if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 	{
 		if (_isFolder)
 		{
@@ -2997,9 +3005,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			float imgBtnWidth = 108;
 
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 			sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
 			sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-			_importIdleOpen = ImGui::ImageButton(*idleIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, idleCol);
+			_importIdleOpen = ImGui::ImageButton("idleimgbtn", *idleIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, idleCol);
 			ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 			if (_importIdleOpen && _idleImage)
 				fileBrowserIdle.SetStartingDir(_idleImagePath);
@@ -3011,20 +3021,20 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 
 			ImGui::SameLine(imgBtnWidth + 16);
-			ImGui::PushID("idleanimbtn");
-			_spriteIdleOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+			_spriteIdleOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(20, 20), sf::Color::Transparent, btnColor);
 			ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
 			AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
-			ImGui::PopID();
+
+			ImGui::PopStyleVar();
 
 			fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
 
 			ImGui::PushID("idleimportfile");
 			char idlebuf[256] = "                           ";
-			_idleImagePath.copy(idlebuf, 256);
+			ANSIToUTF8(_idleImagePath).copy(idlebuf, MAX_PATH);
 			if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 			{
-				_idleImagePath = idlebuf;
+				_idleImagePath = UTF8ToANSI(idlebuf);
 				_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
 				if (_idleImage)
 				{
@@ -3035,7 +3045,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PopID();
 			ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-
 			ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 			ImGui::PopID();
@@ -3044,11 +3053,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			if (_swapWhenTalking)
 			{
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
 				ImGui::PushID("talkimport");
 				sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
 				sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-				_importTalkOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, talkCol);
+				_importTalkOpen = ImGui::ImageButton("talkimgbtn", * talkIcon, {imgBtnWidth,imgBtnWidth}, sf::Color::Transparent, talkCol);
 				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 				fileBrowserTalk.SetStartingDir(chosenDir);
 				if (_talkImage)
@@ -3065,17 +3076,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::SameLine(imgBtnWidth + 16);
 				ImGui::PushID("talkanimbtn");
-				_spriteTalkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				_spriteTalkOpen |= ImGui::ImageButton("talkanimbtn", * _animIcon, sf::Vector2f(20, 20), sf::Color::Transparent, btnColor);
 				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
 				AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
 				ImGui::PopID();
 
+				ImGui::PopStyleVar();
+
 				ImGui::PushID("talkimportfile");
 				char talkbuf[256] = "                           ";
-				_talkImagePath.copy(talkbuf, 256);
+				ANSIToUTF8(_talkImagePath).copy(talkbuf, MAX_PATH);
 				if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					_talkImagePath = talkbuf;
+					_talkImagePath = UTF8ToANSI(talkbuf);
 					_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
 					if (_talkImage)
 					{
@@ -3095,6 +3108,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			if (_useBlinkFrame)
 			{
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 				sf::Vector2f blinkBtnSize = _blinkWhileTalking ? sf::Vector2f(48, 48) : sf::Vector2f(imgBtnWidth, imgBtnWidth);
 
 				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
@@ -3102,7 +3117,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 				sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
 				ImVec2 tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
-				_importBlinkOpen = ImGui::ImageButton(*blinkIcon, blinkBtnSize, -1, sf::Color::Transparent, blinkCol);
+				_importBlinkOpen = ImGui::ImageButton("blinkimgbtn", * blinkIcon, blinkBtnSize, sf::Color::Transparent, blinkCol);
 				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 				fileBrowserBlink.SetStartingDir(chosenDir);
 				if (_blinkImage)
@@ -3119,17 +3134,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::SameLine(blinkBtnSize.x + 16);
 				ImGui::PushID("blinkanimbtn");
-				_spriteBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				_spriteBlinkOpen |= ImGui::ImageButton("blinkanimbtn", *_animIcon, sf::Vector2f(20, 20), sf::Color::Transparent, btnColor);
 				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
 				AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
 				ImGui::PopID();
 
+				ImGui::PopStyleVar();
+
 				ImGui::PushID("blinkimportfile");
 				char blinkbuf[256] = "                           ";
-				_blinkImagePath.copy(blinkbuf, 256);
+				ANSIToUTF8(_blinkImagePath).copy(blinkbuf, MAX_PATH);
 				if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					_blinkImagePath = blinkbuf;
+					_blinkImagePath = UTF8ToANSI(blinkbuf);
 					_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
 					if (_blinkImage)
 					{
@@ -3149,12 +3166,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				if (_blinkWhileTalking)
 				{
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 					//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
 					ImGui::PushID("talkblinkimport");
 					sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
 					sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
 					tintPos = ImVec2(ImGui::GetCursorPosX() + blinkBtnSize.x + 8, ImGui::GetCursorPosY() + 20);
-					_importTalkBlinkOpen = ImGui::ImageButton(*talkblinkIcon, blinkBtnSize, -1, sf::Color::Transparent, talkblinkCol);
+					_importTalkBlinkOpen = ImGui::ImageButton("talkblinkimgbtn", *talkblinkIcon, blinkBtnSize, sf::Color::Transparent, talkblinkCol);
 					ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 					fileBrowserBlink.SetStartingDir(chosenDir);
 					if (_talkBlinkImage)
@@ -3171,17 +3190,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::SameLine(blinkBtnSize.x + 16);
 					ImGui::PushID("talkblinkanimbtn");
-					_spriteTalkBlinkOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+					_spriteTalkBlinkOpen |= ImGui::ImageButton("talkblinkanimbtn", *_animIcon, sf::Vector2f(20, 20), sf::Color::Transparent, btnColor);
 					ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
 					AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
 					ImGui::PopID();
 
+					ImGui::PopStyleVar();
+
 					ImGui::PushID("talkblinkimportfile");
 					char talkblinkbuf[256] = "                           ";
-					_talkBlinkImagePath.copy(talkblinkbuf, 256);
+					ANSIToUTF8(_talkBlinkImagePath).copy(talkblinkbuf, MAX_PATH);
 					if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 					{
-						_talkBlinkImagePath = talkblinkbuf;
+						_talkBlinkImagePath = UTF8ToANSI(talkblinkbuf);
 						_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
 						if (_talkBlinkImage)
 						{
@@ -3280,11 +3301,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				ImGui::Indent(indentSize);
 
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 				ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 				ImGui::PushID("screamimport");
 				sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
 				sf::Texture* talkIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
-				_importScreamOpen = ImGui::ImageButton(*talkIcon, { imgBtnWidth,imgBtnWidth }, -1, sf::Color::Transparent, screamCol);
+				_importScreamOpen = ImGui::ImageButton("screamimgbtn", *talkIcon, {imgBtnWidth,imgBtnWidth}, sf::Color::Transparent, screamCol);
 				ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 				fileBrowserTalk.SetStartingDir(chosenDir);
 				if (_screamImage)
@@ -3301,17 +3324,20 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::SameLine(imgBtnWidth + 16);
 				ImGui::PushID("screamanimbtn");
-				_spriteScreamOpen |= ImGui::ImageButton(*_animIcon, sf::Vector2f(20, 20), 0, sf::Color::Transparent, btnColor);
+				_spriteScreamOpen |= ImGui::ImageButton("screamanimbtn", *_animIcon, sf::Vector2f(20, 20), sf::Color::Transparent, btnColor);
 				ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
 				AnimPopup(*_screamSprite, _spriteScreamOpen, _oldSpriteScreamOpen);
 				ImGui::PopID();
 
+				ImGui::PopStyleVar();
+
 				ImGui::PushID("screamimportfile");
 				char screambuf[256] = "                           ";
 				_screamImagePath.copy(screambuf, 256);
+				ANSIToUTF8(_screamImagePath).copy(screambuf, MAX_PATH);
 				if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
 				{
-					_screamImagePath = screambuf;
+					_screamImagePath = UTF8ToANSI(screambuf);
 					_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
 					if (_screamImage)
 					{
@@ -3441,14 +3467,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			LayerInfo* oldMp = _parent->GetLayer(_motionParent);
 			std::string mpName = oldMp ? oldMp->_name : "Off";
 			ImGui::PushItemWidth(headerBtnSize.x * 7);
-			if (ImGui::BeginCombo("##MotionInherit", mpName.c_str()))
+			if (ImGui::BeginCombo("##MotionInherit", ANSIToUTF8(mpName).c_str()))
 			{
 				if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
 					_motionParent = "-1";
 				for (auto& layer : _parent->GetLayers())
 				{
 					if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
-						if (ImGui::Selectable(layer._name.c_str(), _motionParent == layer._id))
+						if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _motionParent == layer._id))
 						{
 							_motionParent = layer._id;
 						}
@@ -3705,24 +3731,25 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ToolTip("Show or hide the layer", &_parent->_appConfig->_hoverTimer);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
 	bool allowContinue = true;
 
 	ImGui::SameLine();
 	ImGui::PushID("upbtn");
-	if (ImGui::ImageButton(*_upIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton("upbtn", *_upIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 		_parent->MoveLayerUp(this);
 	ToolTip("Move the layer up", &_parent->_appConfig->_hoverTimer);
 	ImGui::PopID();
 	ImGui::SameLine();
 	ImGui::PushID("dnbtn");
-	if (ImGui::ImageButton(*_dnIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton("dnbtn", *_dnIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 		_parent->MoveLayerDown(this);
 	ToolTip("Move the layer down", &_parent->_appConfig->_hoverTimer);
 	ImGui::PopID();
 	ImGui::SameLine();
 	ImGui::PushID("renameBtn");
-	if (ImGui::ImageButton(*_editIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton("renamebtn", *_editIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 	{
 		ImGui::PopID();
 		_renamingString = _name;
@@ -3735,7 +3762,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ToolTip("Rename the layer", &_parent->_appConfig->_hoverTimer);
 	ImGui::SameLine();
 	ImGui::PushID("duplicateBtn");
-	if (ImGui::ImageButton(*_dupeIcon, headerBtnSize, 1, sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton("dupebtn", *_dupeIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 	{
 		allowContinue = false;
 		_parent->AddLayer(this);
@@ -3748,7 +3775,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
 	ImGui::PushStyleColor(ImGuiCol_Text, { 255/255,200/255,170/255, 1 });
 	ImGui::PushID("deleteBtn");
-	if (ImGui::ImageButton(*_delIcon, headerBtnSize, 1, sf::Color::Transparent, sf::Color(255, 200, 170)))
+	if (ImGui::ImageButton("delbtn", * _delIcon, headerBtnSize, sf::Color::Transparent, sf::Color(255, 200, 170)))
 	{
 		allowContinue = false;
 		_parent->RemoveLayer(this);
@@ -3756,15 +3783,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	ToolTip("Delete the layer", &_parent->_appConfig->_hoverTimer);
 	ImGui::PopID();
 	ImGui::PopStyleColor(4);
-	ImGui::PopStyleVar(1);
+	ImGui::PopStyleVar(2);
 
 	if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
 	{
 		char inputStr[32] = " ";
-		_renamingString.copy(inputStr, 32);
+		ANSIToUTF8(_renamingString).copy(inputStr, 32);
 		if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
 		{
-			_renamingString = inputStr;
+			_renamingString = UTF8ToANSI(inputStr);
 		}
 		ImGui::SameLine();
 

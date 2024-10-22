@@ -4,6 +4,9 @@
 
 sf::Texture* TextureManager::GetTexture(const std::string& path, std::string* errString)
 {
+	if(errString != nullptr)
+		*errString = "";
+
 	sf::Texture* out = nullptr;
 	if (path.empty())
 		return nullptr;
