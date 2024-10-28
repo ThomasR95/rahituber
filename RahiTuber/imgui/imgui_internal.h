@@ -68,7 +68,7 @@ Index of this file:
 #pragma warning (push)
 #pragma warning (disable: 4251)     // class 'xxx' needs to have dll-interface to be used by clients of struct 'xxx' // when IMGUI_API is set to__declspec(dllexport)
 #pragma warning (disable: 26812)    // The enum type 'xxx' is unscoped. Prefer 'enum class' over 'enum' (Enum.3). [MSVC Static Analyzer)
-#pragma warning (disable: 26495)    // [Static Analyzer] Variable 'XXX' is uninitialized. Always initialize a member variable (type.6).
+#pragma warning (disable: 26495)    // [Static Analyzer] Variable 'XXX' is uninitialized. TRIGGER_ALWAYS initialize a member variable (type.6).
 #if defined(_MSC_VER) && _MSC_VER >= 1922 // MSVC 2019 16.2 or later
 #pragma warning (disable: 5054)     // operator '|': deprecated between enumerations of different types
 #endif
@@ -1066,7 +1066,7 @@ struct IMGUI_API ImGuiMenuColumns
     ImU32       TotalWidth;
     ImU32       NextTotalWidth;
     ImU16       Spacing;
-    ImU16       OffsetIcon;         // Always zero for now
+    ImU16       OffsetIcon;         // TRIGGER_ALWAYS zero for now
     ImU16       OffsetLabel;        // Offsets are locked in Update()
     ImU16       OffsetShortcut;
     ImU16       OffsetMark;
@@ -1152,8 +1152,8 @@ enum ImGuiWindowRefreshFlags_
 {
     ImGuiWindowRefreshFlags_None                = 0,
     ImGuiWindowRefreshFlags_TryToAvoidRefresh   = 1 << 0,   // [EXPERIMENTAL] Try to keep existing contents, USER MUST NOT HONOR BEGIN() RETURNING FALSE AND NOT APPEND.
-    ImGuiWindowRefreshFlags_RefreshOnHover      = 1 << 1,   // [EXPERIMENTAL] Always refresh on hover
-    ImGuiWindowRefreshFlags_RefreshOnFocus      = 1 << 2,   // [EXPERIMENTAL] Always refresh on focus
+    ImGuiWindowRefreshFlags_RefreshOnHover      = 1 << 1,   // [EXPERIMENTAL] TRIGGER_ALWAYS refresh on hover
+    ImGuiWindowRefreshFlags_RefreshOnFocus      = 1 << 2,   // [EXPERIMENTAL] TRIGGER_ALWAYS refresh on focus
     // Refresh policy/frequency, Load Balancing etc.
 };
 
@@ -1190,7 +1190,7 @@ struct ImGuiNextWindowData
     ImGuiSizeCallback           SizeCallback;
     void*                       SizeCallbackUserData;
     float                       BgAlphaVal;             // Override background alpha
-    ImVec2                      MenuBarOffsetMinVal;    // (Always on) This is not exposed publicly, so we don't clear it and it doesn't have a corresponding flag (could we? for consistency?)
+    ImVec2                      MenuBarOffsetMinVal;    // (TRIGGER_ALWAYS on) This is not exposed publicly, so we don't clear it and it doesn't have a corresponding flag (could we? for consistency?)
     ImGuiWindowRefreshFlags     RefreshFlagsVal;
 
     ImGuiNextWindowData()       { memset(this, 0, sizeof(*this)); }
@@ -1539,8 +1539,8 @@ enum ImGuiScrollFlags_
     ImGuiScrollFlags_KeepVisibleEdgeY       = 1 << 1,       // If item is not visible: scroll as little as possible on Y axis to bring item back into view [default for Y axis for windows that are already visible]
     ImGuiScrollFlags_KeepVisibleCenterX     = 1 << 2,       // If item is not visible: scroll to make the item centered on X axis [rarely used]
     ImGuiScrollFlags_KeepVisibleCenterY     = 1 << 3,       // If item is not visible: scroll to make the item centered on Y axis
-    ImGuiScrollFlags_AlwaysCenterX          = 1 << 4,       // Always center the result item on X axis [rarely used]
-    ImGuiScrollFlags_AlwaysCenterY          = 1 << 5,       // Always center the result item on Y axis [default for Y axis for appearing window)
+    ImGuiScrollFlags_AlwaysCenterX          = 1 << 4,       // TRIGGER_ALWAYS center the result item on X axis [rarely used]
+    ImGuiScrollFlags_AlwaysCenterY          = 1 << 5,       // TRIGGER_ALWAYS center the result item on Y axis [default for Y axis for appearing window)
     ImGuiScrollFlags_NoScrollParent         = 1 << 6,       // Disable forwarding scrolling to parent window if required to keep item/rect visible (only scroll window the function was applied to).
     ImGuiScrollFlags_MaskX_                 = ImGuiScrollFlags_KeepVisibleEdgeX | ImGuiScrollFlags_KeepVisibleCenterX | ImGuiScrollFlags_AlwaysCenterX,
     ImGuiScrollFlags_MaskY_                 = ImGuiScrollFlags_KeepVisibleEdgeY | ImGuiScrollFlags_KeepVisibleCenterY | ImGuiScrollFlags_AlwaysCenterY,
@@ -2287,7 +2287,7 @@ struct ImGuiContext
     float                   SliderCurrentAccum;                 // Accumulated slider delta when using navigation controls.
     bool                    SliderCurrentAccumDirty;            // Has the accumulated slider delta changed since last time we tried to apply it?
     bool                    DragCurrentAccumDirty;
-    float                   DragCurrentAccum;                   // Accumulator for dragging modification. Always high-precision, not rounded by end-user precision settings
+    float                   DragCurrentAccum;                   // Accumulator for dragging modification. TRIGGER_ALWAYS high-precision, not rounded by end-user precision settings
     float                   DragSpeedDefaultRatio;              // If speed == 0.0f, uses (max-min) * DragSpeedDefaultRatio
     float                   DisabledAlphaBackup;                // Backup for style.Alpha for BeginDisabled()
     short                   DisabledStackSize;
@@ -2385,8 +2385,8 @@ struct IMGUI_API ImGuiWindowTempData
     ImVec2                  CursorPos;              // Current emitting position, in absolute coordinates.
     ImVec2                  CursorPosPrevLine;
     ImVec2                  CursorStartPos;         // Initial position after Begin(), generally ~ window position + WindowPadding.
-    ImVec2                  CursorMaxPos;           // Used to implicitly calculate ContentSize at the beginning of next frame, for scrolling range and auto-resize. Always growing during the frame.
-    ImVec2                  IdealMaxPos;            // Used to implicitly calculate ContentSizeIdeal at the beginning of next frame, for auto-resize only. Always growing during the frame.
+    ImVec2                  CursorMaxPos;           // Used to implicitly calculate ContentSize at the beginning of next frame, for scrolling range and auto-resize. TRIGGER_ALWAYS growing during the frame.
+    ImVec2                  IdealMaxPos;            // Used to implicitly calculate ContentSizeIdeal at the beginning of next frame, for auto-resize only. TRIGGER_ALWAYS growing during the frame.
     ImVec2                  CurrLineSize;
     ImVec2                  PrevLineSize;
     float                   CurrLineTextBaseOffset; // Baseline offset (0.0f by default on a new line, generally == style.FramePadding.y when a framed item has been added).
@@ -2436,7 +2436,7 @@ struct IMGUI_API ImGuiWindow
     ImGuiID                 ID;                                 // == ImHashStr(Name)
     ImGuiWindowFlags        Flags;                              // See enum ImGuiWindowFlags_
     ImGuiChildFlags         ChildFlags;                         // Set when window is a child window. See enum ImGuiChildFlags_
-    ImGuiViewportP*         Viewport;                           // Always set in Begin(). Inactive windows may have a NULL value here if their viewport was discarded.
+    ImGuiViewportP*         Viewport;                           // TRIGGER_ALWAYS set in Begin(). Inactive windows may have a NULL value here if their viewport was discarded.
     ImVec2                  Pos;                                // Position (always rounded-up to nearest pixel)
     ImVec2                  Size;                               // Current size (==SizeFull or collapsed title bar size)
     ImVec2                  SizeFull;                           // Size when non collapsed

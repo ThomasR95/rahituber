@@ -1,7 +1,7 @@
 
 #include "LayerManager.h"
 #include "file_browser_modal.h"
-#include "tinyxml2\tinyxml2.h"
+#include "tinyxml2/tinyxml2.h"
 #include <sstream>
 
 #include "defines.h"
@@ -10,13 +10,15 @@
 
 #include "imgui/misc/single_file/imgui_single_file.h"
 
-#include <windows.h>
+#ifdef _WIN32
+    #include <windows.h>
 
-#include <thread>
-
-// For UUID
-#include <Rpc.h>
-#pragma comment(lib, "Rpcrt4.lib")
+    // For UUID
+    #include <Rpc.h>
+    #pragma comment(lib, "Rpcrt4.lib")
+#else
+    #include <uuid/uuid.h>
+#endif
 
 LayerManager::~LayerManager()
 {
@@ -81,11 +83,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (!state._active && state._schedule && state._timer.getElapsedTime().asSeconds() > state._currentIntervalTime)
 		{
 			bool canTrigger = state._enabled;
-			if (canTrigger && state._canTrigger != StatesInfo::CanTrigger::Always)
+			if (canTrigger && state._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 			{
-				if (state._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+				if (state._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_TALKING)
 					canTrigger &= talkFactor >= state._threshold;
-				if (state._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+				if (state._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_IDLE)
 					canTrigger &= talkFactor < state._threshold;
 			}
 
@@ -203,54 +205,56 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
 
-			if (layer._blendMode == g_blendmodes["Multiply"] ||
+            if (layer._blendMode == g_blendmodes["Multiply"] ||
 				layer._blendMode == g_blendmodes["Lighten"] ||
-				layer._blendMode == g_blendmodes["Darken"])
+                layer._blendMode == g_blendmodes["Darken"])
 			{
 
 				auto size = layer._activeSprite->Size();
 				auto rtSize = size;
 				auto scale = layer._activeSprite->getScale();
 				rtSize = { rtSize.x * scale.x, rtSize.y * scale.y };
-				_blendingRT.create(rtSize.x, rtSize.y);
+                if(rtSize.x > 0 && rtSize.y > 0)
+                {
+                    _blendingRT.create(rtSize.x, rtSize.y);
 
-				if (layer._blendMode == g_blendmodes["Lighten"])
-					_blendingRT.clear(sf::Color{ 0,0,0,255 });
-				else
-					_blendingRT.clear(sf::Color{ 255,255,255,255 });
+                    if (layer._blendMode == g_blendmodes["Lighten"])
+                        _blendingRT.clear(sf::Color{ 0,0,0,255 });
+                    else
+                        _blendingRT.clear(sf::Color{ 255,255,255,255 });
 
-				auto pos = layer._activeSprite->getPosition();
-				auto rot = layer._activeSprite->getRotation();
-				auto origin = layer._activeSprite->getOrigin();
+                    auto pos = layer._activeSprite->getPosition();
+                    auto rot = layer._activeSprite->getRotation();
+                    auto origin = layer._activeSprite->getOrigin();
 
-				sf::RenderStates tmpState = sf::RenderStates::Default;
-				tmpState.blendMode = g_blendmodes["Normal"];
+                    sf::RenderStates tmpState = sf::RenderStates::Default;
+                    tmpState.blendMode = g_blendmodes["Normal"];
 
-				layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
-				layer._activeSprite->setOrigin({ size.x / 2, size.y / 2 });
-				layer._activeSprite->setRotation(0);
+                    layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
+                    layer._activeSprite->setOrigin({ size.x / 2, size.y / 2 });
+                    layer._activeSprite->setRotation(0);
 
-				layer._idleSprite->Draw(&_blendingRT, tmpState);
-				layer._talkSprite->Draw(&_blendingRT, tmpState);
-				layer._blinkSprite->Draw(&_blendingRT, tmpState);
-				layer._talkBlinkSprite->Draw(&_blendingRT, tmpState);
-				layer._screamSprite->Draw(&_blendingRT, tmpState);
+                    layer._idleSprite->Draw(&_blendingRT, tmpState);
+                    layer._talkSprite->Draw(&_blendingRT, tmpState);
+                    layer._blinkSprite->Draw(&_blendingRT, tmpState);
+                    layer._talkBlinkSprite->Draw(&_blendingRT, tmpState);
+                    layer._screamSprite->Draw(&_blendingRT, tmpState);
 
-				_blendingRT.display();
+                    _blendingRT.display();
 
-				auto rtPlane = sf::RectangleShape(rtSize);
-				rtPlane.setTexture(&_blendingRT.getTexture(), true);
+                    auto rtPlane = sf::RectangleShape(rtSize);
+                    rtPlane.setTexture(&_blendingRT.getTexture(), true);
 
-				rtPlane.setOrigin({ origin.x * scale.x, origin.y * scale.y});
-				rtPlane.setPosition(pos);
-				rtPlane.setRotation(rot);
+                    rtPlane.setOrigin({ origin.x * scale.x, origin.y * scale.y});
+                    rtPlane.setPosition(pos);
+                    rtPlane.setRotation(rot);
 
-				target->draw(rtPlane, state);
+                    target->draw(rtPlane, state);
 
-				layer._activeSprite->setPosition(pos);
-				layer._activeSprite->setRotation(rot);
-				layer._activeSprite->setOrigin(origin);
-
+                    layer._activeSprite->setPosition(pos);
+                    layer._activeSprite->setRotation(rot);
+                    layer._activeSprite->setOrigin(origin);
+                }
 			}
 			else
 			{
@@ -662,6 +666,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 			layer->_name = "New Folder";
 	}
 
+#ifdef _WIN32
 	UUID uuid = { 0 };
 	std::string guid;
 
@@ -675,6 +680,21 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 		guid = (char*)szUuid;
 		::RpcStringFreeA(&szUuid);
 	}
+#else
+    // Generate a UUID
+    std::string guid = "";
+    guid.resize(60, ' ');
+
+    srand(time(NULL));
+
+    sprintf(guid.data(), "%x%x-%x-%x-%x-%x%x%x",
+            rand(), rand(),                 // Generates a 64-bit Hex number
+            rand(),                         // Generates a 32-bit Hex number
+            ((rand() & 0x0fff) | 0x4000),   // Generates a 32-bit Hex number of the form 4xxx (4 indicates the UUID version)
+            rand() % 0x3fff + 0x8000,       // Generates a 32-bit Hex number in the range [0x8000, 0xbfff]
+            rand(), rand(), rand());
+
+#endif
 
 	layer->_blinkTimer.restart();
 	layer->_isBlinking = false;
@@ -1661,7 +1681,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (const char* storedName = thisHotkey->Attribute("name"))
 					hkey._name = storedName;
 
-				int key;
+                int key = -1;
 				thisHotkey->QueryAttribute("key", &key);
 				hkey._key = (sf::Keyboard::Key)key;
 				thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
@@ -1726,8 +1746,6 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 {
-	__debugbreak();
-
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
@@ -1759,11 +1777,11 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 		auto& stateInfo = _states[h];
 
 		bool canTrigger = stateInfo._enabled;
-		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::Always)
+		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 		{
-			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_TALKING)
 				canTrigger &= talkFactor >= stateInfo._threshold;
-			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_IDLE)
 				canTrigger &= talkFactor < stateInfo._threshold;
 		}
 		if (!canTrigger)
@@ -1903,11 +1921,11 @@ void LayerManager::CheckHotkeys()
 		auto& stateInfo = _states[h];
 
 		bool canTrigger = stateInfo._enabled;
-		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::Always)
+		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 		{
-			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileTalking)
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_TALKING)
 				canTrigger &= talkFactor >= stateInfo._threshold;
-			if (stateInfo._canTrigger == StatesInfo::CanTrigger::WhileIdle)
+			if (stateInfo._canTrigger == StatesInfo::CanTrigger::TRIGGER_WHILE_IDLE)
 				canTrigger &= talkFactor < stateInfo._threshold;
 		}
 		if (!canTrigger)
@@ -1924,19 +1942,19 @@ void LayerManager::CheckHotkeys()
 				changed = true;
 			keyDown = true;
 		}
-		else if (stateInfo._jButton != -1 && sf::Joystick::isButtonPressed(stateInfo._jPadID, stateInfo._jButton))
+        else if (stateInfo._jPadID != -1 && stateInfo._jButton != -1 && sf::Joystick::isButtonPressed(stateInfo._jPadID, stateInfo._jButton))
 		{
 			if (stateInfo._wasTriggered == false)
 				changed = true;
 			keyDown = true;
 		}
-		else if (ImGui::IsAnyItemHovered() == false && stateInfo._mouseButton != -1 && sf::Mouse::isButtonPressed((sf::Mouse::Button)stateInfo._mouseButton))
+        else if (stateInfo._jPadID != -1 && ImGui::IsAnyItemHovered() == false && stateInfo._mouseButton != -1 && sf::Mouse::isButtonPressed((sf::Mouse::Button)stateInfo._mouseButton))
 		{
 			if (stateInfo._wasTriggered == false)
 				changed = true;
 			keyDown = true;
 		}
-		else if (_statesIgnoreStick == false && stateInfo._jAxis != -1)
+        else if (stateInfo._jPadID != -1 && _statesIgnoreStick == false && stateInfo._jAxis != -1)
 		{
 			float jDir = sf::Joystick::getAxisPosition(stateInfo._jPadID, (sf::Joystick::Axis)stateInfo._jAxis);
 			if (Abs(jDir) > 30 && std::signbit(jDir) == std::signbit(stateInfo._jDir))
@@ -2255,7 +2273,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::AlignTextToFramePadding();
 				ImGui::Text("Can Trigger:");
 
-				if (state._canTrigger != StatesInfo::CanTrigger::Always)
+				if (state._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 				{
 					ImGui::AlignTextToFramePadding();
 					ImGui::Text("Threshold:");
@@ -2313,7 +2331,7 @@ void LayerManager::DrawStatesGUI()
 \n- While Talking: Can only be triggered above \n    the given voice threshold\
 \n- While Idle: Can only be triggered below \n    the given voice threshold", &_appConfig->_hoverTimer);
 
-				if (state._canTrigger != StatesInfo::CanTrigger::Always)
+				if (state._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 				{
 					ImGui::SliderFloat("##Threshold", &state._threshold, 0.0, 1.0, "%.3f");
 				}
@@ -2645,11 +2663,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				float phase = (motionTime / _breathFrequency) * 2.0 * PI;
 				if (coolingDown)
 				{
-					_breathAmount.x = std::max(_breathAmount.x * coolDownFactor, (-0.5f * cos(phase) + 0.5f) * 1.0f-coolDownFactor);
+                    _breathAmount.x = std::max(_breathAmount.x * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f-coolDownFactor);
 					if(_breathCircular)
-						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * sin(phase) + 0.5f) * 1.0f-coolDownFactor);
+                        _breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)sin(phase) + 0.5f) * 1.0f-coolDownFactor);
 					else
-						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * cos(phase) + 0.5f) * 1.0f-coolDownFactor);
+                        _breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f-coolDownFactor);
 				}
 				else
 				{

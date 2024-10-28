@@ -3,7 +3,6 @@
 
 #include <random>
 #include <deque>
-#include "wtypes.h"
 
 #define IMGUI_DISABLE_WIN32_FUNCTIONS
 #define IMGUI_ENABLE_FREETYPE
@@ -17,28 +16,35 @@
 #include "xmlConfig.h"
 
 #include "LayerManager.h"
-#include "KeyboardTracker.h"
+//#include "KeyboardTracker.h"
 
 #include "defines.h"
 
-#include "spout2/Spout.h"
-
 #include <fstream>
 
+#ifdef _WIN32
+#include "spout2/Spout.h"
+
+#include "wtypes.h"
 #include <Windows.h>
 #include <fileapi.h>
 #include <Dwmapi.h>
 #pragma comment (lib, "Dwmapi.lib")
+#endif
 
 AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
 UIConfig* uiConfig = nullptr;
 LayerManager* layerMan = nullptr;
+
+#ifdef _WIN32
 Spout* spout = nullptr;
+#endif
+
 //KeyboardTracker* kbdTrack = nullptr;
 
-float mean(float a, float b) { return a + (b-a)*0.5f;}
-float between(float a, float b) { return a*0.5f + b*0.5f; }
+float mean(float a, float b) { return a + (b - a) * 0.5f; }
+float between(float a, float b) { return a * 0.5f + b * 0.5f; }
 
 void four1(float* data, unsigned long nn)
 {
@@ -67,16 +73,16 @@ void four1(float* data, unsigned long nn)
 	while (n > mmax) {
 		istep = mmax << 1;
 		theta = -(2 * PI / mmax);
-		wtemp = sin(0.5*theta);
-		wpr = -2.0*wtemp*wtemp;
+		wtemp = sin(0.5 * theta);
+		wpr = -2.0 * wtemp * wtemp;
 		wpi = sin(theta);
 		wr = 1.0;
 		wi = 0.0;
 		for (m = 1; m < mmax; m += 2) {
 			for (i = m; i <= n; i += istep) {
 				j = i + mmax;
-				tempr = wr*data[j - 1] - wi*data[j];
-				tempi = wr * data[j] + wi*data[j - 1];
+				tempr = wr * data[j - 1] - wi * data[j];
+				tempi = wr * data[j] + wi * data[j - 1];
 
 				data[j - 1] = data[i - 1] - tempr;
 				data[j] = data[i] - tempi;
@@ -84,18 +90,18 @@ void four1(float* data, unsigned long nn)
 				data[i] += tempi;
 			}
 			wtemp = wr;
-			wr += wr*wpr - wi*wpi;
-			wi += wi*wpr + wtemp*wpi;
+			wr += wr * wpr - wi * wpi;
+			wi += wi * wpr + wtemp * wpi;
 		}
 		mmax = istep;
 	}
 }
 
-static int recordCallback(const void *inputBuffer, void *outputBuffer,
+static int recordCallback(const void* inputBuffer, void* outputBuffer,
 	unsigned long framesPerBuffer,
 	const PaStreamCallbackTimeInfo* timeInfo,
 	PaStreamCallbackFlags statusFlags,
-	void *userData)
+	void* userData)
 {
 	int checkSize = framesPerBuffer;
 
@@ -104,11 +110,11 @@ static int recordCallback(const void *inputBuffer, void *outputBuffer,
 	//Erase old frames, leave enough in the vector for 2 checkSizes
 	{ //lock for frequency data
 		std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
-		if (audioConfig->_frames.size() > checkSize*2)
-			audioConfig->_frames.erase(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (audioConfig->_frames.size() - checkSize*2));
+		if (audioConfig->_frames.size() > checkSize * 2)
+			audioConfig->_frames.erase(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (audioConfig->_frames.size() - checkSize * 2));
 	}
 
-	SAMPLE *rptr = (SAMPLE*)inputBuffer;
+	SAMPLE* rptr = (SAMPLE*)inputBuffer;
 
 	int s = 0;
 
@@ -121,7 +127,7 @@ static int recordCallback(const void *inputBuffer, void *outputBuffer,
 
 		SAMPLE spl = (splLeft + splRight) / 2.f;
 
-		spl = spl*spl;
+		spl = spl * spl;
 
 		{ //lock for frequency data
 			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
@@ -139,18 +145,32 @@ void LoadCustomFont()
 {
 	ImGuiIO& io = ImGui::GetIO();
 
+    io.Fonts->AddFontDefault();
+
 	ImFontConfig cfg;
 	cfg.OversampleH = 1;
 	cfg.SizePixels = 13.f;
+    //cfg.MergeMode = true;
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
 
-	io.FontDefault = io.Fonts->AddFontFromFileTTF((appConfig->_appLocation + "res/monof55.ttf").c_str(), 13.f, &cfg);
+    fs::path fontpath(appConfig->_appLocation + "res/monof55.ttf");
+    if(!fs::exists(fontpath))
+        return;
+
+    ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 13.f, &cfg);
+    if(result == nullptr)
+        return;
+
+    io.FontDefault = result;
 
 	if (!io.Fonts->IsBuilt())
 	{
 		if (!io.Fonts->Build())
-			__debugbreak();
+		{
+			io.FontDefault = io.Fonts->AddFontDefault();
+			return;
+		}
 
 		// Retrieve texture in RGBA format
 		unsigned char* tex_pixels = NULL;
@@ -163,7 +183,7 @@ void LoadCustomFont()
 
 		uiConfig->fontBuilt = true;
 	}
-	
+
 	io.Fonts->SetTexID((ImTextureID)uiConfig->fontTex.getNativeHandle());
 
 	uiConfig->_font.loadFromFile(appConfig->_appLocation + "res/monof55.ttf");
@@ -171,6 +191,7 @@ void LoadCustomFont()
 
 void getWindowSizes()
 {
+#ifdef _WIN32
 	RECT desktop;
 	// Get a handle to the desktop window
 	const HWND hDesktop = GetDesktopWindow();
@@ -179,6 +200,20 @@ void getWindowSizes()
 
 	appConfig->_fullScrW = desktop.right;
 	appConfig->_fullScrH = desktop.bottom;
+#else
+	Display* display = XOpenDisplay(NULL);
+	if (display == NULL) {
+		std::cerr << "Cannot open display" << std::endl;
+		exit(1);
+	}
+
+	Screen* screen = DefaultScreenOfDisplay(display);
+
+	appConfig->_fullScrW = screen->width;
+	appConfig->_fullScrH = screen->height;
+
+	XCloseDisplay(display);
+#endif
 
 	appConfig->_minScrW = SCRW;
 	appConfig->_minScrH = SCRH;
@@ -207,7 +242,7 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
+                appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -258,24 +293,25 @@ void initWindow(bool firstStart = false)
 	uiConfig->_resizeBox.setOutlineThickness(1);
 	uiConfig->_resizeBox.setFillColor({ 0,0,0,0 });
 	uiConfig->_outlineBox.setPosition(2, 2);
-	uiConfig->_outlineBox.setSize({ appConfig->_scrW-4, appConfig->_scrH-4 });
+	uiConfig->_outlineBox.setSize({ appConfig->_scrW - 4, appConfig->_scrH - 4 });
 	uiConfig->_outlineBox.setOutlineThickness(2);
 	uiConfig->_outlineBox.setFillColor({ 0,0,0,0 });
-	uiConfig->_outlineBox.setOutlineColor(sf::Color(255,255,0,100));
+	uiConfig->_outlineBox.setOutlineColor(sf::Color(255, 255, 0, 100));
 
 	appConfig->_wasFullScreen = appConfig->_isFullScreen;
 
 	appConfig->_window.setVerticalSyncEnabled(appConfig->_enableVSync);
 
-	appConfig->_window.setFramerateLimit(appConfig->_enableVSync? 60 : 200);
+	appConfig->_window.setFramerateLimit(appConfig->_enableVSync ? 60 : 200);
 
+#ifdef _WIN32
 	HWND hwnd = appConfig->_window.getSystemHandle();
 	HWND hwnd2 = appConfig->_menuWindow.getSystemHandle();
 
 	if (appConfig->_alwaysOnTop)
 	{
 		SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-		if(appConfig->_menuWindow.isOpen())
+		if (appConfig->_menuWindow.isOpen())
 			SetWindowPos(hwnd2, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	}
 
@@ -293,7 +329,27 @@ void initWindow(bool firstStart = false)
 		SetWindowLong(hwnd, GWL_EXSTYLE, 0);
 		SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
 	}
+#else
+	Display* display = XOpenDisplay(NULL);
+	if (display == NULL) {
+		std::cerr << "Cannot open display" << std::endl;
+		exit(1);
+	}
 
+	Window hwnd = appConfig->_window.getSystemHandle();
+	Window hwnd2 = appConfig->_menuWindow.getSystemHandle();
+
+	if (appConfig->_alwaysOnTop) {
+		setWindowAlwaysOnTop(display, hwnd);
+		if (appConfig->_menuWindow.isOpen()) {
+			setWindowAlwaysOnTop(display, hwnd2);
+		}
+	}
+
+    //setWindowTransparency(display, hwnd, appConfig->_transparent);
+
+	XCloseDisplay(display);
+#endif
 
 	if (uiConfig->_ico.getPixelsPtr())
 	{
@@ -382,7 +438,11 @@ void menuHelp(ImGuiStyle& style)
 
 		time_t timeNow = time(0);
 		tm timeStruct;
+#ifdef _WIN32
 		localtime_s(&timeStruct, &timeNow);
+#else
+		localtime_r(&timeNow, &timeStruct);
+#endif
 		int year = timeStruct.tm_year + 1900;
 
 		ImGui::TextWrapped("PortAudio (c) 1999-2006 Ross Bencina and Phil Burk");
@@ -434,7 +494,7 @@ void menuAdvanced(ImGuiStyle& style)
 			ImGui::PushID(x);
 			colBtnClicked |= ImGui::ColorEdit3("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoBorder);
 			ImGui::PopID();
-			if(!tooltipShown)
+			if (!tooltipShown)
 				tooltipShown = ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
 			ImGui::SameLine(x * 12.5);
 		}
@@ -453,6 +513,7 @@ void menuAdvanced(ImGuiStyle& style)
 		ImGui::TableNextColumn();
 
 		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
+#ifdef _WIN32
 		float transChkBoxPos = ImGui::GetCursorPosY();
 		if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
 		{
@@ -481,28 +542,41 @@ void menuAdvanced(ImGuiStyle& style)
 			{
 				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
 				EnableWindow(appConfig->_window.getSystemHandle(), true);
-			}
-		}
+            }
+// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
+// #else
+//             Display* display = XOpenDisplay(NULL);
+//             if (display != NULL)
+//             {
+//                 Window wind = appConfig->_window.getSystemHandle();
+
+//                 setWindowTransparency(display, wind, appConfig->_transparent);
+//                 setWindowProperties(display, wind);
+
+//                 enableWindow(display, wind, true);
+//                 XCloseDisplay(display);
+//             }
+// #endif
+        }
 		ToolTip("Turns the app background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
-
+#endif
+#ifdef _WIN32
 		if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
 		{
+
+			HWND hwnd = appConfig->_window.getSystemHandle();
+
 			if (appConfig->_alwaysOnTop)
-			{
-				HWND hwnd = appConfig->_window.getSystemHandle();
 				SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-			}
 			else
-			{
-				HWND hwnd = appConfig->_window.getSystemHandle();
 				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-			}
-		}
+        }
 		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
 
-		//ImGui::TableNextColumn();
+        ImGui::TableNextColumn();
+#endif
 
 		//if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
 		//{
@@ -510,7 +584,7 @@ void menuAdvanced(ImGuiStyle& style)
 		//}
 		//ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
+        //ImGui::TableNextColumn();
 
 		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
 		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
@@ -530,10 +604,12 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::TableNextColumn();
 
+#ifdef _WIN32
 		ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
 		ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
+#endif
 
 		ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
 		ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
@@ -702,7 +778,7 @@ void menuPresets(ImGuiStyle& style)
 		if (uiConfig->_presetNames.size()) prevName = uiConfig->_presetNames[uiConfig->_presetIdx];
 		if (ImGui::BeginCombo("Preset", prevName.c_str()))
 		{
-			for (UINT p = 0; p < uiConfig->_presetNames.size(); p++)
+			for (unsigned int p = 0; p < uiConfig->_presetNames.size(); p++)
 			{
 				bool selected = uiConfig->_presetIdx == p;
 				if (ImGui::Selectable(uiConfig->_presetNames[p].c_str(), &selected))
@@ -766,7 +842,7 @@ void menuPresets(ImGuiStyle& style)
 
 		uiConfig->_clearWindowInfo = false;
 		uiConfig->_saveWindowInfo = true;
-		
+
 
 		std::string saveName = "Save";
 		if (overwriting) saveName = "Overwrite";
@@ -799,7 +875,7 @@ void menu()
 	if (appConfig->_menuPopped)
 		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
 	else
-		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+        ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 
 	auto& style = ImGui::GetStyle();
 	style.FrameRounding = 4;
@@ -906,21 +982,21 @@ void menu()
 
 
 	//	FULLSCREEN
-	if (ImGui::Button(appConfig->_isFullScreen? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 }))
+	if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 }))
 	{
 		swapFullScreen();
 	}
 
 	menuHelp(style);
 
-	ImGui::SameLine(); 
-	
+	ImGui::SameLine();
+
 	menuAdvanced(style);
 
 	ImGui::Separator();
 	float separatorPos = ImGui::GetCursorPosY();
 	float nextSectionPos = windowHeight - 150;
-	if(!uiConfig->_audioExpanded)
+	if (!uiConfig->_audioExpanded)
 		nextSectionPos = windowHeight - 104;
 
 	layerMan->DrawGUI(style, nextSectionPos - separatorPos);
@@ -937,8 +1013,6 @@ void menu()
 	ImGui::Separator();
 
 	time_t timeNow = time(0);
-	tm timeStruct;
-	localtime_s(&timeStruct, &timeNow);
 
 	float milliseconds = appConfig->_runTime.getElapsedTime().asMilliseconds();
 	float pulse = sin(milliseconds / 300.f);
@@ -949,7 +1023,7 @@ void menu()
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
 	if (ImGui::Button("Exit RahiTuber", { -1, 20 }))
 	{
-		if(appConfig->_menuWindow.isOpen())
+		if (appConfig->_menuWindow.isOpen())
 			appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
 
 		appConfig->_menuWindow.close();
@@ -962,8 +1036,7 @@ void menu()
 	if (appConfig->_menuPopped)
 	{
 		ImGui::EndFrame();
-		ImGui::SFML::Render(appConfig->_menuWindow);
-
+        ImGui::SFML::Render(appConfig->_menuWindow);
 		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 	}
 
@@ -984,7 +1057,7 @@ void menu()
 
 	if (appConfig->_updateAvailable)
 	{
-		sf::Color pulseColor(255u, 255u, 255u, 128u+127u * pulse);
+		sf::Color pulseColor(255u, 255u, 255u, 128u + 127u * pulse);
 		sf::CircleShape dotShape(4, 12);
 		dotShape.setFillColor(toSFColor(col_light2) * pulseColor);
 		dotShape.setOutlineThickness(0.5);
@@ -1003,10 +1076,10 @@ void menu()
 		appConfig->_menuWindow.close();
 		appConfig->_window.requestFocus();
 	}
-	
+
 	if (menuPoppedNow)
 	{
-		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH+4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH + 4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
 		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 		appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);
@@ -1029,7 +1102,11 @@ void render()
 	if (appConfig->_transparent)
 	{
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
-		appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
+        appConfig->_window.setActive(true);
+        glClearColor(0.0, 0.0, 0.0, 0.0);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+        appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
 	}
 	else
 	{
@@ -1052,6 +1129,7 @@ void render()
 
 	layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
 
+#ifdef _WIN32
 	if (appConfig->_useSpout2Sender)
 	{
 		if (spout == nullptr)
@@ -1059,6 +1137,7 @@ void render()
 
 		spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
 	}
+#endif
 
 	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
@@ -1114,7 +1193,7 @@ void render()
 			appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
 			appConfig->_menuRT.draw(appConfig->bars[bar]);
 		}
-	}
+}
 #endif
 
 	if (uiConfig->_cornerGrabbed.first)
@@ -1149,6 +1228,52 @@ void render()
 }
 
 std::map<sf::Joystick::Axis, sf::Event> axisEvents;
+
+void RecordHotkey(sf::Event& evt, int& retFlag)
+{
+	retFlag = 1;
+	if (evt.type == evt.JoystickMoved
+		&& Abs(evt.joystickMove.position) >= 30
+		&& evt.joystickMove.joystickId != -1)
+	{
+		axisEvents[evt.joystickMove.axis] = evt;
+	}
+
+	if ((evt.type == evt.JoystickButtonPressed && evt.joystickButton.joystickId != -1)
+		|| (evt.type == evt.JoystickButtonReleased && evt.joystickButton.joystickId != -1)
+		|| evt.type == evt.MouseButtonPressed
+		|| evt.type == evt.MouseButtonReleased)
+	{
+		bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.MouseButtonPressed;
+
+		if (layerMan->PendingHotkey() && keyDown)
+		{
+			layerMan->SetHotkeys(evt);
+		}
+	}
+
+	if ((evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
+		&& evt.key.code != sf::Keyboard::LControl
+		&& evt.key.code != sf::Keyboard::LShift
+		&& evt.key.code != sf::Keyboard::LAlt
+		&& evt.key.code != sf::Keyboard::LSystem
+		&& evt.key.code != sf::Keyboard::RControl
+		&& evt.key.code != sf::Keyboard::RShift
+		&& evt.key.code != sf::Keyboard::RAlt
+		&& evt.key.code != sf::Keyboard::RSystem
+		&& evt.key.code != sf::Keyboard::Escape)
+	{
+		bool keyDown = evt.type == evt.KeyPressed;
+
+		if (layerMan->PendingHotkey() && keyDown)
+		{
+			layerMan->SetHotkeys(evt);
+			if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
+                ImGui::SFML::ProcessEvent(appConfig->_window, evt);
+			{ retFlag = 3; return; };
+		}
+	}
+}
 
 void handleEvents()
 {
@@ -1268,7 +1393,7 @@ void handleEvents()
 				if (pos.x > appConfig->_scrW - 20 && pos.y > appConfig->_scrH - 20)
 					uiConfig->_cornerGrabbed = { false, true };
 
-				if (pos.x > (appConfig->_scrW / 2 - uiConfig->_moveTabSize.x / 2) && pos.x < (appConfig->_scrW / 2 + uiConfig->_moveTabSize.x / 2) 
+				if (pos.x > (appConfig->_scrW / 2 - uiConfig->_moveTabSize.x / 2) && pos.x < (appConfig->_scrW / 2 + uiConfig->_moveTabSize.x / 2)
 					&& pos.y < uiConfig->_moveTabSize.y)
 				{
 					uiConfig->_moveGrabbed = true;
@@ -1380,50 +1505,6 @@ void handleEvents()
 	}
 }
 
-void RecordHotkey(sf::Event& evt, int& retFlag)
-{
-	retFlag = 1;
-	if (evt.type == evt.JoystickMoved && Abs(evt.joystickMove.position) >= 30)
-	{
-		axisEvents[evt.joystickMove.axis] = evt;
-	}
-
-	if (evt.type == evt.JoystickButtonPressed
-		|| evt.type == evt.JoystickButtonReleased
-		|| evt.type == evt.MouseButtonPressed
-		|| evt.type == evt.MouseButtonReleased)
-	{
-		bool keyDown = evt.type == evt.JoystickButtonPressed || evt.type == evt.MouseButtonPressed;
-
-		if (layerMan->PendingHotkey() && keyDown)
-		{
-			layerMan->SetHotkeys(evt);
-		}
-	}
-
-	if ((evt.type == evt.KeyPressed || evt.type == evt.KeyReleased)
-		&& evt.key.code != sf::Keyboard::LControl
-		&& evt.key.code != sf::Keyboard::LShift
-		&& evt.key.code != sf::Keyboard::LAlt
-		&& evt.key.code != sf::Keyboard::LSystem
-		&& evt.key.code != sf::Keyboard::RControl
-		&& evt.key.code != sf::Keyboard::RShift
-		&& evt.key.code != sf::Keyboard::RAlt
-		&& evt.key.code != sf::Keyboard::RSystem
-		&& evt.key.code != sf::Keyboard::Escape)
-	{
-		bool keyDown = evt.type == evt.KeyPressed;
-
-		if (layerMan->PendingHotkey() && keyDown)
-		{
-			layerMan->SetHotkeys(evt);
-			if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
-				ImGui::SFML::ProcessEvent(appConfig->_window, evt);
-			{ retFlag = 3; return; };
-		}
-	}
-}
-
 void doAudioAnalysis()
 {
 	//Do fourier transform
@@ -1439,7 +1520,7 @@ void doAudioAnalysis()
 	float factor = 50;
 	audioConfig->_frequencyData.clear();
 
-	for (UINT it = 0; it < halfSize; it++)
+	for (unsigned int it = 0; it < halfSize; it++)
 	{
 		auto re = audioConfig->_fftData[it];
 		auto im = audioConfig->_fftData[it + 1];
@@ -1473,7 +1554,7 @@ void doAudioAnalysis()
 	{
 		//update audio data for this frame
 		if (audioConfig->_frameHi < 0) audioConfig->_frameHi *= -1.0;
-			audioConfig->_frame = audioConfig->_frameHi;
+		audioConfig->_frame = audioConfig->_frameHi;
 
 		audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
 		audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
@@ -1530,7 +1611,7 @@ void doAudioAnalysis()
 	else if (audioConfig->_quietTimer.getElapsedTime().asSeconds() > 0.3)
 	{
 		//if the quietTimer reaches 1.5s, start reducing the max
-		
+
 		float maxFallSpeed = 0.001f;
 
 		audioConfig->_frameMax -= (audioConfig->_frameMax - (audioConfig->_cutoff * 2)) * maxFallSpeed;
@@ -1549,7 +1630,7 @@ void doAudioAnalysis()
 
 		if (audioConfig->_trebleMax < audioConfig->_fixedMax)
 			audioConfig->_trebleMax = audioConfig->_fixedMax;
-		
+
 	}
 }
 
@@ -1557,26 +1638,10 @@ static void CheckUpdates()
 {
 	std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
 
-	std::string cmd = "cmd /c curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
+	std::string cmd = "curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
 
-	STARTUPINFOA si;
-	PROCESS_INFORMATION procInfo;
-
-	ZeroMemory(&si, sizeof(si));
-
-	si.lpTitle = NULL;// (char*)"Get_Update_Version";
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_HIDE;
-	si.cb = sizeof(si);
-
-	ZeroMemory(&procInfo, sizeof(procInfo));
-
-	if (CreateProcessA(NULL, cmd.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
+	if (runProcess(cmd))
 	{
-		WaitForSingleObject(procInfo.hProcess, INFINITE);
-		CloseHandle(procInfo.hProcess);
-		CloseHandle(procInfo.hThread);
-
 		std::ifstream updateFile;
 		updateFile.open(queryTxt);
 		if (updateFile)
@@ -1585,23 +1650,28 @@ static void CheckUpdates()
 			int length2 = updateFile.tellg();
 			updateFile.seekg(0, updateFile.beg);
 
-			std::string buf2;
-			buf2.resize(length2 + 1, 0);
-			updateFile.read(buf2.data(), length2);
+			if (length2 != 0)
+			{
+				std::string buf2;
+				buf2.resize(length2 + 1, 0);
+				updateFile.read(buf2.data(), length2);
 
-			size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+				size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
 
-			float latest = std::stod(buf2.substr(numPos), nullptr);
-			appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+				float latest = std::stod(buf2.substr(numPos), nullptr);
+				appConfig->_updateAvailable = appConfig->_versionNumber < latest;
 
-			updateFile.close();
+				updateFile.close();
+			}
 
 			std::remove(queryTxt.c_str());
 		}
 	}
 	else
 	{
+#ifdef _WIN32
 		printf("CreateProcess failed (%d).\n", GetLastError());
+#endif
 	}
 }
 
@@ -1613,6 +1683,7 @@ int main()
 
 	appConfig = new AppConfig();
 
+#ifdef _WIN32
 	CHAR fname[512];
 	GetModuleFileNameA(NULL, fname, 512);
 	if (GetLastError() == ERROR_SUCCESS)
@@ -1620,6 +1691,9 @@ int main()
 		fs::path exe = fname;
 		appConfig->_appLocation = exe.parent_path().string() + "\\";
 	}
+#else
+	appConfig->_appLocation = getAppLocation();
+#endif
 
 	uiConfig = new UIConfig();
 	audioConfig = new AudioConfig();
@@ -1636,7 +1710,7 @@ int main()
 		verFile.seekg(0, verFile.beg);
 
 		std::string buf;
-		buf.resize(length+1, 0);
+		buf.resize(length + 1, 0);
 		verFile.read(buf.data(), length);
 		appConfig->_versionNumber = std::stod(buf, nullptr);
 
@@ -1649,7 +1723,7 @@ int main()
 
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;
-					
+
 	getWindowSizes();
 
 	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
@@ -1665,6 +1739,8 @@ int main()
 
 		if (loadValid == false)
 		{
+
+#ifdef _WIN32
 			std::wstring message(L"Failed to load config.xml.");
 			if (xmlLoader._errorMessage.empty() == false)
 			{
@@ -1676,34 +1752,53 @@ int main()
 			int result = MessageBox(NULL, message.c_str(), L"Load failed", MB_ICONERROR | MB_OKCANCEL);
 			if (result == IDOK)
 			{
+#else
+			std::string message("Failed to load config.xml.");
+			if (xmlLoader._errorMessage.empty() == false)
+			{
+				message += "\n\nMessage: ";
+				message += xmlLoader._errorMessage;
+			}
+			message += "\n\nPress 'y' to recreate config.xml and try again. Press 'n' to try manually fixing the config.xml file.";
+
+			std::cout << message << std::endl;
+			char result;
+			std::cin >> result;
+
+			if (result == 'y')
+			{
+#endif
 				retry = true;
 				int ret = remove((appConfig->_appLocation + "config.xml").c_str());
 
-				if (ret == 0 || errno == ENOENT) 
+				if (ret == 0 || errno == ENOENT)
 				{
 					printf("File deleted successfully");
 					xmlLoader.saveCommon();
 					break;
 				}
-				else 
+				else
 				{
+#ifdef _WIN32
 					int result = MessageBox(NULL, L"Could not delete config.xml. Stopping.", L"Error", MB_ICONERROR | MB_OK);
+#endif
 					retry = false;
 				}
 			}
 
-			if(retry == false)
+			if (retry == false)
 			{
 				delete appConfig;
 				delete uiConfig;
 				delete audioConfig;
 				delete layerMan;
-
+#ifdef _WIN32
 				if (spout != nullptr)
 				{
 					spout->ReleaseSender();
 					delete spout;
 				}
+#endif
 				//delete kbdTrack;
 				return 1;
 			}
@@ -1717,7 +1812,7 @@ int main()
 
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 
-	if(appConfig->_lastLayerSet.empty() == false)
+	if (appConfig->_lastLayerSet.empty() == false)
 		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
 
 	//kbdTrack->SetHook(appConfig->_useKeyboardHooks);
@@ -1753,13 +1848,31 @@ int main()
 	float barW = appConfig->_scrW / (FRAMES_PER_BUFFER / 2);
 	for (int b = 0; b < appConfig->bars.size(); b++)
 	{
-		appConfig->bars[b].setPosition((float)b*barW, 0);
+		appConfig->bars[b].setPosition((float)b * barW, 0);
 		appConfig->bars[b].setSize({ barW, 0.f });
 		appConfig->bars[b].setFillColor({ 255, 255, 255, 50 });
 	}
 
 	//initialise PortAudio
 	err = Pa_Initialize();
+	if (err != paNoError)
+	{
+		printf(Pa_GetErrorText(err));
+		exit(1);
+	}
+
+    int apiCount = Pa_GetHostApiCount();
+    if(apiCount <= 0)
+    {
+        std::cout<< "PortAudio found no host APIs" <<std::endl;
+    }
+    for(int api = 0; api < apiCount; api++)
+    {
+        const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo ( api);
+        std::cout<< hostInfo->name <<std::endl;
+    }
+
+
 	audioConfig->_nDevices = Pa_GetDeviceCount();
 	audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
 	double sRate = 44100;
@@ -1782,8 +1895,8 @@ int main()
 		if (audioConfig->_devIdx == -1)
 			audioConfig->_devIdx = 0;
 	}
-	
-	if(audioConfig->_nDevices > audioConfig->_devIdx)
+
+	if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
 	{
 		auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
 		audioConfig->_params.device = audioConfig->_devIdx;
@@ -1867,15 +1980,15 @@ int main()
 	delete appConfig;
 	delete uiConfig;
 	delete audioConfig;
-
+#ifdef _WIN32
 	if (spout != nullptr)
 	{
 		spout->ReleaseSender();
 		delete spout;
 	}
-	
+#endif
 	//delete kbdTrack;
 
 	return 0;
 
-}
+	}

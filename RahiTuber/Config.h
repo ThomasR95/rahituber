@@ -16,7 +16,6 @@
 
 #include "TextureManager.h"
 
-
 #define SCRW 1280
 #define SCRH 720
 
@@ -52,9 +51,10 @@ struct AppConfig
 
 	bool _enableVSync = true;
 
+
 	sf::RenderWindow _window;
 	sf::RenderWindow _menuWindow;
-	sf::RenderWindow* _currentWindow = nullptr;
+    sf::RenderTarget* _currentWindow = nullptr;
 	sf::RenderTexture _layersRT;
 	sf::RenderTexture _menuRT;
 	sf::RectangleShape _RTPlane;

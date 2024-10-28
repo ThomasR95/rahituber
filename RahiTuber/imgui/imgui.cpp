@@ -1102,7 +1102,7 @@ CODE
 #pragma warning (disable: 5054)             // operator '|': deprecated between enumerations of different types
 #endif
 #pragma warning (disable: 26451)            // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to an 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
-#pragma warning (disable: 26495)            // [Static Analyzer] Variable 'XXX' is uninitialized. Always initialize a member variable (type.6).
+#pragma warning (disable: 26495)            // [Static Analyzer] Variable 'XXX' is uninitialized. TRIGGER_ALWAYS initialize a member variable (type.6).
 #pragma warning (disable: 26812)            // [Static Analyzer] The enum type 'xxx' is unscoped. Prefer 'enum class' over 'enum' (Enum.3).
 #endif
 
@@ -1247,7 +1247,7 @@ static void             UpdateViewportsNewFrame();
 // - Using Dear ImGui via a shared library is not recommended, because of function call overhead and because we don't guarantee backward nor forward ABI compatibility.
 // - Confused? In a debugger: add GImGui to your watch window and notice how its value changes depending on your current location (which DLL boundary you are in).
 
-// Current context pointer. Implicitly used by all Dear ImGui functions. Always assumed to be != NULL.
+// Current context pointer. Implicitly used by all Dear ImGui functions. TRIGGER_ALWAYS assumed to be != NULL.
 // - ImGui::CreateContext() will automatically set this pointer if it is NULL.
 //   Change to a different context by calling ImGui::SetCurrentContext().
 // - Important: Dear ImGui functions are not thread-safe because of this pointer.
@@ -3648,7 +3648,7 @@ void ImGui::RenderTextEllipsis(ImDrawList* draw_list, const ImVec2& pos_min, con
         float text_size_clipped_x = font->CalcTextSizeA(font_size, text_avail_width, 0.0f, text, text_end_full, &text_end_ellipsis).x;
         if (text == text_end_ellipsis && text_end_ellipsis < text_end_full)
         {
-            // Always display at least 1 character if there's no room for character + ellipsis
+            // TRIGGER_ALWAYS display at least 1 character if there's no room for character + ellipsis
             text_end_ellipsis = text + ImTextCountUtf8BytesFromChar(text, text_end_full);
             text_size_clipped_x = font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, text, text_end_ellipsis).x;
         }
@@ -10541,7 +10541,7 @@ void ImGui::ErrorRecoveryTryToRecoverState(const ImGuiErrorRecoveryState* state_
     {
         // Recap:
         // - Begin()/BeginChild() return false to indicate the window is collapsed or fully clipped.
-        // - Always call a matching End() for each Begin() call, regardless of its return value!
+        // - TRIGGER_ALWAYS call a matching End() for each Begin() call, regardless of its return value!
         // - Begin/End and BeginChild/EndChild logic is KNOWN TO BE INCONSISTENT WITH ALL OTHER BEGIN/END FUNCTIONS.
         // - We will fix that in a future major update.
         ImGuiWindow* window = g.CurrentWindow;
@@ -10917,7 +10917,7 @@ void ImGui::ItemSize(const ImVec2& size, float text_baseline_y)
     const float line_y1 = window->DC.IsSameLine ? window->DC.CursorPosPrevLine.y : window->DC.CursorPos.y;
     const float line_height = ImMax(window->DC.CurrLineSize.y, /*ImMax(*/window->DC.CursorPos.y - line_y1/*, 0.0f)*/ + size.y + offset_to_match_baseline_y);
 
-    // Always align ourselves on pixel boundaries
+    // TRIGGER_ALWAYS align ourselves on pixel boundaries
     //if (g.IO.KeyAlt) window->DrawList->AddRect(window->DC.CursorPos, window->DC.CursorPos + ImVec2(size.x, line_height), IM_COL32(255,0,0,200)); // [DEBUG]
     window->DC.CursorPosPrevLine.x = window->DC.CursorPos.x + size.x;
     window->DC.CursorPosPrevLine.y = line_y1;
@@ -11177,7 +11177,7 @@ ImVec2 ImGui::GetContentRegionAvail()
 
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
-// You should never need those functions. Always use GetCursorScreenPos() and GetContentRegionAvail()!
+// You should never need those functions. TRIGGER_ALWAYS use GetCursorScreenPos() and GetContentRegionAvail()!
 // They are bizarre local-coordinates which don't play well with scrolling.
 ImVec2 ImGui::GetContentRegionMax()
 {
@@ -12096,7 +12096,7 @@ ImVec2 ImGui::FindBestWindowPosForPopupEx(const ImVec2& ref_pos, const ImVec2& s
     }
 
     // Tooltip and Default popup policy
-    // (Always first try the direction we used on the last frame, if any)
+    // (TRIGGER_ALWAYS first try the direction we used on the last frame, if any)
     if (policy == ImGuiPopupPositionPolicy_Tooltip || policy == ImGuiPopupPositionPolicy_Default)
     {
         const ImGuiDir dir_prefered_order[ImGuiDir_COUNT] = { ImGuiDir_Right, ImGuiDir_Down, ImGuiDir_Up, ImGuiDir_Left };
@@ -12551,7 +12551,7 @@ static void ImGui::NavProcessItem()
     if (g.NavId == id)
     {
         if (g.NavWindow != window)
-            SetNavWindow(window); // Always refresh g.NavWindow, because some operations such as FocusItem() may not have a window.
+            SetNavWindow(window); // TRIGGER_ALWAYS refresh g.NavWindow, because some operations such as FocusItem() may not have a window.
         g.NavLayer = window->DC.NavLayerCurrent;
         SetNavFocusScope(g.CurrentFocusScopeId); // Will set g.NavFocusScopeId AND store g.NavFocusScopePath
         g.NavFocusScopeId = g.CurrentFocusScopeId;
@@ -12593,7 +12593,7 @@ void ImGui::NavProcessItemForTabbingRequest(ImGuiID id, ImGuiItemFlags item_flag
     else
         can_stop = (item_flags & ImGuiItemFlags_NoTabStop) == 0 && ((g.IO.ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard) || (item_flags & ImGuiItemFlags_Inputable));
 
-    // Always store in NavMoveResultLocal (unlike directional request which uses NavMoveResultOther on sibling/flattened windows)
+    // TRIGGER_ALWAYS store in NavMoveResultLocal (unlike directional request which uses NavMoveResultOther on sibling/flattened windows)
     ImGuiNavItemData* result = &g.NavMoveResultLocal;
     if (g.NavTabbingDir == +1)
     {
@@ -13023,7 +13023,7 @@ static void ImGui::NavUpdate()
         }
     }
 
-    // Always prioritize mouse highlight if navigation is disabled
+    // TRIGGER_ALWAYS prioritize mouse highlight if navigation is disabled
     if (!nav_keyboard_active && !nav_gamepad_active)
     {
         g.NavCursorVisible = false;
@@ -13146,7 +13146,7 @@ void ImGui::NavUpdateCreateMoveRequest()
         g.NavScoringNoClipRect.TranslateY(scoring_rect_offset_y);
     }
 
-    // [DEBUG] Always send a request when holding CTRL. Hold CTRL + Arrow change the direction.
+    // [DEBUG] TRIGGER_ALWAYS send a request when holding CTRL. Hold CTRL + Arrow change the direction.
 #if IMGUI_DEBUG_NAV_SCORING
     //if (io.KeyCtrl && IsKeyPressed(ImGuiKey_C))
     //    g.NavMoveDirForDebug = (ImGuiDir)((g.NavMoveDirForDebug + 1) & 3);
@@ -13245,7 +13245,7 @@ void ImGui::NavUpdateCreateTabbingRequest()
     g.NavTabbingCounter = -1;
 }
 
-// Apply result from previous frame navigation directional move request. Always called from NavUpdate()
+// Apply result from previous frame navigation directional move request. TRIGGER_ALWAYS called from NavUpdate()
 void ImGui::NavMoveRequestApplyResult()
 {
     ImGuiContext& g = *GImGui;
@@ -15379,7 +15379,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     {
         static ImRect GetTableRect(ImGuiTable* table, int rect_type, int n)
         {
-            ImGuiTableInstanceData* table_instance = TableGetInstanceData(table, table->InstanceCurrent); // Always using last submitted instance
+            ImGuiTableInstanceData* table_instance = TableGetInstanceData(table, table->InstanceCurrent); // TRIGGER_ALWAYS using last submitted instance
             if (rect_type == TRT_OuterRect)                     { return table->OuterRect; }
             else if (rect_type == TRT_InnerRect)                { return table->InnerRect; }
             else if (rect_type == TRT_WorkRect)                 { return table->WorkRect; }

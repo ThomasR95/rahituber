@@ -15,9 +15,19 @@
 #include <SFML/Window/Touch.hpp>
 #include <SFML/Window/Window.hpp>
 
-#include <gl/GLU.h>
+#ifdef _WIN32
+    #include <gl/GLU.h>
+#else
+    #include "GL/glu.h"
+#endif
 #include "GL/glext.h"
-#include "GL/wglext.h"
+
+#ifdef _WIN32
+    #include "GL/wglext.h"
+#else
+    #include "GL/glx.h"
+    #include "GL/glxext.h"
+#endif
 
 #include <cassert>
 #include <cmath> // abs
@@ -1141,6 +1151,7 @@ void SetupRenderState(ImDrawData* draw_data, int fb_width, int fb_height) {
     // enabled, vertex/texcoord/color pointers, polygon fill.
     glEnable(GL_BLEND);
     
+#ifdef _WIN32
     PFNGLBLENDFUNCSEPARATEEXTPROC p_glblendFuncSeparate = (PFNGLBLENDFUNCSEPARATEEXTPROC)wglGetProcAddress("glBlendFuncSeparate");
     if (p_glblendFuncSeparate != NULL)
     {
@@ -1148,6 +1159,9 @@ void SetupRenderState(ImDrawData* draw_data, int fb_width, int fb_height) {
     }
     else
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#else
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#endif
 
     // In order to composite our output buffer we need to preserve alpha
     glDisable(GL_CULL_FACE);

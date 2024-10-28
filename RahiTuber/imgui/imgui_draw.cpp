@@ -2262,7 +2262,7 @@ void ImDrawData::AddDrawList(ImDrawList* draw_list)
     ImGui::AddDrawListToDrawDataEx(this, &CmdLists, draw_list);
 }
 
-// For backward compatibility: convert all buffers from indexed to de-indexed, in case you cannot render indexed. Note: this is slow and most likely a waste of resources. Always prefer indexed rendering!
+// For backward compatibility: convert all buffers from indexed to de-indexed, in case you cannot render indexed. Note: this is slow and most likely a waste of resources. TRIGGER_ALWAYS prefer indexed rendering!
 void ImDrawData::DeIndexAllBuffers()
 {
     ImVector<ImDrawVert> new_vtx_buffer;

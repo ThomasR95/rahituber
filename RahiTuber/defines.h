@@ -6,14 +6,299 @@
 #include "SFML/Graphics/Color.hpp"
 #include "imgui/imgui.h"
 #include <string>
+#include <iostream>
 
 #define PI 3.14159265359
 
+#ifdef _WIN32
 #include <Windows.h>
 
 static inline void OsOpenInShell(const char* path) {
 	// Note: executable path must use  backslashes! 
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
+}
+#else
+#define MAX_PATH 4095
+#include <cmath>
+
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xutil.h>
+#include <X11/Xatom.h>
+//#include <X11/extensions/Xrender.h>
+#include <X11/Xutil.h>
+#include <GL/glx.h>
+#include <GL/glext.h>
+#include <GL/glxext.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+static std::string getAppLocation()
+{
+    std::string loc = "";
+    char fname[MAX_PATH];
+    ssize_t count = readlink("/proc/self/exe", fname, MAX_PATH);
+    if (count != -1)
+    {
+        fname[count] = '\0';  // Null-terminate the string
+        fs::path exe = fname;
+        loc = exe.parent_path().string() + "/";
+    }
+    else
+    {
+        std::cerr << "Failed to get module file name" << std::endl;
+    }
+    return loc;
+}
+
+
+static inline void OsOpenInShell(const char* path) {
+    std::string cmd = std::string("xdg-open ") + path;
+    system(cmd.c_str());
+}
+
+static int isExtensionSupported(const char *extList, const char *extension)
+{
+
+    const char *start;
+    const char *where, *terminator;
+
+    /* Extension names should not have spaces. */
+    where = strchr(extension, ' ');
+    if ( where || *extension == '\0' )
+        return 0;
+
+    /* It takes a bit of care to be fool-proof about parsing the
+     OpenGL extensions string. Don't be fooled by sub-strings,
+     etc. */
+    for ( start = extList; ; ) {
+        where = strstr( start, extension );
+
+        if ( !where )
+            break;
+
+        terminator = where + strlen( extension );
+
+        if ( where == start || *(where - 1) == ' ' )
+            if ( *terminator == ' ' || *terminator == '\0' )
+                return 1;
+
+        start = terminator;
+    }
+    return 0;
+}
+
+static Bool WaitForMapNotify(Display *d, XEvent *e, char *arg)
+{
+    return d && e && arg && (e->type == MapNotify) && (e->xmap.window == *(Window*)arg);
+}
+
+static void describe_fbconfig(GLXFBConfig fbconfig, Display* Xdisplay)
+{
+    int doublebuffer;
+    int red_bits, green_bits, blue_bits, alpha_bits, depth_bits;
+
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DOUBLEBUFFER, &doublebuffer);
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_RED_SIZE, &red_bits);
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_GREEN_SIZE, &green_bits);
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_BLUE_SIZE, &blue_bits);
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_ALPHA_SIZE, &alpha_bits);
+    glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DEPTH_SIZE, &depth_bits);
+
+    fprintf(stderr, "FBConfig selected:\n"
+                    "Doublebuffer: %s\n"
+                    "Red Bits: %d, Green Bits: %d, Blue Bits: %d, Alpha Bits: %d, Depth Bits: %d\n",
+            doublebuffer == True ? "Yes" : "No",
+            red_bits, green_bits, blue_bits, alpha_bits, depth_bits);
+}
+
+static inline void setWindowAlwaysOnTop(Display* display, Window window, bool onTop = true) {
+    Atom wmState = XInternAtom(display, "_NET_WM_STATE", False);
+    Atom wmStateAbove = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
+    Atom wmStateBelow = XInternAtom(display, "_NET_WM_STATE_BELOW", False);
+
+    XEvent xev;
+    memset(&xev, 0, sizeof(xev));
+    xev.type = ClientMessage;
+    xev.xclient.window = window;
+    xev.xclient.message_type = wmState;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = 1;  // _NET_WM_STATE_ADD
+    if(onTop)
+    {
+        xev.xclient.data.l[1] = wmStateAbove;
+    }
+    else
+    {
+        xev.xclient.data.l[1] = wmStateBelow;
+        xev.xclient.data.l[2] = 0;
+        xev.xclient.data.l[3] = 0;
+        xev.xclient.data.l[4] = 0;
+    }
+
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+    XFlush(display);
+}
+
+static inline void setWindowTransparency(Display* Xdisplay, Window window, bool transparent) {
+
+    // static int VisData[] = {
+    //     GLX_RENDER_TYPE, GLX_RGBA_BIT,
+    //     GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+    //     //GLX_DOUBLEBUFFER, (int)GLX_DONT_CARE,
+    //     GLX_RED_SIZE, 8,
+    //     GLX_GREEN_SIZE, 8,
+    //     GLX_BLUE_SIZE, 8,
+    //     GLX_ALPHA_SIZE, 8,
+    //     GLX_DEPTH_SIZE, 16,
+    //     //GLX_TRANSPARENT_TYPE, transparent ? GLX_TRANSPARENT_RGB : GLX_NONE,
+    //     None
+    // };
+
+    // int Xscreen = DefaultScreen(Xdisplay);
+    // Window Xroot = DefaultRootWindow(Xdisplay);
+
+    // XVisualInfo* visual = nullptr;
+    // XRenderPictFormat* pict_format = nullptr;
+
+    // int numfbconfigs = 0;
+    // GLXFBConfig* fbconfigs = glXChooseFBConfig(Xdisplay, Xscreen, VisData, &numfbconfigs);
+    // GLXFBConfig fbconfig = 0;
+    // for(int i = 0; i<numfbconfigs; i++) {
+    //     visual = (XVisualInfo*) glXGetVisualFromFBConfig(Xdisplay, fbconfigs[i]);
+    //     if(!visual)
+    //         continue;
+
+    //     pict_format = XRenderFindVisualFormat(Xdisplay, visual->visual);
+    //     if(!pict_format)
+    //         continue;
+
+    //     fbconfig = fbconfigs[i];
+    //     if(pict_format->direct.alphaMask > 0) {
+    //         break;
+    //     }
+    //     XFree(visual);
+    // }
+
+    // if(!fbconfig) {
+    //     fprintf(stderr, "No matching FB config found");
+    //     return;
+    // }
+
+    // describe_fbconfig(fbconfig, Xdisplay);
+
+    // /* Create a colormap - only needed on some X clients, eg. IRIX */
+    // Colormap cmap = XCreateColormap(Xdisplay, DefaultRootWindow(Xdisplay), visual->visual, AllocNone);
+    // XInstallColormap(Xdisplay, cmap);
+
+    XSetWindowAttributes attr = {0,};
+
+    //XVisualInfo vinfo;
+    //XMatchVisualInfo(Xdisplay, DefaultScreen(Xdisplay), 32, TrueColor, &vinfo);
+
+    int query[] = {GLX_RGBA, GLX_ALPHA_SIZE, 8, None };
+    XVisualInfo* overlayVisual = glXChooseVisual(Xdisplay, DefaultScreen(Xdisplay), query);
+
+    attr.colormap = XCreateColormap(Xdisplay, DefaultRootWindow(Xdisplay), overlayVisual->visual, AllocNone);
+    attr.background_pixel = 0;
+    attr.border_pixel = 0;
+    attr.background_pixmap = 0;
+    attr.border_pixmap = 0;
+    attr.border_pixel = 0;
+    attr.save_under = transparent;
+    //attr.override_redirect = transparent;
+
+    XChangeWindowAttributes(Xdisplay, window, /*CWOverrideRedirect | */CWBackPixmap | CWBorderPixmap | CWBackPixel | CWBorderPixel | /*CWColormap |*/ CWSaveUnder, &attr);
+    XSetWindowBackground(Xdisplay, window, 0);
+    XFlush(Xdisplay);
+    XClearWindow(Xdisplay, window);
+}
+
+// Function to enable or disable a window
+static inline void enableWindow(Display* display, Window window, bool enable) {
+    if (enable) {
+        XMapWindow(display, window);
+    } else {
+        XUnmapWindow(display, window);
+    }
+
+    XFlush(display);
+}
+
+static inline void setWindowProperties(Display* display, Window window) {
+    // Set window properties as needed (example: remove border)
+    Atom wmHints = XInternAtom(display, "_MOTIF_WM_HINTS", True);
+    if (wmHints != None) {
+        struct {
+            unsigned long flags;
+            unsigned long functions;
+            unsigned long decorations;
+            long inputMode;
+            unsigned long status;
+        } hints = {2, 0, 0, 0, 0}; // MWM_HINTS_DECORATIONS
+
+        XChangeProperty(display, window, wmHints, wmHints, 32, PropModeReplace, (unsigned char *)&hints, sizeof(hints)/4);
+    }
+}
+#endif
+
+static bool runProcess(const std::string& cmd) {
+#ifdef _WIN32
+    std::string cmd2 = "cmd /c " + cmd;
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION procInfo;
+
+    ZeroMemory(&si, sizeof(si));
+
+    si.lpTitle = NULL;// (char*)"Get_Update_Version";
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    si.cb = sizeof(si);
+
+    ZeroMemory(&procInfo, sizeof(procInfo));
+
+    if (CreateProcessA(NULL, cmd2.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
+    {
+        WaitForSingleObject(procInfo.hProcess, INFINITE);
+        CloseHandle(procInfo.hProcess);
+        CloseHandle(procInfo.hThread);
+        return true;
+    }
+
+    return false;
+#else
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        char* args[] = { (char*)"/bin/sh", (char*)"-c", (char*)cmd.c_str(), NULL };
+        execvp(args[0], args);
+        // If execvp returns, an error occurred
+        std::cerr << "Error executing command" << std::endl;
+        return false;
+    } else if (pid > 0) {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) {
+            std::cout << "Process exited with status " << WEXITSTATUS(status) << std::endl;
+            return true;
+        } else {
+            std::cerr << "Process did not exit successfully" << std::endl;
+            return false;
+        }
+    } else {
+        // Fork failed
+        std::cerr << "Error forking process" << std::endl;
+        return false;
+    }
+#endif
 }
 
 static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
@@ -44,6 +329,7 @@ inline sf::Vector2f toSFVector(const ImVec2& vec)
 
 inline std::string ANSIToUTF8(const std::string& input)
 {
+#ifdef _WIN32
 	int size = MultiByteToWideChar(CP_ACP, 0, input.c_str(),
 		input.length(), nullptr, 0);
 	std::wstring utf16_str(size, '\0');
@@ -59,10 +345,15 @@ inline std::string ANSIToUTF8(const std::string& input)
 		nullptr, nullptr);
 
 	return utf8_str;
+#else
+    // linux already using utf8 (probably)
+    return input;
+#endif
 }
 
 inline std::string UTF8ToANSI(const std::string& input)
 {
+    #ifdef _WIN32
 	int size = MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
 		input.length(), nullptr, 0);
 	std::wstring utf16_str(size, '\0');
@@ -78,6 +369,10 @@ inline std::string UTF8ToANSI(const std::string& input)
 		nullptr, nullptr);
 
 	return ansi_str;
+#else
+    // linux already using utf8 (probably)
+    return input;
+#endif
 }
 
 ////////////////////////////////////////////////////////////
@@ -169,7 +464,7 @@ inline float Min(T a, T b)
 
 inline float Length(const sf::Vector2f& v)
 {
-	return sqrt(powf(v.x, 2.f) + powf(v.y, 2.f));
+    return sqrt(pow(v.x, 2.f) + pow(v.y, 2.f));
 }
 
 inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)

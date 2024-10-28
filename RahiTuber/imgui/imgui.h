@@ -122,7 +122,7 @@ Index of this file:
 // Warnings
 #ifdef _MSC_VER
 #pragma warning (push)
-#pragma warning (disable: 26495)    // [Static Analyzer] Variable 'XXX' is uninitialized. Always initialize a member variable (type.6).
+#pragma warning (disable: 26495)    // [Static Analyzer] Variable 'XXX' is uninitialized. TRIGGER_ALWAYS initialize a member variable (type.6).
 #endif
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -330,7 +330,7 @@ namespace ImGui
     // Main
     IMGUI_API ImGuiIO&      GetIO();                                    // access the ImGuiIO structure (mouse/keyboard/gamepad inputs, time, various configuration options/flags)
     IMGUI_API ImGuiPlatformIO& GetPlatformIO();                         // access the ImGuiPlatformIO structure (mostly hooks/functions to connect to platform/renderer and OS Clipboard, IME etc.)
-    IMGUI_API ImGuiStyle&   GetStyle();                                 // access the Style structure (colors, sizes). Always use PushStyleColor(), PushStyleVar() to modify style mid-frame!
+    IMGUI_API ImGuiStyle&   GetStyle();                                 // access the Style structure (colors, sizes). TRIGGER_ALWAYS use PushStyleColor(), PushStyleVar() to modify style mid-frame!
     IMGUI_API void          NewFrame();                                 // start a new Dear ImGui frame, you can submit any command from this point until Render()/EndFrame().
     IMGUI_API void          EndFrame();                                 // ends the Dear ImGui frame. automatically called by Render(). If you don't need to render data (skipping rendering) you may call EndFrame() without Render()... but you'll have wasted CPU already! If you don't need to render, better to not create any windows and not call NewFrame() at all!
     IMGUI_API void          Render();                                   // ends the Dear ImGui frame, finalize the draw data. You can then get call GetDrawData().
@@ -360,7 +360,7 @@ namespace ImGui
     // - You may append multiple times to the same window during the same frame by calling Begin()/End() pairs multiple times.
     //   Some information such as 'flags' or 'p_open' will only be considered by the first call to Begin().
     // - Begin() return false to indicate the window is collapsed or fully clipped, so you may early out and omit submitting
-    //   anything to the window. Always call a matching End() for each Begin() call, regardless of its return value!
+    //   anything to the window. TRIGGER_ALWAYS call a matching End() for each Begin() call, regardless of its return value!
     //   [Important: due to legacy reason, Begin/End and BeginChild/EndChild are inconsistent with all other functions
     //    such as BeginMenu/EndMenu, BeginPopup/EndPopup, etc. where the EndXXX call should only be called if the corresponding
     //    BeginXXX function returned true. Begin and BeginChild are the only odd ones out. Will be fixed in a future update.]
@@ -382,7 +382,7 @@ namespace ImGui
     // - Specifying ImGuiChildFlags_AutoResizeX or ImGuiChildFlags_AutoResizeY makes the sizing automatic based on child contents.
     //   Combining both ImGuiChildFlags_AutoResizeX _and_ ImGuiChildFlags_AutoResizeY defeats purpose of a scrolling region and is NOT recommended.
     // - BeginChild() returns false to indicate the window is collapsed or fully clipped, so you may early out and omit submitting
-    //   anything to the window. Always call a matching EndChild() for each BeginChild() call, regardless of its return value.
+    //   anything to the window. TRIGGER_ALWAYS call a matching EndChild() for each BeginChild() call, regardless of its return value.
     //   [Important: due to legacy reason, Begin/End and BeginChild/EndChild are inconsistent with all other functions
     //    such as BeginMenu/EndMenu, BeginPopup/EndPopup, etc. where the EndXXX call should only be called if the corresponding
     //    BeginXXX function returned true. Begin and BeginChild are the only odd ones out. Will be fixed in a future update.]
@@ -1078,8 +1078,8 @@ enum ImGuiWindowFlags_
     ImGuiWindowFlags_HorizontalScrollbar    = 1 << 11,  // Allow horizontal scrollbar to appear (off by default). You may use SetNextWindowContentSize(ImVec2(width,0.0f)); prior to calling Begin() to specify width. Read code in imgui_demo in the "Horizontal Scrolling" section.
     ImGuiWindowFlags_NoFocusOnAppearing     = 1 << 12,  // Disable taking focus when transitioning from hidden to visible state
     ImGuiWindowFlags_NoBringToFrontOnFocus  = 1 << 13,  // Disable bringing window to front when taking focus (e.g. clicking on it or programmatically giving it focus)
-    ImGuiWindowFlags_AlwaysVerticalScrollbar= 1 << 14,  // Always show vertical scrollbar (even if ContentSize.y < Size.y)
-    ImGuiWindowFlags_AlwaysHorizontalScrollbar=1<< 15,  // Always show horizontal scrollbar (even if ContentSize.x < Size.x)
+    ImGuiWindowFlags_AlwaysVerticalScrollbar= 1 << 14,  // TRIGGER_ALWAYS show vertical scrollbar (even if ContentSize.y < Size.y)
+    ImGuiWindowFlags_AlwaysHorizontalScrollbar=1<< 15,  // TRIGGER_ALWAYS show horizontal scrollbar (even if ContentSize.x < Size.x)
     ImGuiWindowFlags_NoNavInputs            = 1 << 16,  // No keyboard/gamepad navigation within the window
     ImGuiWindowFlags_NoNavFocus             = 1 << 17,  // No focusing toward this window with keyboard/gamepad navigation (e.g. skipped by CTRL+TAB)
     ImGuiWindowFlags_UnsavedDocument        = 1 << 18,  // Display a dot next to the title. When used in a tab/docking context, tab is selected when clicking the X + closure is not assumed (will wait for user to stop submitting the tab). Otherwise closure is assumed when pressing the X, so if you keep submitting the tab may reappear at end of tab bar.
@@ -1119,7 +1119,7 @@ enum ImGuiChildFlags_
     ImGuiChildFlags_ResizeY                 = 1 << 3,   // Allow resize from bottom border (layout direction). "
     ImGuiChildFlags_AutoResizeX             = 1 << 4,   // Enable auto-resizing width. Read "IMPORTANT: Size measurement" details above.
     ImGuiChildFlags_AutoResizeY             = 1 << 5,   // Enable auto-resizing height. Read "IMPORTANT: Size measurement" details above.
-    ImGuiChildFlags_AlwaysAutoResize        = 1 << 6,   // Combined with AutoResizeX/AutoResizeY. Always measure size even when child is hidden, always return true, always disable clipping optimization! NOT RECOMMENDED.
+    ImGuiChildFlags_AlwaysAutoResize        = 1 << 6,   // Combined with AutoResizeX/AutoResizeY. TRIGGER_ALWAYS measure size even when child is hidden, always return true, always disable clipping optimization! NOT RECOMMENDED.
     ImGuiChildFlags_FrameStyle              = 1 << 7,   // Style the child window like a framed item: use FrameBg, FrameRounding, FrameBorderSize, FramePadding instead of ChildBg, ChildRounding, ChildBorderSize, WindowPadding.
     ImGuiChildFlags_NavFlattened            = 1 << 8,   // [BETA] Share focus scope, allow keyboard/gamepad navigation to cross over parent border to this child or between sibling child windows.
 
@@ -2288,7 +2288,7 @@ struct ImGuiIO
     //   You not are not supposed to rely on it in the course of a normal application run.
     // - Functions that support error recovery are using IM_ASSERT_USER_ERROR() instead of IM_ASSERT().
     // - By design, we do NOT allow error recovery to be 100% silent. One of the three options needs to be checked!
-    // - Always ensure that on programmers seats you have at minimum Asserts or Tooltips enabled when making direct imgui API calls!
+    // - TRIGGER_ALWAYS ensure that on programmers seats you have at minimum Asserts or Tooltips enabled when making direct imgui API calls!
     //   Otherwise it would severely hinder your ability to catch and correct mistakes!
     // Read https://github.com/ocornut/imgui/wiki/Error-Handling for details.
     // - Programmer seats: keep asserts (default), or disable asserts and keep error tooltips (new and nice!)
@@ -2472,18 +2472,18 @@ struct ImGuiInputTextCallbackData
 
     // Arguments for the different callback events
     // - During Resize callback, Buf will be same as your input buffer.
-    // - However, during Completion/History/Always callback, Buf always points to our own internal data (it is not the same as your buffer)! Changes to it will be reflected into your own buffer shortly after the callback.
+    // - However, during Completion/History/TRIGGER_ALWAYS callback, Buf always points to our own internal data (it is not the same as your buffer)! Changes to it will be reflected into your own buffer shortly after the callback.
     // - To modify the text buffer in a callback, prefer using the InsertChars() / DeleteChars() function. InsertChars() will take care of calling the resize callback if necessary.
     // - If you know your edits are not going to resize the underlying buffer allocation, you may modify the contents of 'Buf[]' directly. You need to update 'BufTextLen' accordingly (0 <= BufTextLen < BufSize) and set 'BufDirty'' to true so InputText can update its internal state.
     ImWchar             EventChar;      // Character input                      // Read-write   // [CharFilter] Replace character with another one, or set to zero to drop. return 1 is equivalent to setting EventChar=0;
     ImGuiKey            EventKey;       // Key pressed (Up/Down/TAB)            // Read-only    // [Completion,History]
-    char*               Buf;            // Text buffer                          // Read-write   // [Resize] Can replace pointer / [Completion,History,Always] Only write to pointed data, don't replace the actual pointer!
-    int                 BufTextLen;     // Text length (in bytes)               // Read-write   // [Resize,Completion,History,Always] Exclude zero-terminator storage. In C land: == strlen(some_text), in C++ land: string.length()
-    int                 BufSize;        // Buffer size (in bytes) = capacity+1  // Read-only    // [Resize,Completion,History,Always] Include zero-terminator storage. In C land == ARRAYSIZE(my_char_array), in C++ land: string.capacity()+1
-    bool                BufDirty;       // Set if you modify Buf/BufTextLen!    // Write        // [Completion,History,Always]
-    int                 CursorPos;      //                                      // Read-write   // [Completion,History,Always]
-    int                 SelectionStart; //                                      // Read-write   // [Completion,History,Always] == to SelectionEnd when no selection)
-    int                 SelectionEnd;   //                                      // Read-write   // [Completion,History,Always]
+    char*               Buf;            // Text buffer                          // Read-write   // [Resize] Can replace pointer / [Completion,History,TRIGGER_ALWAYS] Only write to pointed data, don't replace the actual pointer!
+    int                 BufTextLen;     // Text length (in bytes)               // Read-write   // [Resize,Completion,History,TRIGGER_ALWAYS] Exclude zero-terminator storage. In C land: == strlen(some_text), in C++ land: string.length()
+    int                 BufSize;        // Buffer size (in bytes) = capacity+1  // Read-only    // [Resize,Completion,History,TRIGGER_ALWAYS] Include zero-terminator storage. In C land == ARRAYSIZE(my_char_array), in C++ land: string.capacity()+1
+    bool                BufDirty;       // Set if you modify Buf/BufTextLen!    // Write        // [Completion,History,TRIGGER_ALWAYS]
+    int                 CursorPos;      //                                      // Read-write   // [Completion,History,TRIGGER_ALWAYS]
+    int                 SelectionStart; //                                      // Read-write   // [Completion,History,TRIGGER_ALWAYS] == to SelectionEnd when no selection)
+    int                 SelectionEnd;   //                                      // Read-write   // [Completion,History,TRIGGER_ALWAYS]
 
     // Helper functions for text manipulation.
     // Use those function to benefit from the CallbackResize behaviors. Calling those function reset the selection.
@@ -3234,7 +3234,7 @@ struct ImDrawData
     ImDrawData()    { Clear(); }
     IMGUI_API void  Clear();
     IMGUI_API void  AddDrawList(ImDrawList* draw_list);     // Helper to add an external draw list into an existing ImDrawData.
-    IMGUI_API void  DeIndexAllBuffers();                    // Helper to convert all buffers from indexed to non-indexed, in case you cannot render indexed. Note: this is slow and most likely a waste of resources. Always prefer indexed rendering!
+    IMGUI_API void  DeIndexAllBuffers();                    // Helper to convert all buffers from indexed to non-indexed, in case you cannot render indexed. Note: this is slow and most likely a waste of resources. TRIGGER_ALWAYS prefer indexed rendering!
     IMGUI_API void  ScaleClipRects(const ImVec2& fb_scale); // Helper to scale the ClipRect field of each ImDrawCmd. Use if your final output buffer is at a different scale than Dear ImGui expects, or if there is a difference between your window resolution and framebuffer resolution.
 };
 
@@ -3600,9 +3600,9 @@ namespace ImGui
     static inline void  PopButtonRepeat()                                       { PopItemFlag(); }
     static inline void  PushTabStop(bool tab_stop)                              { PushItemFlag(ImGuiItemFlags_NoTabStop, !tab_stop); }
     static inline void  PopTabStop()                                            { PopItemFlag(); }
-    IMGUI_API ImVec2    GetContentRegionMax();                                  // Content boundaries max (e.g. window boundaries including scrolling, or current column boundaries). You should never need this. Always use GetCursorScreenPos() and GetContentRegionAvail()!
-    IMGUI_API ImVec2    GetWindowContentRegionMin();                            // Content boundaries min for the window (roughly (0,0)-Scroll), in window-local coordinates. You should never need this. Always use GetCursorScreenPos() and GetContentRegionAvail()!
-    IMGUI_API ImVec2    GetWindowContentRegionMax();                            // Content boundaries max for the window (roughly (0,0)+Size-Scroll), in window-local coordinates. You should never need this. Always use GetCursorScreenPos() and GetContentRegionAvail()!
+    IMGUI_API ImVec2    GetContentRegionMax();                                  // Content boundaries max (e.g. window boundaries including scrolling, or current column boundaries). You should never need this. TRIGGER_ALWAYS use GetCursorScreenPos() and GetContentRegionAvail()!
+    IMGUI_API ImVec2    GetWindowContentRegionMin();                            // Content boundaries min for the window (roughly (0,0)-Scroll), in window-local coordinates. You should never need this. TRIGGER_ALWAYS use GetCursorScreenPos() and GetContentRegionAvail()!
+    IMGUI_API ImVec2    GetWindowContentRegionMax();                            // Content boundaries max for the window (roughly (0,0)+Size-Scroll), in window-local coordinates. You should never need this. TRIGGER_ALWAYS use GetCursorScreenPos() and GetContentRegionAvail()!
     // OBSOLETED in 1.90.0 (from September 2023)
     static inline bool  BeginChildFrame(ImGuiID id, const ImVec2& size, ImGuiWindowFlags window_flags = 0)  { return BeginChild(id, size, ImGuiChildFlags_FrameStyle, window_flags); }
     static inline void  EndChildFrame()                                                                     { EndChild(); }
