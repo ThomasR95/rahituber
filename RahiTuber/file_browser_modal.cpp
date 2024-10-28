@@ -2,12 +2,20 @@
 
 #include <limits>
 #include <imgui.h>
+#include "imgui-SFML.h"
+#include "imgui_internal.h"
 
-#include <Windows.h>
-#include <fileapi.h>
+#ifdef _WIN32
+    #include <Windows.h>
+    #include <fileapi.h>
+#else
+    #define MAX_PATH 4095
+    #include <mntent.h>
+#endif
 
 using namespace imgui_ext;
 
+#ifdef _WIN32
 std::vector<std::wstring> GetVolumePaths(
   __in PWCHAR VolumeName
 )
@@ -72,6 +80,30 @@ std::vector<std::wstring> GetVolumePaths(
 
   return outNames;
 }
+#else
+std::vector<std::wstring> GetVolumePaths(const wchar_t* VolumeName)
+{
+    std::vector<std::wstring> outNames;
+    FILE* mountTable = setmntent("/etc/mtab", "r");
+    if (mountTable == NULL)
+    {
+        outNames.push_back(L"Failed to open mount table");
+        return outNames;
+    }
+
+    struct mntent* mountEntry;
+    while ((mountEntry = getmntent(mountTable)) != NULL)
+    {
+        if (wcscmp(VolumeName, std::wstring(mountEntry->mnt_dir, mountEntry->mnt_dir + strlen(mountEntry->mnt_dir)).c_str()) == 0)
+        {
+            outNames.push_back(std::wstring(mountEntry->mnt_dir, mountEntry->mnt_dir + strlen(mountEntry->mnt_dir)));
+        }
+    }
+
+    endmntent(mountTable);
+    return outNames;
+}
+#endif
 
 static void get_files_in_path(const fs::path& path, std::vector<file>& files, std::vector<std::string>& acceptedExt) {
   files.clear();
@@ -81,7 +113,7 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
     if (path.parent_path() == path)
     {
 
-
+#ifdef _WIN32
       WCHAR  volumeName[MAX_PATH] = L"";
       WCHAR  deviceName[MAX_PATH] = L"";
       HANDLE handle = INVALID_HANDLE_VALUE;
@@ -137,6 +169,45 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
           foundDrive = FindNextVolumeW(handle, volumeName, ARRAYSIZE(volumeName));
         }
         FindVolumeClose(handle);
+#else
+        wchar_t volumeName[MAX_PATH] = L"";
+        wchar_t deviceName[MAX_PATH] = L"";
+        FILE* handle = setmntent("/etc/mtab", "r");
+
+        if (handle != NULL)
+        {
+            bool foundDrive = true;
+            struct mntent* mountEntry;
+            while (foundDrive && (mountEntry = getmntent(handle)) != NULL)
+            {
+                std::string volumeStr = mountEntry->mnt_dir;
+                std::mbstowcs(volumeName, volumeStr.c_str(), volumeStr.size() + 1);
+                auto paths = GetVolumePaths(volumeName);
+
+                if (!paths.empty())
+                {
+                    std::wstring driveNameString = paths[0];
+                    fs::path drive(driveNameString);
+                    bool valid = true;
+                    try{
+                        valid = fs::exists(drive);
+                    } catch (fs::filesystem_error& err){
+                        valid = false;
+                    }
+
+                    if (valid)
+                    {
+                        files.push_back({
+                            "[Switch to " + drive.u8string() + "]",
+                            drive
+                        });
+                    }
+                }
+                foundDrive = (mountEntry != NULL);
+            }
+            endmntent(handle);
+
+#endif
        
       }
     }

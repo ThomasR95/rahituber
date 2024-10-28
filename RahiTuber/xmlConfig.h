@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Config.h"
-#include "tinyxml2\tinyxml2.h"
+#include "tinyxml2/tinyxml2.h"
 
 class xmlConfigLoader
 {

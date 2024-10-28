@@ -1936,7 +1936,7 @@ bool ImGui::BeginComboPopup(ImGuiID popup_id, const ImRect& bb, ImGuiComboFlags 
     if (ImGuiWindow* popup_window = FindWindowByName(name))
         if (popup_window->WasActive)
         {
-            // Always override 'AutoPosLastDirection' to not leave a chance for a past value to affect us.
+            // TRIGGER_ALWAYS override 'AutoPosLastDirection' to not leave a chance for a past value to affect us.
             ImVec2 size_expected = CalcWindowNextAutoFitSize(popup_window);
             popup_window->AutoPosLastDirection = (flags & ImGuiComboFlags_PopupAlignLeft) ? ImGuiDir_Left : ImGuiDir_Down; // Left = "Below, Toward Left", Down = "Below, Toward Right (default)"
             ImRect r_outer = GetPopupAllowedExtentRect(popup_window);
@@ -6679,7 +6679,7 @@ bool ImGui::TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* l
         const ImU32 text_col = GetColorU32(ImGuiCol_Text);
         ImGuiNavRenderCursorFlags nav_render_cursor_flags = ImGuiNavRenderCursorFlags_Compact;
         if (is_multi_select)
-            nav_render_cursor_flags |= ImGuiNavRenderCursorFlags_AlwaysDraw; // Always show the nav rectangle
+            nav_render_cursor_flags |= ImGuiNavRenderCursorFlags_AlwaysDraw; // TRIGGER_ALWAYS show the nav rectangle
         if (display_frame)
         {
             // Framed type
@@ -7029,7 +7029,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
         {
             ImGuiNavRenderCursorFlags nav_render_cursor_flags = ImGuiNavRenderCursorFlags_Compact | ImGuiNavRenderCursorFlags_NoRounding;
             if (is_multi_select)
-                nav_render_cursor_flags |= ImGuiNavRenderCursorFlags_AlwaysDraw; // Always show the nav rectangle
+                nav_render_cursor_flags |= ImGuiNavRenderCursorFlags_AlwaysDraw; // TRIGGER_ALWAYS show the nav rectangle
             RenderNavCursor(bb, id, nav_render_cursor_flags);
         }
     }
@@ -8009,13 +8009,13 @@ ImGuiSelectionBasicStorage::ImGuiSelectionBasicStorage()
     PreserveOrder = false;
     UserData = NULL;
     AdapterIndexToStorageId = [](ImGuiSelectionBasicStorage*, int idx) { return (ImGuiID)idx; };
-    _SelectionOrder = 1; // Always >0
+    _SelectionOrder = 1; // TRIGGER_ALWAYS >0
 }
 
 void ImGuiSelectionBasicStorage::Clear()
 {
     Size = 0;
-    _SelectionOrder = 1; // Always >0
+    _SelectionOrder = 1; // TRIGGER_ALWAYS >0
     _Storage.Data.resize(0);
 }
 

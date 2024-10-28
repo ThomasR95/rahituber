@@ -4,13 +4,18 @@
 #include "SFML/Main.hpp"
 #include "SFML/System.hpp"
 
-
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
+#ifndef _WIN32
+typedef  __uint32_t uint32_t;
+typedef  __uint8_t uint8_t;
+#endif
+
 static uint32_t _ntohl(uint32_t const net) {
 	uint8_t data[4] = {};
-	memcpy(&data, &net, sizeof(data));
+    std::memcpy(&data, &net, sizeof(data));
 
 	return ((uint32_t)data[3] << 0)
 		| ((uint32_t)data[2] << 8)

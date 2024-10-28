@@ -53,7 +53,7 @@
 	06.06.19 - Increase default maximum sender names from 10 to 256 = 64K
 			   RegisterSenderName - check for exceed maximum number of senders
 			   SetMaxSenders - set max to the registry for other applications to read
-	25.02.20 - Correct FindSenderName. Always returned true for one sender.
+	25.02.20 - Correct FindSenderName. TRIGGER_ALWAYS returned true for one sender.
 	21.07.20 - Change default max senders from 256 to 64
 	28.08.20 - Correct in SpoutSettings
 	24.09.20 - Add GetPartnerID and SetPartnerID

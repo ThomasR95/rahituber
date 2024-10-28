@@ -864,7 +864,7 @@ std::string spoutGL::GLformatName(GLint glformat)
 // and is reported after creation.
 //
 // Not necessary if an OpenGL context is already available.
-// Always call CloseOpenGL() on application close.
+// TRIGGER_ALWAYS call CloseOpenGL() on application close.
 //
 // OpenGL support is required.
 // Include in your application header file :

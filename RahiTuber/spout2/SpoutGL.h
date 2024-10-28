@@ -194,7 +194,7 @@ class SPOUT_DLLEXP spoutGL {
 
 	// Create an OpenGL window and context for situations where there is none.
 	//   Not used if applications already have an OpenGL context.
-	//   Always call CloseOpenGL afterwards.
+	//   TRIGGER_ALWAYS call CloseOpenGL afterwards.
 	bool CreateOpenGL();
 	// Close OpenGL window
 	bool CloseOpenGL();

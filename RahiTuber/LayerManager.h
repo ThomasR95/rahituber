@@ -9,7 +9,7 @@
 
 #include "SpriteSheet.h"
 
-#include "tinyxml2\tinyxml2.h"
+#include "tinyxml2/tinyxml2.h"
 
 #include <deque>
 
@@ -22,6 +22,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include <thread>
+
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Normal", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
@@ -29,7 +31,7 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Darken", sf::BlendMode(sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::One, sf::BlendMode::Min,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
-	{"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
+    {"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Multiply", sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												     sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
@@ -275,12 +277,12 @@ public:
 		bool _wasTriggered = false;
 
 		enum CanTrigger {
-			Always,
-			WhileTalking,
-			WhileIdle
+			TRIGGER_ALWAYS,
+			TRIGGER_WHILE_TALKING,
+			TRIGGER_WHILE_IDLE
 		};
 
-		CanTrigger _canTrigger = Always;
+		CanTrigger _canTrigger = TRIGGER_ALWAYS;
 		float _threshold = 0.4f;
 
 		bool _axisWasTriggered = false;
