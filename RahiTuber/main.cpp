@@ -147,24 +147,24 @@ void LoadCustomFont()
 {
 	ImGuiIO& io = ImGui::GetIO();
 
-    io.Fonts->AddFontDefault();
+	io.Fonts->AddFontDefault();
 
 	ImFontConfig cfg;
 	cfg.OversampleH = 1;
 	cfg.SizePixels = 13.f;
-    //cfg.MergeMode = true;
+	//cfg.MergeMode = true;
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
 
-    fs::path fontpath(appConfig->_appLocation + "res/monof55.ttf");
-    if(!fs::exists(fontpath))
-        return;
+	fs::path fontpath(appConfig->_appLocation + "res/monof55.ttf");
+	if (!fs::exists(fontpath))
+		return;
 
-    ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 13.f, &cfg);
-    if(result == nullptr)
-        return;
+	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 13.f, &cfg);
+	if (result == nullptr)
+		return;
 
-    io.FontDefault = result;
+	io.FontDefault = result;
 
 	if (!io.Fonts->IsBuilt())
 	{
@@ -244,7 +244,7 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-                appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
+				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -348,7 +348,7 @@ void initWindow(bool firstStart = false)
 		}
 	}
 
-    //setWindowTransparency(display, hwnd, appConfig->_transparent);
+	//setWindowTransparency(display, hwnd, appConfig->_transparent);
 
 	XCloseDisplay(display);
 #endif
@@ -544,22 +544,22 @@ void menuAdvanced(ImGuiStyle& style)
 			{
 				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
 				EnableWindow(appConfig->_window.getSystemHandle(), true);
-            }
-// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
-// #else
-//             Display* display = XOpenDisplay(NULL);
-//             if (display != NULL)
-//             {
-//                 Window wind = appConfig->_window.getSystemHandle();
+			}
+			// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
+			// #else
+			//             Display* display = XOpenDisplay(NULL);
+			//             if (display != NULL)
+			//             {
+			//                 Window wind = appConfig->_window.getSystemHandle();
 
-//                 setWindowTransparency(display, wind, appConfig->_transparent);
-//                 setWindowProperties(display, wind);
+			//                 setWindowTransparency(display, wind, appConfig->_transparent);
+			//                 setWindowProperties(display, wind);
 
-//                 enableWindow(display, wind, true);
-//                 XCloseDisplay(display);
-//             }
-// #endif
-        }
+			//                 enableWindow(display, wind, true);
+			//                 XCloseDisplay(display);
+			//             }
+			// #endif
+		}
 		ToolTip("Turns the app background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
@@ -574,10 +574,10 @@ void menuAdvanced(ImGuiStyle& style)
 				SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 			else
 				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        }
+		}
 		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
 
-        ImGui::TableNextColumn();
+		ImGui::TableNextColumn();
 #endif
 
 		//if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
@@ -586,7 +586,7 @@ void menuAdvanced(ImGuiStyle& style)
 		//}
 		//ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
 
-        //ImGui::TableNextColumn();
+				//ImGui::TableNextColumn();
 
 		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
 		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
@@ -877,7 +877,7 @@ void menu()
 	if (appConfig->_menuPopped)
 		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
 	else
-        ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 
 	auto& style = ImGui::GetStyle();
 	style.FrameRounding = 4;
@@ -1036,7 +1036,7 @@ void menu()
 	if (appConfig->_menuPopped)
 	{
 		ImGui::EndFrame();
-        ImGui::SFML::Render(appConfig->_menuWindow);
+		ImGui::SFML::Render(appConfig->_menuWindow);
 		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 	}
 
@@ -1102,11 +1102,11 @@ void render()
 	if (appConfig->_transparent)
 	{
 		appConfig->_window.clear(sf::Color(0, 0, 0, 0));
-        appConfig->_window.setActive(true);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+		appConfig->_window.setActive(true);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
+		appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
 	}
 	else
 	{
@@ -1192,7 +1192,7 @@ void render()
 			appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
 			appConfig->_menuRT.draw(appConfig->bars[bar]);
 		}
-}
+	}
 #endif
 
 	if (uiConfig->_cornerGrabbed.first)
@@ -1268,7 +1268,7 @@ void RecordHotkey(sf::Event& evt, int& retFlag)
 		{
 			layerMan->SetHotkeys(evt);
 			if (uiConfig->_menuShowing == true && appConfig->_menuPopped == false)
-                ImGui::SFML::ProcessEvent(appConfig->_window, evt);
+				ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 			{ retFlag = 3; return; };
 		}
 	}
@@ -1547,7 +1547,10 @@ void doAudioAnalysis()
 			audioConfig->_frameHi = magnitude;
 	}
 
-	audioConfig->_smoothAmount = appConfig->_fps / audioConfig->_smoothFactor;
+	if (appConfig->_fps != 0)
+		audioConfig->_smoothAmount = appConfig->_fps / audioConfig->_smoothFactor;
+	else
+		audioConfig->_smoothAmount = 1.0;
 
 	if (audioConfig->_frameHi != 0.0)
 	{
@@ -1683,22 +1686,22 @@ static int ApplicationSetup()
 {
 	PaError err = paNoError;
 
-    time_t current_time = time(nullptr);
+	time_t current_time = time(nullptr);
 
 #ifdef _WIN32
-    char buf[26];
-    ctime_s(buf, sizeof(buf), &current_time);
-    std::string time_string(buf);
-    time_string.erase(24);
+	char buf[26];
+	ctime_s(buf, sizeof(buf), &current_time);
+	std::string time_string(buf);
+	time_string.erase(24);
 #else
-    char buf[26];
-    std::strftime(buf, sizeof(buf), "%c", std::localtime(&current_time));
-    std::string time_string(buf);
+	char buf[26];
+	std::strftime(buf, sizeof(buf), "%c", std::localtime(&current_time));
+	std::string time_string(buf);
 #endif
 
 	std::srand(time(0));
 
-	appConfig = new AppConfig();	
+	appConfig = new AppConfig();
 
 #ifdef _WIN32
 	CHAR fname[512];
@@ -1727,28 +1730,28 @@ static int ApplicationSetup()
 	logToFile(appConfig, "Initialising LayerManager");
 	layerMan->Init(appConfig, uiConfig);
 
-    { // scope to destruct verFile when finished
-        logToFile(appConfig, "Checking Version");
-        std::ifstream verFile;
-        verFile.open(appConfig->_appLocation + "buildnumber.txt");
-        if (verFile)
-        {
-            verFile.seekg(0, verFile.end);
-            int length = verFile.tellg();
-            verFile.seekg(0, verFile.beg);
+	{ // scope to destruct verFile when finished
+		logToFile(appConfig, "Checking Version");
+		std::ifstream verFile;
+		verFile.open(appConfig->_appLocation + "buildnumber.txt");
+		if (verFile)
+		{
+			verFile.seekg(0, verFile.end);
+			int length = verFile.tellg();
+			verFile.seekg(0, verFile.beg);
 
-            std::string buf;
-            buf.resize(length + 1, 0);
-            verFile.read(buf.data(), length);
-            appConfig->_versionNumber = std::stod(buf, nullptr);
+			std::string buf;
+			buf.resize(length + 1, 0);
+			verFile.read(buf.data(), length);
+			appConfig->_versionNumber = std::stod(buf, nullptr);
 
-            if (appConfig->_checkForUpdates)
-            {
-                logToFile(appConfig, "Checking for Updates");
-                CheckUpdates();
-            }
-        }
-    }
+			if (appConfig->_checkForUpdates)
+			{
+				logToFile(appConfig, "Checking for Updates");
+				CheckUpdates();
+			}
+		}
+	}
 
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;
@@ -1835,8 +1838,8 @@ static int ApplicationSetup()
 				//delete kbdTrack;
 				return 1;
 			}
-			}
 		}
+	}
 
 	if (appConfig->_lastLayerSet.empty())
 	{
@@ -1910,13 +1913,12 @@ static int ApplicationSetup()
 		std::cout << hostInfo->name << std::endl;
 	}
 
-
 	audioConfig->_nDevices = Pa_GetDeviceCount();
 	audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
 	double sRate = 44100;
-    int defInputIdx = Pa_GetDefaultInputDevice();
+	int defInputIdx = Pa_GetDefaultInputDevice();
 
-    logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
+	logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
 
 	if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
 	{
@@ -1925,16 +1927,16 @@ static int ApplicationSetup()
 		{
 			auto info = Pa_GetDeviceInfo(dI);
 			std::string name = info->name;
-            if (dI == defInputIdx)
+			if (dI == defInputIdx)
 			{
-                logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
+				logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
 				audioConfig->_devIdx = dI;
 				break;
 			}
 		}
 
 		if (audioConfig->_devIdx == -1)
-            audioConfig->_devIdx = 0;
+			audioConfig->_devIdx = 0;
 	}
 
 	if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
@@ -1945,37 +1947,21 @@ static int ApplicationSetup()
 		audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
 		audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
 		sRate = info->defaultSampleRate;
-
-		audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
-		audioConfig->_frameHi = 0;
-		audioConfig->_runningAverage = 0;
-
-		audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-		audioConfig->_midHi = 0;
-		audioConfig->_midAverage = 0;
-
-		audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-		audioConfig->_bassHi = 0;
-		audioConfig->_bassAverage = 0;
-
-		audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-		audioConfig->_trebleHi = 0;
-		audioConfig->_trebleAverage = 0;
 	}
 
 	logToFile(appConfig, "PortAudio opening stream");
 	err = Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
-    if (err != paNoError)
-    {
-        auto errorMsg = Pa_GetErrorText(err);
-        logToFile(appConfig, errorMsg);
-    }
-    err = Pa_StartStream(audioConfig->_audioStr);
-    if (err != paNoError)
-    {
-        auto errorMsg = Pa_GetErrorText(err);
-        logToFile(appConfig, errorMsg);
-    }
+	if (err != paNoError)
+	{
+		auto errorMsg = Pa_GetErrorText(err);
+		logToFile(appConfig, errorMsg);
+	}
+	err = Pa_StartStream(audioConfig->_audioStr);
+	if (err != paNoError)
+	{
+		auto errorMsg = Pa_GetErrorText(err);
+		logToFile(appConfig, errorMsg);
+	}
 
 	logToFile(appConfig, "Focusing main window");
 	//request focus and start the game loop
@@ -1986,11 +1972,27 @@ static int ApplicationSetup()
 	//dummyFocus.type = sf::Event::GainedFocus;
 	//ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
 
+	audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
+	audioConfig->_frameHi = 0;
+	audioConfig->_runningAverage = 0;
+
+	audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+	audioConfig->_midHi = 0;
+	audioConfig->_midAverage = 0;
+
+	audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+	audioConfig->_bassHi = 0;
+	audioConfig->_bassAverage = 0;
+
+	audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+	audioConfig->_trebleHi = 0;
+	audioConfig->_trebleAverage = 0;
+
 	audioConfig->_quietTimer.restart();
 
-    //logToFile(appConfig, "Setup Complete!");
+	logToFile(appConfig, "Setup Complete!");
 
-    return 0;
+	return 0;
 }
 
 static void MainLoop()
