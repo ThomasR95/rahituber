@@ -1,6 +1,5 @@
 ﻿#include <string>
 #include <iostream>
-
 #include <random>
 #include <deque>
 
@@ -29,6 +28,9 @@
 #include <Windows.h>
 #include <fileapi.h>
 #include <Dwmapi.h>
+
+#include "CrashHandler.h"
+
 #pragma comment (lib, "Dwmapi.lib")
 #endif
 
@@ -1012,8 +1014,6 @@ void menu()
 
 	ImGui::Separator();
 
-	time_t timeNow = time(0);
-
 	float milliseconds = appConfig->_runTime.getElapsedTime().asMilliseconds();
 	float pulse = sin(milliseconds / 300.f);
 
@@ -1117,8 +1117,7 @@ void render()
 	appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
 
 	float audioLevel = audioConfig->_midAverage;
-	if (audioConfig->_doFiltering)
-		audioLevel = Max(0.f, audioConfig->_midAverage - (audioConfig->_trebleAverage + 0.2f * audioConfig->_bassAverage));
+
 
 	if (audioConfig->_compression)
 	{
@@ -1580,13 +1579,17 @@ void doAudioAnalysis()
 
 		if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
 
-		audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
-		audioConfig->_midAverage += audioConfig->_midHi / audioConfig->_smoothAmount;
-		if (audioConfig->_midHi > audioConfig->_midAverage)
-			audioConfig->_midAverage = audioConfig->_midHi;
+		float midHi = audioConfig->_midHi;
+		if (audioConfig->_doFiltering)
+			midHi = Max(0.f, midHi - (audioConfig->_trebleHi + 0.2f * audioConfig->_bassHi));
 
-		if (audioConfig->_midHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
-			audioConfig->_midMax = audioConfig->_midHi;
+		audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
+		audioConfig->_midAverage += midHi / audioConfig->_smoothAmount;
+		if (midHi > audioConfig->_midAverage)
+			audioConfig->_midAverage = midHi;
+
+		if (midHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
+			audioConfig->_midMax = midHi;
 		else
 			audioConfig->_midMax = audioConfig->_fixedMax;
 
@@ -1601,6 +1604,7 @@ void doAudioAnalysis()
 			audioConfig->_trebleMax = audioConfig->_trebleHi;
 		else
 			audioConfig->_trebleMax = audioConfig->_fixedMax;
+
 	}
 
 	//As long as the music is loud enough the current max is good
@@ -1675,13 +1679,26 @@ static void CheckUpdates()
 	}
 }
 
-int main()
+static int ApplicationSetup()
 {
 	PaError err = paNoError;
 
+    time_t current_time = time(nullptr);
+
+#ifdef _WIN32
+    char buf[26];
+    ctime_s(buf, sizeof(buf), &current_time);
+    std::string time_string(buf);
+    time_string.erase(24);
+#else
+    char buf[26];
+    std::strftime(buf, sizeof(buf), "%c", std::localtime(&current_time));
+    std::string time_string(buf);
+#endif
+
 	std::srand(time(0));
 
-	appConfig = new AppConfig();
+	appConfig = new AppConfig();	
 
 #ifdef _WIN32
 	CHAR fname[512];
@@ -1695,57 +1712,73 @@ int main()
 	appConfig->_appLocation = getAppLocation();
 #endif
 
+	logToFile(appConfig, "RahiTuber started " + time_string, true);
+
+	appConfig->lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
+
+	logToFile(appConfig, "Creating UIConfig");
 	uiConfig = new UIConfig();
+
+	logToFile(appConfig, "Creating AudioConfig");
 	audioConfig = new AudioConfig();
 
+	logToFile(appConfig, "Creating LayerManager");
 	layerMan = new LayerManager();
+	logToFile(appConfig, "Initialising LayerManager");
 	layerMan->Init(appConfig, uiConfig);
 
-	std::ifstream verFile;
-	verFile.open(appConfig->_appLocation + "buildnumber.txt");
-	if (verFile)
-	{
-		verFile.seekg(0, verFile.end);
-		int length = verFile.tellg();
-		verFile.seekg(0, verFile.beg);
+    { // scope to destruct verFile when finished
+        logToFile(appConfig, "Checking Version");
+        std::ifstream verFile;
+        verFile.open(appConfig->_appLocation + "buildnumber.txt");
+        if (verFile)
+        {
+            verFile.seekg(0, verFile.end);
+            int length = verFile.tellg();
+            verFile.seekg(0, verFile.beg);
 
-		std::string buf;
-		buf.resize(length + 1, 0);
-		verFile.read(buf.data(), length);
-		appConfig->_versionNumber = std::stod(buf, nullptr);
+            std::string buf;
+            buf.resize(length + 1, 0);
+            verFile.read(buf.data(), length);
+            appConfig->_versionNumber = std::stod(buf, nullptr);
 
-		if (appConfig->_checkForUpdates)
-		{
-			CheckUpdates();
-		}
-	}
-	verFile.close();
+            if (appConfig->_checkForUpdates)
+            {
+                logToFile(appConfig, "Checking for Updates");
+                CheckUpdates();
+            }
+        }
+    }
 
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;
 
 	getWindowSizes();
 
-	xmlConfigLoader xmlLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
+	logToFile(appConfig, "Creating XML loader");
+	appConfig->_loader = new xmlConfigLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
 
 	bool retry = true;
 	while (retry)
 	{
 		retry = false;
 		bool loadValid = false;
-		appConfig->_loader = &xmlLoader;
-		loadValid |= xmlLoader.loadCommon();
-		loadValid |= xmlLoader.loadPresetNames();
+		logToFile(appConfig, "Loading common settings");
+		loadValid |= appConfig->_loader->loadCommon();
+
+		logToFile(appConfig, "Loading preset settings");
+		loadValid |= appConfig->_loader->loadPresetNames();
 
 		if (loadValid == false)
 		{
-
+			logToFile(appConfig, "Failed to load config.xml");
 #ifdef _WIN32
 			std::wstring message(L"Failed to load config.xml.");
-			if (xmlLoader._errorMessage.empty() == false)
+			std::string errMsgCopy = appConfig->_loader->_errorMessage;
+			if (errMsgCopy.empty() == false)
 			{
 				message += L"\n\nMessage: ";
-				message += std::wstring(xmlLoader._errorMessage.begin(), xmlLoader._errorMessage.end());
+				message += std::wstring(errMsgCopy.begin(), errMsgCopy.end());
 			}
 			message += L"\n\nPress OK to recreate config.xml and try again. Press Cancel to try manually fixing the config.xml file.";
 
@@ -1754,10 +1787,10 @@ int main()
 			{
 #else
 			std::string message("Failed to load config.xml.");
-			if (xmlLoader._errorMessage.empty() == false)
+			if (appConfig->_loader->_errorMessage.empty() == false)
 			{
 				message += "\n\nMessage: ";
-				message += xmlLoader._errorMessage;
+				message += appConfig->_loader->_errorMessage;
 			}
 			message += "\n\nPress 'y' to recreate config.xml and try again. Press 'n' to try manually fixing the config.xml file.";
 
@@ -1774,7 +1807,7 @@ int main()
 				if (ret == 0 || errno == ENOENT)
 				{
 					printf("File deleted successfully");
-					xmlLoader.saveCommon();
+					appConfig->_loader->saveCommon();
 					break;
 				}
 				else
@@ -1802,13 +1835,13 @@ int main()
 				//delete kbdTrack;
 				return 1;
 			}
+			}
 		}
-	}
-
-	const std::string lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
 
 	if (appConfig->_lastLayerSet.empty())
-		layerMan->LoadLayers(lastLayerSettingsFile);
+	{
+		layerMan->LoadLayers(appConfig->lastLayerSettingsFile);
+	}
 
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 
@@ -1829,6 +1862,7 @@ int main()
 	uiConfig->_moveIcon.setSmooth(true);
 	uiConfig->_moveIconSprite.setTexture(uiConfig->_moveIcon, true);
 
+	logToFile(appConfig, "Initialising app windows");
 	initWindow(true);
 	ImGui::SFML::Init(appConfig->_window);
 	ImGui::SFML::Init(appConfig->_menuWindow);
@@ -1837,9 +1871,11 @@ int main()
 	ImGui::GetStyle().Alpha = 1.0;
 
 	ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
+	logToFile(appConfig, "Loading font in menu window.");
 	LoadCustomFont();
 
 	ImGui::SFML::SetCurrentWindow(appConfig->_window);
+	logToFile(appConfig, "Loading font in main window.");
 	LoadCustomFont();
 
 	//setup debug bars
@@ -1853,6 +1889,7 @@ int main()
 		appConfig->bars[b].setFillColor({ 255, 255, 255, 50 });
 	}
 
+	logToFile(appConfig, "Initializing PortAudio");
 	//initialise PortAudio
 	err = Pa_Initialize();
 	if (err != paNoError)
@@ -1861,22 +1898,25 @@ int main()
 		exit(1);
 	}
 
-    int apiCount = Pa_GetHostApiCount();
-    if(apiCount <= 0)
-    {
-        std::cout<< "PortAudio found no host APIs" <<std::endl;
-    }
-    for(int api = 0; api < apiCount; api++)
-    {
-        const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo ( api);
-        std::cout<< hostInfo->name <<std::endl;
-    }
+	int apiCount = Pa_GetHostApiCount();
+	if (apiCount <= 0)
+	{
+		logToFile(appConfig, "PortAudio found no host APIs");
+		std::cout << "PortAudio found no host APIs" << std::endl;
+	}
+	for (int api = 0; api < apiCount; api++)
+	{
+		const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo(api);
+		std::cout << hostInfo->name << std::endl;
+	}
 
 
 	audioConfig->_nDevices = Pa_GetDeviceCount();
 	audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
 	double sRate = 44100;
-	auto defOutInf = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
+    int defInputIdx = Pa_GetDefaultInputDevice();
+
+    logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
 
 	if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
 	{
@@ -1885,15 +1925,16 @@ int main()
 		{
 			auto info = Pa_GetDeviceInfo(dI);
 			std::string name = info->name;
-			if (name.find("Microphone") != std::string::npos)
+            if (dI == defInputIdx)
 			{
+                logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
 				audioConfig->_devIdx = dI;
 				break;
 			}
 		}
 
 		if (audioConfig->_devIdx == -1)
-			audioConfig->_devIdx = 0;
+            audioConfig->_devIdx = 0;
 	}
 
 	if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
@@ -1922,21 +1963,38 @@ int main()
 		audioConfig->_trebleAverage = 0;
 	}
 
+	logToFile(appConfig, "PortAudio opening stream");
 	err = Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
-	auto errorMsg = Pa_GetErrorText(err);
-	err = Pa_StartStream(audioConfig->_audioStr);
-	errorMsg = Pa_GetErrorText(err);
+    if (err != paNoError)
+    {
+        auto errorMsg = Pa_GetErrorText(err);
+        logToFile(appConfig, errorMsg);
+    }
+    err = Pa_StartStream(audioConfig->_audioStr);
+    if (err != paNoError)
+    {
+        auto errorMsg = Pa_GetErrorText(err);
+        logToFile(appConfig, errorMsg);
+    }
 
+	logToFile(appConfig, "Focusing main window");
 	//request focus and start the game loop
 	appConfig->_window.requestFocus();
 
-	sf::Event dummyFocus;
-	dummyFocus.type = sf::Event::GainedFocus;
-	ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
+	// SFML doesn't always actually focus
+	//sf::Event dummyFocus;
+	//dummyFocus.type = sf::Event::GainedFocus;
+	//ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
 
 	audioConfig->_quietTimer.restart();
 
-	////////////////////////////////////// MAIN LOOP /////////////////////////////////////
+    //logToFile(appConfig, "Setup Complete!");
+
+    return 0;
+}
+
+static void MainLoop()
+{
 	while (appConfig->_window.isOpen())
 	{
 		doAudioAnalysis();
@@ -1954,7 +2012,10 @@ int main()
 
 		sf::sleep(sf::milliseconds(8));
 	}
+}
 
+static void Cleanup()
+{
 	//kbdTrack->SetHook(false);
 
 	Pa_StopStream(audioConfig->_audioStr);
@@ -1963,9 +2024,9 @@ int main()
 
 	appConfig->_lastLayerSet = layerMan->LastUsedLayerSet();
 
-	xmlLoader.saveCommon();
+	appConfig->_loader->saveCommon();
 
-	layerMan->SaveLayers(lastLayerSettingsFile);
+	layerMan->SaveLayers(appConfig->lastLayerSettingsFile);
 
 	delete layerMan;
 
@@ -1976,6 +2037,8 @@ int main()
 
 	if (appConfig->_menuWindow.isOpen())
 		appConfig->_menuWindow.close();
+
+	delete appConfig->_loader;
 
 	delete appConfig;
 	delete uiConfig;
@@ -1988,7 +2051,31 @@ int main()
 	}
 #endif
 	//delete kbdTrack;
+}
+
+int main()
+{
+
+#if defined(_WIN32)// && defined(DEBUG)
+	__try
+	{
+#endif
+
+		ApplicationSetup();
+
+		////////////////////////////////////// MAIN LOOP /////////////////////////////////////
+		MainLoop();
+
+		Cleanup();
+
+#if defined(_WIN32)// && defined(DEBUG)
+	}
+	__except (CrashHandler::CreateMiniDump(GetExceptionInformation(), appConfig), EXCEPTION_EXECUTE_HANDLER)
+	{
+		Cleanup();
+	}
+#endif
 
 	return 0;
+}
 
-	}

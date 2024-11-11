@@ -34,6 +34,7 @@ class xmlConfigLoader;
 struct AppConfig
 {
 	xmlConfigLoader* _loader = nullptr;
+	std::string lastLayerSettingsFile = "";
 
 	bool _transparent = false;
 
@@ -70,7 +71,7 @@ struct AppConfig
 	bool _menuPopped = false;
 	bool _menuPopPending = false;
 
-	sf::Vector2i _lastMenuPopPosition;
+	sf::Vector2i _lastMenuPopPosition = { 0, 0 };
 
 	float _fps = 0;
 
@@ -214,3 +215,28 @@ struct UIConfig
 	bool fontBuilt = false;
 
 };
+
+
+static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = false)
+{
+	if (appCfg != nullptr)
+	{
+		std::string logTxt = appCfg->_appLocation + "RahiTuber_Log.txt";
+
+		std::string cmd = "";
+
+#ifdef _WIN32
+		if (clear)
+			cmd = "echo " + msg + " > \"" + logTxt + "\"";
+		else
+			cmd = "echo " + msg + " >> \"" + logTxt + "\"";
+#else
+		if (clear)
+			cmd = "echo '" + msg + "' > '" + logTxt + "'";
+		else
+			cmd = "echo '" + msg + "' >> '" + logTxt + "'";
+#endif
+
+		runProcess(cmd);
+	}
+}

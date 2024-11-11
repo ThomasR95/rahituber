@@ -4,6 +4,8 @@
 #include "SFML/Main.hpp"
 #include "SFML/System.hpp"
 
+#include "imgui/imgui.h"
+
 class SpriteSheet
 {
 public:
@@ -23,6 +25,8 @@ public:
 	inline float getRotation() const { return _sprite.getRotation(); }
 	inline sf::Vector2f getScale() const { return _sprite.getScale(); }
 
+	inline void SetColor(const ImVec4& col) { _sprite.setColor({ sf::Uint8(255 * col.x), sf::Uint8(255 * col.y),sf::Uint8(255 * col.z),sf::Uint8(255 * col.w) }); }
+	inline void SetColor(const std::vector<float>& col) { _sprite.setColor({ sf::Uint8(255 * col[0]), sf::Uint8(255 * col[1]),sf::Uint8(255 * col[2]),sf::Uint8(255 * col[3]) }); }
 	inline void SetColor(float* col) { _sprite.setColor({ sf::Uint8(255*col[0]), sf::Uint8(255*col[1]),sf::Uint8(255*col[2]),sf::Uint8(255*col[3]) }); }
 	inline void SetColor(const sf::Color col) { _sprite.setColor(col); }
 

@@ -737,7 +737,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 		}
 	}
 
-	if (_appConfig->_createMinimalLayers == false)
+	if (_appConfig->_createMinimalLayers == false && toCopy == nullptr)
 	{
 		layer->_useBlinkFrame = true;
 		layer->_doBreathing = true;
@@ -1161,6 +1161,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 
 	doc.LoadFile(settingsFileName.c_str());
 
+	logToFile(_appConfig, "Saving " + settingsFileName);
+
 	if (doc.Error())
 	{
 		doc.LoadFile((_appConfig->_appLocation + settingsFileName).c_str());
@@ -1173,6 +1175,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	if (!root)
 	{
 		_errorMessage = "Could not save config element: " + settingsFileName;
+		logToFile(_appConfig, "Save Failed: " + _errorMessage);
 		return false;
 	}
 
@@ -1183,6 +1186,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	if (!layers)
 	{
 		_errorMessage = "Could not save layers element: " + settingsFileName;
+		logToFile(_appConfig, "Save Failed: " + _errorMessage);
 		return false;
 	}
 
@@ -1214,7 +1218,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("blinkVar", layer._blinkVariation);
 
 			thisLayer->SetAttribute("bounceType", layer._bounceType);
-			thisLayer->SetAttribute("bounceHeight", layer._bounceHeight);
+			thisLayer->SetAttribute("bounceHeight", layer._bounceMove.y);
+			thisLayer->SetAttribute("bounceMoveX", layer._bounceMove.x);
+			thisLayer->SetAttribute("bounceRotation", layer._bounceRotation);
+			thisLayer->SetAttribute("bounceScaleX", layer._bounceScale.x);
+			thisLayer->SetAttribute("bounceScaleY", layer._bounceScale.y);
+
 			thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
 
 			thisLayer->SetAttribute("breathing", layer._doBreathing);
@@ -1225,6 +1234,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("breathScaleY", layer._breathScale.y);
 			thisLayer->SetAttribute("breathCircular", layer._breathCircular);
 			thisLayer->SetAttribute("breatheWhileTalking", layer._breatheWhileTalking);
+
+			thisLayer->SetAttribute("breathRotation", layer._breathRotation);
+			thisLayer->SetAttribute("doBreathTint", layer._doBreathTint);
+			SaveColor(thisLayer, &doc, "breathTint", layer._breathTint);
 
 			thisLayer->SetAttribute("screaming", layer._scream);
 			thisLayer->SetAttribute("screamThreshold", layer._screamThreshold);
@@ -1262,6 +1275,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 			SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
+			thisLayer->SetAttribute("smoothTalkTint", layer._smoothTalkTint);
+
 			thisLayer->SetAttribute("scaleX", layer._scale.x);
 			thisLayer->SetAttribute("scaleY", layer._scale.y);
 			thisLayer->SetAttribute("posX", layer._pos.x);
@@ -1278,10 +1293,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("motionSpring", layer._motionSpring);
 			thisLayer->SetAttribute("distanceLimit", layer._distanceLimit);
 			thisLayer->SetAttribute("rotationEffect", layer._rotationEffect);
+			thisLayer->SetAttribute("inheritTint", layer._inheritTint);
 
 			thisLayer->SetAttribute("followMouse", layer._followMouse);
 			if (layer._followMouse)
 			{
+				thisLayer->SetAttribute("followElliptical", layer._followElliptical);
 				thisLayer->SetAttribute("mouseNeutralX", layer._mouseNeutralPos.x);
 				thisLayer->SetAttribute("mouseNeutralY", layer._mouseNeutralPos.y);
 				thisLayer->SetAttribute("mouseAreaX", layer._mouseAreaSize.x);
@@ -1335,6 +1352,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	if (!hotkeys)
 	{
 		_errorMessage = "Could not save hotkeys element: " + settingsFileName;
+		logToFile(_appConfig, "Save Failed: " + _errorMessage);
 		return false;
 	}
 
@@ -1395,8 +1413,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	if (doc.Error())
 	{
 		_errorMessage = "Failed to save document: " + outFile;
+		logToFile(_appConfig, "Save Failed: " + _errorMessage);
 		return false;
 	}
+
+	logToFile(_appConfig, "Saved Layer Set " + outFile);
 
 	_lastSavedLocation = outFile;
 
@@ -1418,6 +1439,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		delete _loadingThread;
 		_loadingThread = nullptr;
 	}
+
+	logToFile(_appConfig, "Loading " + settingsFileName);
 	
 	_loadingThread = new std::thread([&]
 		{
@@ -1436,6 +1459,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					_loadingPath = "";
 					_loadingFinished = true;
 					_uiConfig->_menuShowing = true;
+					logToFile(_appConfig, "Load Failed: " + _errorMessage);
 					return;
 				}
 			}
@@ -1447,6 +1471,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				_loadingPath = "";
 				_loadingFinished = true;
 				_uiConfig->_menuShowing = true;
+				logToFile(_appConfig, "Load Failed: " + _errorMessage);
 				return;
 			}
 
@@ -1457,6 +1482,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				_loadingPath = "";
 				_loadingFinished = true;
 				_uiConfig->_menuShowing = true;
+				logToFile(_appConfig, "Load Failed: " + _errorMessage);
 				return;
 			}
 
@@ -1504,7 +1530,14 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				int bobtype = 0;
 				thisLayer->QueryIntAttribute("bounceType", &bobtype);
 				layer._bounceType = (LayerInfo::BounceType)bobtype;
-				thisLayer->QueryAttribute("bounceHeight", &layer._bounceHeight);
+				thisLayer->QueryAttribute("bounceHeight", &layer._bounceMove.y);
+				thisLayer->QueryAttribute("bounceMoveX", &layer._bounceMove.x);
+				thisLayer->QueryAttribute("bounceRotation", &layer._bounceRotation);
+				thisLayer->QueryAttribute("bounceScaleX", &layer._bounceScale.x);
+				thisLayer->QueryAttribute("bounceScaleY", &layer._bounceScale.y);
+				if (layer._bounceScale.x != layer._bounceScale.y)
+					layer._bounceScaleConstrain = false;
+
 				thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
 
 				thisLayer->QueryAttribute("breathing", &layer._doBreathing);
@@ -1518,6 +1551,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("breathCircular", &layer._breathCircular);
 				thisLayer->QueryAttribute("breatheWhileTalking", &layer._breatheWhileTalking);
+
+				thisLayer->QueryAttribute("breathRotation", &layer._breathRotation);
+				thisLayer->QueryAttribute("doBreathTint", &layer._doBreathTint);
+				LoadColor(thisLayer, &doc, "breathTint", layer._breathTint);
 
 				thisLayer->QueryAttribute("screaming", &layer._scream);
 				thisLayer->QueryAttribute("screamThreshold", &layer._screamThreshold);
@@ -1571,6 +1608,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 				LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
+				thisLayer->QueryAttribute("smoothTalkTint", &layer._smoothTalkTint);
+
 				layer._blinkTimer.restart();
 				layer._isBlinking = false;
 				layer._blinkVarDelay = GetRandom11() * layer._blinkVariation;
@@ -1587,6 +1626,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryBoolAttribute("followMouse", &layer._followMouse);
 				if (layer._followMouse)
 				{
+					thisLayer->QueryBoolAttribute("followElliptical", &layer._followElliptical);
 					thisLayer->QueryAttribute("mouseNeutralX", &layer._mouseNeutralPos.x);
 					thisLayer->QueryAttribute("mouseNeutralY", &layer._mouseNeutralPos.y);
 					thisLayer->QueryAttribute("mouseAreaX", &layer._mouseAreaSize.x);
@@ -1611,6 +1651,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("motionSpring", &layer._motionSpring);
 				thisLayer->QueryAttribute("distanceLimit", &layer._distanceLimit);
 				thisLayer->QueryAttribute("rotationEffect", &layer._rotationEffect);
+				thisLayer->QueryAttribute("inheritTint", &layer._inheritTint);
 
 				layer._blendMode = g_blendmodes["Normal"];
 				if (const char* blend = thisLayer->Attribute("blendMode"))
@@ -1665,6 +1706,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			if (!hotkeys)
 			{
 				_errorMessage = "Invalid hotkeys element in " + _loadingPath;
+				logToFile(_appConfig, "Load Failed: " + _errorMessage);
 				return;
 			}
 
@@ -1738,7 +1780,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			}
 
 			_loadingFinished = true;
+
+			logToFile(_appConfig, "Loaded Layer Set " + _loadingPath);
 			_loadingPath = "";
+			
 		});
 
 	return true;
@@ -2056,7 +2101,6 @@ void LayerManager::DrawStatesGUI()
 
 		if (_statesMenuOpen)
 		{
-			auto size = ImGui::GetWindowSize();
 			if (_appConfig->_menuWindow.isOpen())
 			{
 				ImVec2 wSize = ImGui::GetWindowSize();
@@ -2491,7 +2535,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	_screamSprite->_visible = false;
 
 	_activeSprite = _idleSprite.get();
-	_idleSprite->SetColor(_idleTint);
+
+	ImVec4 activeSpriteCol = _idleTint;
 
 	float talkFactor = 0;
 	if (talkMax > 0)
@@ -2500,6 +2545,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		talkFactor = pow(talkFactor, 0.5);
 		_lastTalkFactor = talkFactor;
 	}
+
+	float talkAmount = Clamp(std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold)), 0.0, 1.0);
 
 	bool reallyVisible = _visible;
 	if (_hideWithParent)
@@ -2556,6 +2603,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_idleSprite->_visible = false;
 			_screamSprite->_visible = false;
 			_talkBlinkSprite->SetColor(_talkBlinkTint);
+			activeSpriteCol = _talkBlinkTint;
 		}
 		else if (blinkAvailable)
 		{
@@ -2566,6 +2614,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_idleSprite->_visible = false;
 			_screamSprite->_visible = false;
 			_blinkSprite->SetColor(_blinkTint);
+			activeSpriteCol = _blinkTint;
 		}
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
@@ -2580,6 +2629,12 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_blinkSprite->_visible = false;
 		_talkSprite->_visible = true;
 		_talkSprite->SetColor(_talkTint);
+		activeSpriteCol = _talkTint;
+
+		if (_smoothTalkTint)
+		{
+			activeSpriteCol = _talkTint * talkAmount + _idleTint * (1.0 - talkAmount);
+		}
 
 		if (!_wasTalking && _restartTalkAnim)
 		{
@@ -2594,16 +2649,20 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_blinkSprite->_visible = false;
 		_talkSprite->_visible = false;
 		_screamSprite->SetColor(_screamTint);
+		activeSpriteCol = _screamTint;
 	}
 
 	_wasTalking = talking;
 
 	if (_motionParent == "" || _motionParent == "-1")
 	{
-		sf::Vector2f pos;
-
+		sf::Vector2f motionPos;
+		float rot = _rot;
+		
 		float newMotionY = 0;
 		float newMotionX = 0;
+
+		sf::Vector2f motionScale = { 1.0,1.0 };
 
 		switch (_bounceType)
 		{
@@ -2614,7 +2673,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			if (talking || screaming)
 			{
 				_isBouncing = true;
-				newMotionY += _bounceHeight * std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold));
+
+				newMotionX += _bounceMove.x * talkAmount;
+				newMotionY += _bounceMove.y * talkAmount;
+				rot += _bounceRotation * talkAmount;
+				motionScale += _bounceScale * talkAmount;
 			}
 			break;
 		case LayerManager::LayerInfo::BounceRegular:
@@ -2629,7 +2692,11 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				float motionTime = _motionTimer.getElapsedTime().asSeconds();
 				motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
 				float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
-				newMotionY = (-0.5 * cos(phase) + 0.5) * _bounceHeight;
+				float bounceAmount = (-0.5 * cos(phase) + 0.5);
+				newMotionX += _bounceMove.x * bounceAmount;
+				newMotionY += _bounceMove.y * bounceAmount;
+				rot += _bounceRotation * bounceAmount;
+				motionScale += _bounceScale * bounceAmount;
 			}
 			else
 				_isBouncing = false;
@@ -2638,8 +2705,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		default:
 			break;
 		}
-
-		sf::Vector2f breathScale = {1.0,1.0};
 
 		if (_doBreathing)
 		{
@@ -2694,17 +2759,25 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 			newMotionX += _breathAmount.x * _breathMove.x;
 			newMotionY += _breathAmount.y * _breathMove.y;
+			rot += _breathAmount.y * _breathRotation;
 
-			breathScale = sf::Vector2f(1.0, 1.0) + _breathAmount.y * _breathScale;
+			if (_doBreathTint)
+			{
+				ImVec4 idleColAmount = activeSpriteCol * (1.0 - _breathAmount.y);
+				ImVec4 breathColAmount = _breathTint * _breathAmount.y;
+				activeSpriteCol = idleColAmount + breathColAmount;
+			}
+
+			motionScale = motionScale * sf::Vector2f(1.0, 1.0) + _breathAmount.y * _breathScale;
 		}
 
 		_motionY += (newMotionY - _motionY) * 0.3f;
 		_motionX += (newMotionX - _motionX) * 0.3f;
 
-		pos.x += _motionX;
-		pos.y -= _motionY;
+		motionPos.x += _motionX;
+		motionPos.y -= _motionY;
 
-		AddMouseMovement(pos);
+		AddMouseMovement(motionPos);
 
 		if (screaming && _screamVibrate)
 		{
@@ -2715,8 +2788,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			}
 
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			pos.y += sin(motionTime / 0.02) * _screamVibrateAmount;
-			pos.x += sin(motionTime / 0.05) * _screamVibrateAmount;
+			motionPos.y += sin(motionTime / 0.02) * _screamVibrateAmount;
+			motionPos.x += sin(motionTime / 0.05) * _screamVibrateAmount;
 		}
 		else
 		{
@@ -2724,15 +2797,17 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		}
 
 		_activeSprite->setOrigin({ _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y });
-		_activeSprite->setScale({ _scale.x * breathScale.x, _scale.y * breathScale.y });
-		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + pos.x, windowHeight / 2 + _pos.y + pos.y });
-		_activeSprite->setRotation(_rot);
+		_activeSprite->setScale({ _scale.x * motionScale.x, _scale.y * motionScale.y });
+		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + motionPos.x, windowHeight / 2 + _pos.y + motionPos.y });
+		_activeSprite->setRotation(rot);
+		_activeSprite->SetColor(activeSpriteCol);
 
 		MotionLinkData thisFrame;
 		thisFrame._frameTime = frameTime;
-		thisFrame._pos = pos;
-		thisFrame._scale = breathScale;
-		thisFrame._rot = _rot;
+		thisFrame._pos = motionPos;
+		thisFrame._scale = motionScale;
+		thisFrame._rot = rot;
+		thisFrame._tint = activeSpriteCol;
 		_motionLinkData.push_front(thisFrame);
 
 		sf::Time totalMotionStoredTime;
@@ -2757,6 +2832,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			sf::Vector2f mpScale = { 1.0,1.0 };
 			sf::Vector2f mpPos;
 			float mpRot = 0;
+			ImVec4 mpTint;
 
 			if (motionDelayNow > 0)
 			{
@@ -2796,6 +2872,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
 					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
 					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+					mpTint = mp->_motionLinkData[prev]._tint + (mp->_motionLinkData[next]._tint - mp->_motionLinkData[prev]._tint) * fraction;
 				}
 			}
 			else if (mp->_motionLinkData.size() > 0)
@@ -2803,6 +2880,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 				mpScale = mp->_motionLinkData[0]._scale;
 				mpPos = mp->_motionLinkData[0]._pos;
 				mpRot = mp->_motionLinkData[0]._rot;
+				mpTint = mp->_motionLinkData[0]._tint;
 			}
 
 			// transform this layer's position by the parent position
@@ -2874,12 +2952,16 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 			AddMouseMovement(mpPos);
 
+			if (_inheritTint)
+				activeSpriteCol = mpTint;
+
 			MotionLinkData thisFrame;
 			thisFrame._frameTime = frameTime;
 			thisFrame._pos = mpPos;
 			thisFrame._physicsPos = physicsPos;
 			thisFrame._scale = mpScale;
 			thisFrame._rot = mpRot;
+			thisFrame._tint = activeSpriteCol;
 			_motionLinkData.push_front(thisFrame);
 			
 			sf::Time totalMotionStoredTime;
@@ -2896,6 +2978,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
 			_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
 			_activeSprite->setRotation(_rot + mpRot);
+			_activeSprite->SetColor(activeSpriteCol);
 		}
 	}
 
@@ -2906,8 +2989,26 @@ void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled)
 	{
 		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
-		const sf::Vector2f mouseMult = Clamp((mousePos - _mouseNeutralPos) / _mouseAreaSize, -1.f, 1.f);
-		const sf::Vector2f mouseDiff = _mouseMoveLimits * mouseMult;
+		sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
+
+		if (_followElliptical)
+		{
+			float moveLength = Length(mouseMove);
+			sf::Vector2f mouseDir = mouseMove / moveLength;
+			float angle = atan2(mouseDir.y,- mouseDir.x);
+			// calculate radius of ellipse from x and y radius components
+			float maxLength = (_mouseAreaSize.x * _mouseAreaSize.y) /
+				pow((pow(_mouseAreaSize.x, 2) * pow(sin(angle), 2) + pow(_mouseAreaSize.y, 2) * pow(cos(angle), 2)), 0.5);
+
+			if (moveLength > maxLength)
+			{
+				mouseMove = mouseDir * maxLength;
+			}
+
+		}
+
+		const sf::Vector2f mouseMult = Clamp(mouseMove / _mouseAreaSize, -1.f, 1.f);
+		sf::Vector2f mouseDiff = _mouseMoveLimits * mouseMult;
 
 		mpPos += mouseDiff;
 	}
@@ -3063,7 +3164,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PopID();
 			ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-			ImGui::ColorEdit4("Tint", _idleTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+			ImGui::ColorEdit4("Tint", &_idleTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 			ImGui::PopID();
 
@@ -3117,7 +3218,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PopID();
 				ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::ColorEdit4("Tint", _talkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::ColorEdit4("Tint", &_talkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 				ImGui::PopID();
 			}
@@ -3178,7 +3279,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				auto preTintPos = ImGui::GetCursorPos();
 				if (_blinkWhileTalking)
 					ImGui::SetCursorPos(tintPos);
-				ImGui::ColorEdit4("Tint", _blinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::ColorEdit4("Tint", &_blinkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 				ImGui::SetCursorPos(preTintPos);
 				ImGui::PopID();
 
@@ -3234,7 +3335,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					preTintPos = ImGui::GetCursorPos();
 					ImGui::SetCursorPos(tintPos);
 
-					ImGui::ColorEdit4("Tint", _talkBlinkTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+					ImGui::ColorEdit4("Tint", &_talkBlinkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 					ImGui::SetCursorPos(preTintPos);
 					ImGui::PopID();
 				}
@@ -3311,8 +3412,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			ImGui::SameLine(0.0, 10.f);
 
-			ImGui::Checkbox("Restart on swap", &_restartTalkAnim);
+			ImGui::Checkbox("Restart on Swap", &_restartTalkAnim);
 			ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
+
+			ImGui::SameLine(0.0, 10.f);
+
+			ImGui::Checkbox("Smooth Tint", &_smoothTalkTint);
+			ToolTip("Smoothly transition between the Idle and Talk tint colors", &_parent->_appConfig->_hoverTimer);
 
 			ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
@@ -3366,7 +3472,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PopID();
 				ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::ColorEdit4("Tint", _screamTint, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+				ImGui::ColorEdit4("Tint", &_screamTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 				ToolTip("Tint the sprite a different color, or change its opacity (alpha value)", &_parent->_appConfig->_hoverTimer);
 				ImGui::PopID();
 
@@ -3473,10 +3579,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
 					ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
+				
+					ImGui::Checkbox("Hide with Parent", &_hideWithParent);
+					ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::Checkbox("Inherit Tint", &_inheritTint);
+					ToolTip("Inherit the tint color of the parent layer.", &_parent->_appConfig->_hoverTimer);
+				
 				}
 
-				ImGui::Checkbox("Hide with Parent", &_hideWithParent);
-				ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
 				ImGui::Unindent(indentSize);
 			}
 			ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
@@ -3511,9 +3622,42 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::Indent(indentSize);
 					if (_bounceType != BounceNone)
 					{
-						AddResetButton("bobheight", _bounceHeight, 80.f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Bounce height", &_bounceHeight, 0.0, 500.0, "%.0f px");
-						ToolTip("The maximum height of the bouncing animation", &_parent->_appConfig->_hoverTimer);
+						AddResetButton("breathmove", _bounceMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+						float data[2] = { _bounceMove.x, _bounceMove.y };
+						if (ImGui::SliderFloat2("Bounce Move", data, -50, 50, "%.2f"))
+							_bounceMove = { data[0], data[1] };
+						ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("breathrotate", _bounceRotation, 0.0f, _parent->_appConfig, &style);
+						ImGui::SliderFloat("Bounce Rotation", &_bounceRotation, -180.f, 180.f, "%.1f");
+						ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
+						float data2[2] = { _bounceScale.x, _bounceScale.y };
+						if (ImGui::SliderFloat2("Bounce Scale", data2, -1, 1, "%.2f"))
+						{
+							if (!_bounceScaleConstrain)
+							{
+								_bounceScale.x = data2[0];
+								_bounceScale.y = data2[1];
+							}
+							else if (data2[0] != _breathScale.x)
+							{
+								_bounceScale = { data2[0] , data2[0] };
+							}
+							else if (data2[1] != _bounceScale.y)
+							{
+								_bounceScale = { data2[1] , data2[1] };
+							}
+						}
+						ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
+
+						ImGui::PushID("BounceScaleConstrain");
+						ImGui::Checkbox("Constrain", &_bounceScaleConstrain);
+						ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+						ImGui::PopID();
+
+
 						if (_bounceType == BounceRegular)
 						{
 							AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
@@ -3557,6 +3701,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							_breathMove = { data[0], data[1] };
 						ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
 
+						AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, & style);
+						ImGui::SliderFloat("Breath Rotation", &_breathRotation, -180.f, 180.f, "%.1f");
+						ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer);
+
 						AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
 						float data2[2] = { _breathScale.x, _breathScale.y };
 						if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
@@ -3575,7 +3723,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								_breathScale = { data2[1] , data2[1] };
 							}
 						}
-						ToolTip("The amout added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
+						ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
 
 						ImGui::PushID("BreathScaleConstrain");
 						ImGui::Checkbox("Constrain", &_breathScaleConstrain);
@@ -3590,6 +3738,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
 						ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
+
+						ImGui::Checkbox("Change Color", &_doBreathTint);
+						ToolTip("Interpolate the active sprite's Tint color with this one while breathing", &_parent->_appConfig->_hoverTimer);
+
+						if (_doBreathTint)
+						{
+							AddResetButton("breathfreq", _breathTint, _idleTint, _parent->_appConfig, &style);
+							ImGui::ColorEdit4("Tint##Breath", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+						}
 					}
 					ImGui::Unindent(indentSize);
 				}
@@ -3702,6 +3859,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					AddResetButton("moveLimits", _mouseMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
 					ImGui::SliderFloat2("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px");
 					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::Checkbox("Elliptical", &_followElliptical);
+					ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);
 				}
 
 

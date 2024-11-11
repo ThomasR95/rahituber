@@ -34,26 +34,23 @@ static inline void OsOpenInShell(const char* path) {
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <filesystem>
 
 namespace fs = std::filesystem;
 
-static std::string getAppLocation()
+static inline std::string getAppLocation()
 {
-    std::string loc = "";
-    char fname[MAX_PATH];
-    ssize_t count = readlink("/proc/self/exe", fname, MAX_PATH);
-    if (count != -1)
-    {
-        fname[count] = '\0';  // Null-terminate the string
-        fs::path exe = fname;
-        loc = exe.parent_path().string() + "/";
+    char result[MAX_PATH] = {};
+    ssize_t count = readlink("/proc/self/exe", result, MAX_PATH);
+    const char *path;
+    if (count != -1) {
+        path = dirname(result);
+        return std::string(path) + "/";
     }
-    else
-    {
-        std::cerr << "Failed to get module file name" << std::endl;
-    }
-    return loc;
+
+    std::cerr << "Failed to get module file name" << std::endl;
+    return "";
 }
 
 
@@ -317,6 +314,22 @@ inline sf::Color toSFColor(const ImVec4& col)
 	return sf::Color(sf::Uint8(col.x * 255), sf::Uint8(col.y * 255), sf::Uint8(col.z * 255), sf::Uint8(col.w * 255));
 }
 
+inline sf::Color toSFColor(const float* col)
+{
+	if (col != nullptr)
+	{
+		return sf::Color(sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255));
+	}
+}
+
+inline ImVec4 toImColor(const float* col)
+{
+	if (col != nullptr)
+	{
+		return ImVec4(col[0], col[1], col[2], col[3]);
+	}
+}
+
 inline ImVec4 toImColor(const sf::Color& col)
 {
 	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
@@ -325,6 +338,34 @@ inline ImVec4 toImColor(const sf::Color& col)
 inline sf::Vector2f toSFVector(const ImVec2& vec)
 {
 	return sf::Vector2f(vec.x, vec.y);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates ImVec4
+/// \brief Overload of binary operator *
+////////////////////////////////////////////////////////////
+template <typename T>
+inline ImVec4 operator *(const ImVec4& left, const T& right)
+{
+	return ImVec4(left.x * right, left.y * right, left.z * right, left.w * right);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates ImVec4
+/// \brief Overload of binary operator +
+////////////////////////////////////////////////////////////
+inline ImVec4 operator +(const ImVec4& left, const ImVec4& right)
+{
+	return ImVec4(left.x + right.x, left.y + right.y, left.z + right.z, left.w + right.w);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates ImVec4
+/// \brief Overload of binary operator -
+////////////////////////////////////////////////////////////
+inline ImVec4 operator -(const ImVec4& left, const ImVec4& right)
+{
+	return ImVec4(left.x - right.x, left.y - right.y, left.z - right.z, left.w - right.w);
 }
 
 inline std::string ANSIToUTF8(const std::string& input)
