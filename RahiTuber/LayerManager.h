@@ -69,6 +69,7 @@ public:
 		float _talkThreshold = 0.15f;
 		bool _restartTalkAnim = false;
 		bool _wasTalking = false;
+		bool _smoothTalkTint = false;
 
 		bool _useBlinkFrame = false;
 		bool _blinkWhileTalking = false;
@@ -87,7 +88,10 @@ public:
 		};
 
 		BounceType _bounceType = BounceNone;
-		float _bounceHeight = 80;
+		sf::Vector2f _bounceMove = { 0.f, 80.f };
+		float _bounceRotation = 0.0;
+		sf::Vector2f _bounceScale = { 0.0, 0.0 };
+		bool _bounceScaleConstrain = true;
 		float _bounceFrequency = 0.333;
 		bool _isBouncing = false;
 
@@ -97,6 +101,9 @@ public:
 		sf::Vector2f _breathAmount = { 0.0f, 0.0f };
 		sf::Vector2f _breathScale = { 0.1, 0.1 };
 		sf::Vector2f _breathMove = { 0.0, 30.0 };
+		float _breathRotation = 0.0;
+		ImVec4 _breathTint = { 1,1,1,1 };
+		bool _doBreathTint = false;
 		bool _breathScaleConstrain = true;
 		bool _breathCircular = false;
 		bool _breatheWhileTalking = false;
@@ -113,23 +120,23 @@ public:
 
 		std::string _idleImagePath = u8"";
 		sf::Texture* _idleImage = nullptr;
-		float _idleTint[4] = { 1,1,1,1 };
+		ImVec4 _idleTint = { 1,1,1,1 };
 
 		std::string _talkImagePath = u8"";
 		sf::Texture* _talkImage = nullptr;
-		float _talkTint[4] = { 1,1,1,1 };
+		ImVec4 _talkTint = { 1,1,1,1 };
 
 		std::string _blinkImagePath = u8"";
 		sf::Texture* _blinkImage = nullptr;
-		float _blinkTint[4] = { 1,1,1,1 };
+		ImVec4 _blinkTint = { 1,1,1,1 };
 
 		std::string _talkBlinkImagePath = u8"";
 		sf::Texture* _talkBlinkImage = nullptr;
-		float _talkBlinkTint[4] = { 1,1,1,1 };
+		ImVec4 _talkBlinkTint = { 1,1,1,1 };
 
 		std::string _screamImagePath = u8"";
 		sf::Texture* _screamImage = nullptr;
-		float _screamTint[4] = { 1,1,1,1 };
+		ImVec4 _screamTint = { 1,1,1,1 };
 
 		std::shared_ptr<SpriteSheet> _idleSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _talkSprite = std::make_shared<SpriteSheet>();
@@ -207,9 +214,11 @@ public:
 			sf::Vector2f _scale = { 1.f, 1.f };
 			sf::Vector2f _pos = { 0,0 };
 			sf::Vector2f _physicsPos = { 0,0 };
+			ImVec4 _tint;
 			float _rot = 0.0;
 		};
 		bool _hideWithParent = true;
+		bool _inheritTint = false;
 		float _motionDrag = 0.f;
 		float _motionSpring = 0.f;
 		float _distanceLimit = -1.f;
@@ -228,6 +237,7 @@ public:
 		sf::Vector2f _lastHeaderSize;
 
 		bool _followMouse = false;
+		bool _followElliptical = false;
 		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
 		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };
@@ -503,28 +513,28 @@ private:
 		return false;
 	}
 
-	inline void SaveColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, const float* col)
+	inline void SaveColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, const ImVec4& col)
 	{
 		auto colElement = parent->FirstChildElement(colorName);
 		if (!colElement)
 			colElement = parent->InsertFirstChild(doc->NewElement(colorName))->ToElement();
 
-		colElement->SetAttribute("r", col[0]);
-		colElement->SetAttribute("g", col[1]);
-		colElement->SetAttribute("b", col[2]);
-		colElement->SetAttribute("a", col[3]);
+		colElement->SetAttribute("r", col.x);
+		colElement->SetAttribute("g", col.y);
+		colElement->SetAttribute("b", col.z);
+		colElement->SetAttribute("a", col.w);
 	}
 
-	inline void LoadColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, float* col)
+	inline void LoadColor(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* colorName, ImVec4& col)
 	{
 		auto colElement = parent->FirstChildElement(colorName);
 		if (!colElement)
 			return;
 
-		colElement->QueryAttribute("r", &col[0]);
-		colElement->QueryAttribute("g", &col[1]);
-		colElement->QueryAttribute("b", &col[2]);
-		colElement->QueryAttribute("a", &col[3]);
+		colElement->QueryAttribute("r", &col.x);
+		colElement->QueryAttribute("g", &col.y);
+		colElement->QueryAttribute("b", &col.z);
+		colElement->QueryAttribute("a", &col.w);
 	}
 
 	inline void SaveAnimInfo(tinyxml2::XMLElement* parent, tinyxml2::XMLDocument* doc, const char* animName, const SpriteSheet& anim, bool animsSynced = false)

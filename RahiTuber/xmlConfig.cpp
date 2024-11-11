@@ -6,7 +6,8 @@ xmlConfigLoader::xmlConfigLoader(AppConfig* appConfig, UIConfig* uiConfig, Audio
 	_appConfig(appConfig),
 	_audioConfig(audioConfig),
 	_uiConfig(uiConfig),
-	_settingsFileName(settingsXMLFile)
+	_settingsFileName(settingsXMLFile),
+	_errorMessage("")
 {
 }
 
@@ -153,8 +154,8 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastY", _appConfig->_scrY);
 
 			common->SetAttribute("menuPopped", _appConfig->_menuPopped);
-			common->SetAttribute("lastMenuX", _appConfig->_lastMenuPopPosition.x);
-			common->SetAttribute("lastMenuY", _appConfig->_lastMenuPopPosition.y);
+			common->SetAttribute("lastMenuX", (int)_appConfig->_lastMenuPopPosition.x);
+			common->SetAttribute("lastMenuY", (int)_appConfig->_lastMenuPopPosition.y);
 
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);

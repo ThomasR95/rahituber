@@ -257,6 +257,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_pathtest|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="CrashHandler.cpp" />
     <ClCompile Include="file_browser_modal.cpp" />
     <ClCompile Include="imgui-sfml\imgui-SFML.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -296,6 +297,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="CrashHandler.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="file_browser_modal.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
