@@ -792,7 +792,7 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 	if (position > _layers.size() - 1)
 		position = _layers.size() - 1;
 
-	if (toMove == position)
+	if (toMove == position && skipFolders == false)
 		return;
 
 	LayerInfo& origLayer = _layers[toMove];
@@ -802,7 +802,27 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 	std::string targetID = targetLayer._id;
 
 	if (origID == targetID)
+	{
+		if (skipFolders)
+		{
+			if (origLayer._inFolder != "")
+			{
+				LayerInfo* origFolder = GetLayer(origLayer._inFolder);
+				for (int c = 0; c < origFolder->_folderContents.size(); c++)
+				{
+					if (origFolder->_folderContents[c] == origID)
+					{
+						origFolder->_folderContents.erase(origFolder->_folderContents.begin() + c);
+						origLayer._inFolder = "";
+						break;
+					}
+				}
+			}
+			
+		}
 		return;
+	}
+		
 
 	int down = 0;
 	if (position > toMove)
@@ -810,7 +830,6 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 	if (origLayer._inFolder != "")
 	{
-		skipFolders = false;
 		LayerInfo* origFolder = GetLayer(origLayer._inFolder);
 		if (origFolder)
 		{
@@ -875,7 +894,7 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 			return false;
 			});
 	}
-	else if (targetLayer._inFolder != "")
+	else if (targetLayer._inFolder != "" && skipFolders == false)
 	{
 		if (origLayer._isFolder)
 			return;
@@ -1000,7 +1019,7 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 		{
 			if (hoveredLayer != -1)
 			{
-				if(hoveredLayer == -2)
+				if (hoveredLayer == -2)
 					// above all, put at the absolute top, skipping folders
 					MoveLayerTo(_draggedLayer, 0, true);
 				else if (hoveredLayer == -3)
@@ -1009,10 +1028,10 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 				else
 					MoveLayerTo(_draggedLayer, hoveredLayer);
 			}
-			_draggedLayer = -1;
-			_dragActive = false;
 			useInput = true;
 		}
+		_draggedLayer = -1;
+		_dragActive = false;
 	}
 
 	// If a mouse is newly down on a layer, save which layer and start the clock
@@ -1051,7 +1070,7 @@ int LayerManager::GetLayerUnderCursor(float mouseX, float mouseY)
 		float maxX = minX + layer._lastHeaderSize.x;
 		float maxY = minY + layer._lastHeaderSize.y;
 
-		if (mouseY > minY)
+		if (mouseY > minY && minY != -1)
 			aboveAll = false;
 
 		if (mouseY < maxY)
@@ -1091,7 +1110,7 @@ void LayerManager::MoveLayerUp(int moveUp)
 		targetLayer = &_layers[position];
 	}
 
-	MoveLayerTo(moveUp, position, true);
+	MoveLayerTo(moveUp, position, origLayer._inFolder == "");
 }
 
 void LayerManager::MoveLayerDown(int moveDown)
@@ -1113,7 +1132,7 @@ void LayerManager::MoveLayerDown(int moveDown)
 		targetLayer = &_layers[position];
 	}
 
-	MoveLayerTo(moveDown, position, true);
+	MoveLayerTo(moveDown, position, origLayer._inFolder == "");
 }
 
 void LayerManager::RemoveLayer(LayerInfo* toRemove)
