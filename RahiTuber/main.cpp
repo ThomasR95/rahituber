@@ -230,7 +230,7 @@ void initWindow(bool firstStart = false)
 {
 	if (appConfig->_isFullScreen)
 	{
-		if (appConfig->_currentWindow)
+		if (appConfig->_window.isOpen())
 		{
 			appConfig->_minScrW = appConfig->_window.getSize().x;
 			appConfig->_minScrH = appConfig->_window.getSize().y;
@@ -244,7 +244,7 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH), "RahiTuber", 0);
+				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32u), "RahiTuber", 0);
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -262,7 +262,7 @@ void initWindow(bool firstStart = false)
 		appConfig->_scrH = appConfig->_minScrH;
 		if (appConfig->_wasFullScreen || firstStart)
 		{
-			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), "RahiTuber", 0);
+			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32u), "RahiTuber", 0);
 			appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
 		}
 		else
@@ -283,8 +283,6 @@ void initWindow(bool firstStart = false)
 
 	appConfig->_menuRT.create(appConfig->_scrW, appConfig->_scrH);
 	appConfig->_layersRT.create(appConfig->_scrW, appConfig->_scrH);
-
-	appConfig->_currentWindow = &appConfig->_window;
 
 	uiConfig->_topLeftBox.setPosition(0, 0);
 	uiConfig->_topLeftBox.setSize({ 20,20 });
@@ -888,10 +886,12 @@ void menu()
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
-#ifdef _DEBUG
 	auto io = ImGui::GetIO();
+#ifdef _DEBUG
 	io.ConfigDebugHighlightIdConflicts = true;
 	io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent();
+#else
+	io.ConfigDebugHighlightIdConflicts = false;
 #endif
 
 	if (ImGui::IsAnyItemHovered() == false)
@@ -1132,9 +1132,33 @@ void render()
 	if (appConfig->_useSpout2Sender)
 	{
 		if (spout == nullptr)
+		{
 			spout = new Spout();
+			spout->SetAutoShare(true);
+			spout->OpenSpout();
 
-		spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
+			if (spout->IsGLDXready() == false)
+			{
+				logToFile(appConfig, "Spout2: graphics hardware is not compatible with NVIDIA NV_DX_interop2 extension");
+				spout->ReleaseSender();
+				spout->SetCPUshare(true);
+				spout->OpenSpout();
+
+				if (spout->GetCPU() == false && spout->GetGLDX() == false)
+				{
+					logToFile(appConfig, "Spout2: couldn't find a method to share the texture");
+					appConfig->_useSpout2Sender = false;
+					spout->ReleaseSender();
+					delete spout;
+				}
+			}
+		}
+
+		bool result = spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
+		if (result == false)
+		{
+			logToFile(appConfig, "Spout2: Failed sending FBO");
+		}
 	}
 #endif
 
@@ -1641,7 +1665,7 @@ void doAudioAnalysis()
 	}
 }
 
-static void CheckUpdates()
+void CheckUpdates()
 {
 	std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
 
@@ -1682,7 +1706,7 @@ static void CheckUpdates()
 	}
 }
 
-static int ApplicationSetup()
+void ApplicationSetup()
 {
 	PaError err = paNoError;
 
@@ -1836,7 +1860,7 @@ static int ApplicationSetup()
 				}
 #endif
 				//delete kbdTrack;
-				return 1;
+				return;
 			}
 		}
 	}
@@ -1965,12 +1989,30 @@ static int ApplicationSetup()
 
 	logToFile(appConfig, "Focusing main window");
 	//request focus and start the game loop
-	appConfig->_window.requestFocus();
 
-	// SFML doesn't always actually focus
-	//sf::Event dummyFocus;
-	//dummyFocus.type = sf::Event::GainedFocus;
-	//ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
+	try
+	{
+		appConfig->_window.requestFocus();
+	}
+	catch (...)
+	{
+		logToFile(appConfig, "Exception while requesting focus on main window. ");
+		exit(1);
+	}
+
+	try
+	{
+		// SFML doesn't always actually focus
+		sf::Event dummyFocus;
+		dummyFocus.type = sf::Event::GainedFocus;
+		ImGui::SFML::ProcessEvent(appConfig->_window, dummyFocus);
+	}
+	catch (...)
+	{
+		logToFile(appConfig, "Exception while attempting to force SFML into focus. ");
+		exit(1);
+	}
+	
 
 	audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
 	audioConfig->_frameHi = 0;
@@ -1992,10 +2034,10 @@ static int ApplicationSetup()
 
 	logToFile(appConfig, "Setup Complete!");
 
-	return 0;
+	return;
 }
 
-static void MainLoop()
+void MainLoop()
 {
 	while (appConfig->_window.isOpen())
 	{
@@ -2016,7 +2058,7 @@ static void MainLoop()
 	}
 }
 
-static void Cleanup()
+void Cleanup()
 {
 	//kbdTrack->SetHook(false);
 

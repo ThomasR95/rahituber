@@ -55,7 +55,6 @@ struct AppConfig
 
 	sf::RenderWindow _window;
 	sf::RenderWindow _menuWindow;
-    sf::RenderTarget* _currentWindow = nullptr;
 	sf::RenderTexture _layersRT;
 	sf::RenderTexture _menuRT;
 	sf::RectangleShape _RTPlane;

@@ -703,17 +703,29 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	layer->_id = guid;
 
 	int childPosition = layerPosition + 1;
-	for (auto& id : layer->_folderContents)
+	for (auto& id : _layers[layerPosition]._folderContents)
 	{
 		LayerInfo* origChild = GetLayer(id);
 		if (origChild != nullptr)
 		{
+			// remove the original child from its folder temporarily, so this duplicate doesn't get added to the original
+			std::string origInFolder = origChild->_inFolder;
+			origChild->_inFolder = "";
+			
 			LayerInfo* child = AddLayer(origChild, false, childPosition);
+
+			// put the original back in its folder
+			origChild->_inFolder = origInFolder;
+
+			// add the new copy to this new folder
 			child->_inFolder = guid;
 			id = child->_id;
 			childPosition++;
 		}
 	}
+
+	//reassign since things probably got moved
+	layer = &_layers[layerPosition];
 
 	if (layer->_inFolder != "")
 	{
