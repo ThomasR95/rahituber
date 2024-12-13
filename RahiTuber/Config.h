@@ -35,6 +35,11 @@ struct AppConfig
 {
 	xmlConfigLoader* _loader = nullptr;
 	std::string lastLayerSettingsFile = "";
+	std::string windowName = "RahiTuber";
+	bool _pendingNameChange = false;
+	bool _pendingSpoutNameChange = false;
+	std::mutex _nameLock;
+	bool _nameWindowWithSet = false;
 
 	bool _transparent = false;
 
@@ -90,6 +95,7 @@ struct AppConfig
 	std::string _appLocation = u8"";
 
 	bool _useSpout2Sender = false;
+	bool _spoutNeedsCPU = false;
 
 	bool _createMinimalLayers = false;
 

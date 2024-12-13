@@ -69,6 +69,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("showBounds", &_uiConfig->_showLayerBounds);
 
 	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
+	common->QueryBoolAttribute("nameWindowsSeperately", &_appConfig->_nameWindowWithSet);
 
 	common->QueryBoolAttribute("createMinimal", &_appConfig->_createMinimalLayers);
 
@@ -164,6 +165,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);
 
 			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);
+			common->SetAttribute("nameWindowsSeperately", _appConfig->_nameWindowWithSet);
 
 			common->SetAttribute("createMinimal", _appConfig->_createMinimalLayers);
 

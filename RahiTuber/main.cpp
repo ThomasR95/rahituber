@@ -22,7 +22,7 @@
 #include <fstream>
 
 #ifdef _WIN32
-#include "spout2/Spout.h"
+#include "spout2/SpoutSender.h"
 
 #include "wtypes.h"
 #include <Windows.h>
@@ -228,6 +228,8 @@ void getWindowSizes()
 
 void initWindow(bool firstStart = false)
 {
+	appConfig->_nameLock.lock();
+
 	if (appConfig->_isFullScreen)
 	{
 		if (appConfig->_window.isOpen())
@@ -244,7 +246,8 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32u), "RahiTuber", 0);
+				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32u), appConfig->windowName, 0);
+				appConfig->_pendingNameChange = false;
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -262,7 +265,8 @@ void initWindow(bool firstStart = false)
 		appConfig->_scrH = appConfig->_minScrH;
 		if (appConfig->_wasFullScreen || firstStart)
 		{
-			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32u), "RahiTuber", 0);
+			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32u), appConfig->windowName, 0);
+			appConfig->_pendingNameChange = false;
 			appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
 		}
 		else
@@ -357,6 +361,8 @@ void initWindow(bool firstStart = false)
 		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 	}
+
+	appConfig->_nameLock.unlock();
 }
 
 void swapFullScreen()
@@ -523,7 +529,7 @@ void menuAdvanced(ImGuiStyle& style)
 				{
 					appConfig->_scrW = appConfig->_fullScrW + 1;
 					appConfig->_scrH = appConfig->_fullScrH + 1;
-					appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), "VisualiStar", 0);
+					appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), appConfig->windowName, 0);
 					appConfig->_window.setIcon((int)uiConfig->_ico.getSize().x, (int)uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 					appConfig->_window.setSize({ (sf::Uint16)appConfig->_scrW, (sf::Uint16)appConfig->_scrH });
 					appConfig->_window.setPosition({ 0,0 });
@@ -623,6 +629,21 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
 		ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
+		{
+			appConfig->_nameLock.lock();
+			if (appConfig->_nameWindowWithSet)
+				appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
+			else
+				appConfig->windowName = "RahiTuber";
+			appConfig->_pendingNameChange = true;
+			appConfig->_pendingSpoutNameChange = true;
+			appConfig->_nameLock.unlock();
+		}
+		ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 
@@ -1131,9 +1152,11 @@ void render()
 #ifdef _WIN32
 	if (appConfig->_useSpout2Sender)
 	{
+		appConfig->_nameLock.lock();
 		if (spout == nullptr)
 		{
 			spout = new Spout();
+			spout->SetSenderName(appConfig->windowName.c_str());
 			spout->SetAutoShare(true);
 			spout->OpenSpout();
 
@@ -1141,7 +1164,9 @@ void render()
 			{
 				logToFile(appConfig, "Spout2: graphics hardware is not compatible with NVIDIA NV_DX_interop2 extension");
 				spout->ReleaseSender();
+				spout->SetSenderName(appConfig->windowName.c_str());
 				spout->SetCPUshare(true);
+				appConfig->_spoutNeedsCPU = true;
 				spout->OpenSpout();
 
 				if (spout->GetCPU() == false && spout->GetGLDX() == false)
@@ -1153,6 +1178,18 @@ void render()
 				}
 			}
 		}
+		else if (appConfig->_pendingSpoutNameChange)
+		{
+			spout->ReleaseSender();
+			spout->SetSenderName(appConfig->windowName.c_str());
+			spout->SetAutoShare(true);
+			if (appConfig->_spoutNeedsCPU)
+				spout->SetCPUshare(true);
+
+			spout->OpenSpout();
+			appConfig->_pendingSpoutNameChange = false;
+		}
+		appConfig->_nameLock.unlock();
 
 		bool result = spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
 		if (result == false)
@@ -1373,6 +1410,7 @@ void handleEvents()
 		appConfig->_window.requestFocus();
 	}
 
+	sf::Joystick::update();
 	layerMan->CheckHotkeys();
 
 	sf::Event evt;
@@ -1499,8 +1537,6 @@ void handleEvents()
 		if (uiConfig->_menuShowing && appConfig->_menuWindow.isOpen() == false)
 			ImGui::SFML::ProcessEvent(appConfig->_window, evt);
 	}
-
-	sf::Joystick::update();
 
 	for (auto& posn : axisEvents)
 	{
@@ -1687,10 +1723,13 @@ void CheckUpdates()
 				buf2.resize(length2 + 1, 0);
 				updateFile.read(buf2.data(), length2);
 
-				size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+				if (buf2.find("\"latest\"") != std::string::npos)
+				{
+					size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
 
-				float latest = std::stod(buf2.substr(numPos), nullptr);
-				appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+					float latest = std::stod(buf2.substr(numPos), nullptr);
+					appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+				}
 
 				updateFile.close();
 			}
@@ -2053,6 +2092,12 @@ void MainLoop()
 		audioConfig->_bassHi = 0;
 		audioConfig->_midHi = 0;
 		audioConfig->_trebleHi = 0;
+
+		if(appConfig->_pendingNameChange)
+		{
+			appConfig->_window.setTitle(appConfig->windowName);
+			appConfig->_pendingNameChange = false;
+		}
 
 		sf::sleep(sf::milliseconds(8));
 	}

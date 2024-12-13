@@ -391,6 +391,7 @@ public:
 	}
 	
 	std::string LastUsedLayerSet() { return _loadedXML; }
+	std::string LayerSetName() { return _layerSetName; }
 	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
 
 	void Init(AppConfig* appConf, UIConfig* uiConf)
@@ -434,6 +435,7 @@ private:
 	std::string _fullLoadedXMLPath = u8"";
 	bool _loadedXMLExists = true;
 	bool _loadXMLOpen = false;
+	std::string _layerSetName = "lastLayers";
 
 	bool _statesMenuOpen = false;
 	bool _oldStatesMenuOpen = false;

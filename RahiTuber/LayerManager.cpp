@@ -358,6 +358,19 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			xmlPath.replace_extension(".xml");
 
 		_loadedXMLExists = fs::exists(xmlPath);
+
+		_layerSetName = xmlPath.filename().replace_extension("").string();
+		if (_appConfig->_nameWindowWithSet)
+		{
+			_appConfig->_nameLock.lock();
+			{
+				_appConfig->windowName = "RahiTuber - " + _layerSetName;
+				_appConfig->_pendingNameChange = true;
+				_appConfig->_pendingSpoutNameChange = true;
+			}
+			_appConfig->_nameLock.unlock();
+		}
+		
 	}
 	ImGui::PopID();
 	ImGui::PopItemWidth();
@@ -1810,10 +1823,23 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
 
-			_loadingFinished = true;
+			_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
+
+			if (_appConfig->_nameWindowWithSet)
+			{
+				_appConfig->_nameLock.lock();
+				{
+					_appConfig->windowName = "RahiTuber - " + _layerSetName;
+					_appConfig->_pendingNameChange = true;
+					_appConfig->_pendingSpoutNameChange = true;
+				}
+				_appConfig->_nameLock.unlock();
+			}
 
 			logToFile(_appConfig, "Loaded Layer Set " + _loadingPath);
 			_loadingPath = "";
+
+			_loadingFinished = true;
 			
 		});
 
