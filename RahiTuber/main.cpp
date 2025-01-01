@@ -11,12 +11,6 @@
 
 #include "imgui_internal.h"
 
-#include "Config.h"
-#include "xmlConfig.h"
-
-#include "LayerManager.h"
-//#include "KeyboardTracker.h"
-
 #include "defines.h"
 
 #include <fstream>
@@ -33,6 +27,15 @@
 
 #pragma comment (lib, "Dwmapi.lib")
 #endif
+
+#include "Config.h"
+#include "xmlConfig.h"
+
+#include "LayerManager.h"
+//#include "KeyboardTracker.h"
+
+// must be last
+#include "websocket.h"
 
 AppConfig* appConfig = nullptr;
 AudioConfig* audioConfig = nullptr;
@@ -644,6 +647,21 @@ void menuAdvanced(ImGuiStyle& style)
 			appConfig->_nameLock.unlock();
 		}
 		ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
+		{
+			if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+			{
+				appConfig->_webSocket->Start();
+			}
+			else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+			{
+				appConfig->_webSocket->Stop();
+			}
+		}
+		ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 
@@ -1703,46 +1721,54 @@ void doAudioAnalysis()
 
 void CheckUpdates()
 {
-	std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
-
-	std::string cmd = "curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
-
-	if (runProcess(cmd))
-	{
-		std::ifstream updateFile;
-		updateFile.open(queryTxt);
-		if (updateFile)
+	appConfig->_checkUpdateThread = new std::thread([&]
 		{
-			updateFile.seekg(0, updateFile.end);
-			int length2 = updateFile.tellg();
-			updateFile.seekg(0, updateFile.beg);
 
-			if (length2 != 0)
+			std::string queryTxt = appConfig->_appLocation + "updateQuery.txt";
+
+			std::string cmd = "curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
+
+			if (runProcess(cmd))
 			{
-				std::string buf2;
-				buf2.resize(length2 + 1, 0);
-				updateFile.read(buf2.data(), length2);
-
-				if (buf2.find("\"latest\"") != std::string::npos)
+				std::ifstream updateFile;
+				updateFile.open(queryTxt);
+				if (updateFile)
 				{
-					size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+					updateFile.seekg(0, updateFile.end);
+					int length2 = updateFile.tellg();
+					updateFile.seekg(0, updateFile.beg);
 
-					float latest = std::stod(buf2.substr(numPos), nullptr);
-					appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+					if (length2 != 0)
+					{
+						std::string buf2;
+						buf2.resize(length2 + 1, 0);
+						updateFile.read(buf2.data(), length2);
+
+						if (buf2.find("\"latest\"") != std::string::npos)
+						{
+							size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
+
+							float latest = std::stod(buf2.substr(numPos), nullptr);
+							appConfig->_updateAvailable = appConfig->_versionNumber < latest;
+
+							logToFile(appConfig, "Available version: " + std::to_string(latest));
+						}
+
+						updateFile.close();
+					}
+
+					std::remove(queryTxt.c_str());
+
+
 				}
-
-				updateFile.close();
 			}
-
-			std::remove(queryTxt.c_str());
-		}
-	}
-	else
-	{
+			else
+			{
 #ifdef _WIN32
-		printf("CreateProcess failed (%d).\n", GetLastError());
+				printf("CreateProcess failed (%d).\n", GetLastError());
 #endif
-	}
+			}
+		});
 }
 
 void ApplicationSetup()
@@ -2071,6 +2097,19 @@ void ApplicationSetup()
 
 	audioConfig->_quietTimer.restart();
 
+	if (appConfig->_checkUpdateThread != nullptr)
+	{
+		if (appConfig->_checkUpdateThread->joinable())
+			appConfig->_checkUpdateThread->join();
+
+		delete appConfig->_checkUpdateThread;
+		appConfig->_checkUpdateThread = nullptr;
+	}
+
+	appConfig->_webSocket = new WebSocket();
+	if (appConfig->_listenHTTP)
+		appConfig->_webSocket->Start();
+
 	logToFile(appConfig, "Setup Complete!");
 
 	return;
@@ -2081,6 +2120,8 @@ void MainLoop()
 	while (appConfig->_window.isOpen())
 	{
 		doAudioAnalysis();
+
+		//appConfig->_webSocket->Poll();
 
 		handleEvents();
 		if (!appConfig->_window.isOpen())
@@ -2099,7 +2140,8 @@ void MainLoop()
 			appConfig->_pendingNameChange = false;
 		}
 
-		sf::sleep(sf::milliseconds(8));
+		//if(appConfig->_enableVSync)
+		//	sf::sleep(sf::milliseconds(8));
 	}
 }
 
@@ -2128,6 +2170,7 @@ void Cleanup()
 		appConfig->_menuWindow.close();
 
 	delete appConfig->_loader;
+	delete appConfig->_webSocket;
 
 	delete appConfig;
 	delete uiConfig;
