@@ -22,6 +22,9 @@
     <Filter Include="Source Files\spout2">
       <UniqueIdentifier>{40a369a6-690c-4ea6-8421-d1e3a49eb860}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\mongoose">
+      <UniqueIdentifier>{e3d8fadb-9300-4bf7-8e82-c41110908ff6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -113,6 +116,12 @@
     </ClCompile>
     <ClCompile Include="CrashHandler.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="websocket.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mongoose-7.16\mongoose.c">
+      <Filter>Source Files\mongoose</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -211,6 +220,12 @@
     </ClInclude>
     <ClInclude Include="CrashHandler.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="websocket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mongoose-7.16\mongoose.h">
+      <Filter>Source Files\mongoose</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

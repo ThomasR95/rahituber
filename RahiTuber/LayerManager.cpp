@@ -20,6 +20,8 @@
     #include <uuid/uuid.h>
 #endif
 
+#include "websocket.h"
+
 LayerManager::~LayerManager()
 {
 	_textureMan->Reset();
@@ -2066,6 +2068,26 @@ void LayerManager::CheckHotkeys()
 				keyDown = true;
 			}
 		}
+
+		// Check websocket
+		if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
+		{
+			WebSocket::QueueItem qItem = _appConfig->_webSocket->QueueFront();
+			if (qItem.stateIdx == h)
+			{
+				if (qItem.activeState == 1)
+					keyDown = true;
+				else
+					keyDown = false;
+
+				if (stateInfo._wasTriggered != keyDown)
+					changed = true;
+
+
+				_appConfig->_webSocket->PopQueueFront();
+			}
+		}
+
 
 		if (stateInfo._wasTriggered == true && keyDown == false)
 			changed = true;

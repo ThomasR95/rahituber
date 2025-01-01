@@ -30,6 +30,7 @@ typedef float SAMPLE;
 #define PRINTF_S_FORMAT "%.8f"
 
 class xmlConfigLoader;
+class WebSocket;
 
 struct AppConfig
 {
@@ -40,6 +41,9 @@ struct AppConfig
 	bool _pendingSpoutNameChange = false;
 	std::mutex _nameLock;
 	bool _nameWindowWithSet = false;
+
+	bool _listenHTTP = false;
+	WebSocket* _webSocket;
 
 	bool _transparent = false;
 
@@ -104,6 +108,7 @@ struct AppConfig
 	float _versionNumber = 0.0;
 	bool _checkForUpdates = true;
 	bool _updateAvailable = false;
+	std::thread* _checkUpdateThread = nullptr;
 };
 
 typedef struct
@@ -231,6 +236,12 @@ static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = fa
 		std::string cmd = "";
 
 #ifdef _WIN32
+
+#ifdef _DEBUG
+		std::cout << msg << std::endl;
+		OutputDebugStringA((msg + "\n").c_str());
+#endif
+
 		if (clear)
 			cmd = "echo " + msg + " > \"" + logTxt + "\"";
 		else

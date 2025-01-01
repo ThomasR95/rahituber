@@ -8,11 +8,14 @@
 #include <string>
 #include <iostream>
 
+#include <map>
+
 #define PI 3.14159265359
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-
+#include <shellapi.h>
 static inline void OsOpenInShell(const char* path) {
 	// Note: executable path must use  backslashes! 
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
@@ -263,7 +266,7 @@ static bool runProcess(const std::string& cmd) {
 
     if (CreateProcessA(NULL, cmd2.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
     {
-        WaitForSingleObject(procInfo.hProcess, INFINITE);
+        WaitForSingleObject(procInfo.hProcess, 2000);
         CloseHandle(procInfo.hProcess);
         CloseHandle(procInfo.hThread);
         return true;
