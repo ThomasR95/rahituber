@@ -2076,18 +2076,33 @@ void LayerManager::CheckHotkeys()
 			if (qItem.stateIdx == h)
 			{
 				if (qItem.activeState == 1)
+				{
 					keyDown = true;
+					if (stateInfo._activeType == StatesInfo::Held)
+					{
+						stateInfo._alternateHeld = true;
+					}
+				}
 				else
+				{
 					keyDown = false;
+					if (stateInfo._activeType == StatesInfo::Held)
+					{
+						stateInfo._alternateHeld = false;
+					}
+				}
 
 				if (stateInfo._wasTriggered != keyDown)
 					changed = true;
 
-
 				_appConfig->_webSocket->PopQueueFront();
 			}
-		}
 
+			if (stateInfo._activeType == StatesInfo::Held && stateInfo._alternateHeld)
+			{
+				keyDown = true;
+			}
+		}
 
 		if (stateInfo._wasTriggered == true && keyDown == false)
 			changed = true;

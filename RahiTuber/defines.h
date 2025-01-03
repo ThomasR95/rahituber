@@ -266,7 +266,7 @@ static bool runProcess(const std::string& cmd) {
 
     if (CreateProcessA(NULL, cmd2.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
     {
-        WaitForSingleObject(procInfo.hProcess, 2000);
+        //WaitForSingleObject(procInfo.hProcess, INFINITE);
         CloseHandle(procInfo.hProcess);
         CloseHandle(procInfo.hThread);
         return true;

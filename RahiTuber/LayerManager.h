@@ -247,6 +247,7 @@ public:
 	{
 		bool _enabled = true;
 		bool _active = false;
+		bool _alternateHeld = false;
 
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
 		bool _ctrl = false;

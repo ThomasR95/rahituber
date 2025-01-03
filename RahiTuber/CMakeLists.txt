@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(
     .
+    mongoose-7.16
     imgui
     imgui/backends
     imgui/freetype
@@ -77,6 +78,8 @@ set (SRCS
     portaudio/include/portaudio.h
     tinyxml2/tinyxml2.cpp
     tinyxml2/tinyxml2.h
+    mongoose-7.16/mongoose.c
+    mongoose-7.16/mongoose.h
     Config.h
     defines.h
     file_browser_modal.cpp
@@ -91,6 +94,7 @@ set (SRCS
     TextureManager.h
     xmlConfig.cpp
     xmlConfig.h
+    websocket.h
 )
 
 #add_compile_definitions( SFML_STATIC )

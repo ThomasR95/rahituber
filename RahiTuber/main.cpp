@@ -231,8 +231,6 @@ void getWindowSizes()
 
 void initWindow(bool firstStart = false)
 {
-	appConfig->_nameLock.lock();
-
 	if (appConfig->_isFullScreen)
 	{
 		if (appConfig->_window.isOpen())
@@ -249,8 +247,14 @@ void initWindow(bool firstStart = false)
 		{
 			if (firstStart)
 			{
-				appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32u), appConfig->windowName, 0);
-				appConfig->_pendingNameChange = false;
+				appConfig->_nameLock.lock();
+				{
+					auto beforeCreate = std::chrono::system_clock::now();
+					appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32U), appConfig->windowName, 0);
+					logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
+					appConfig->_pendingNameChange = false;
+				}
+				appConfig->_nameLock.unlock();
 			}
 			appConfig->_scrW = appConfig->_fullScrW + 1;
 			appConfig->_scrH = appConfig->_fullScrH + 1;
@@ -268,9 +272,15 @@ void initWindow(bool firstStart = false)
 		appConfig->_scrH = appConfig->_minScrH;
 		if (appConfig->_wasFullScreen || firstStart)
 		{
-			appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32u), appConfig->windowName, 0);
-			appConfig->_pendingNameChange = false;
-			appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
+			appConfig->_nameLock.lock();
+			{
+				auto beforeCreate = std::chrono::system_clock::now();
+				appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), appConfig->windowName, 0);
+				logToFile(appConfig, "Window Creation took " + std::to_string( std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
+				appConfig->_pendingNameChange = false;
+				appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
+			}
+			appConfig->_nameLock.unlock();
 		}
 		else
 		{
@@ -364,8 +374,6 @@ void initWindow(bool firstStart = false)
 		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 	}
-
-	appConfig->_nameLock.unlock();
 }
 
 void swapFullScreen()
@@ -1819,29 +1827,6 @@ void ApplicationSetup()
 	logToFile(appConfig, "Initialising LayerManager");
 	layerMan->Init(appConfig, uiConfig);
 
-	{ // scope to destruct verFile when finished
-		logToFile(appConfig, "Checking Version");
-		std::ifstream verFile;
-		verFile.open(appConfig->_appLocation + "buildnumber.txt");
-		if (verFile)
-		{
-			verFile.seekg(0, verFile.end);
-			int length = verFile.tellg();
-			verFile.seekg(0, verFile.beg);
-
-			std::string buf;
-			buf.resize(length + 1, 0);
-			verFile.read(buf.data(), length);
-			appConfig->_versionNumber = std::stod(buf, nullptr);
-
-			if (appConfig->_checkForUpdates)
-			{
-				logToFile(appConfig, "Checking for Updates");
-				CheckUpdates();
-			}
-		}
-	}
-
 	//kbdTrack = new KeyboardTracker();
 	//kbdTrack->_layerMan = layerMan;
 
@@ -1930,6 +1915,32 @@ void ApplicationSetup()
 		}
 	}
 
+	{ // scope to destruct verFile when finished
+		logToFile(appConfig, "Checking Version");
+		std::ifstream verFile;
+		verFile.open(appConfig->_appLocation + "buildnumber.txt");
+		if (verFile)
+		{
+			verFile.seekg(0, verFile.end);
+			int length = verFile.tellg();
+			verFile.seekg(0, verFile.beg);
+
+			std::string buf;
+			buf.resize(length + 1, 0);
+			verFile.read(buf.data(), length);
+			appConfig->_versionNumber = std::stod(buf, nullptr);
+
+			if (appConfig->_checkForUpdates)
+			{
+				logToFile(appConfig, "Checking for Updates");
+				CheckUpdates();
+			}
+		}
+	}
+
+	logToFile(appConfig, "Initialising app windows");
+	initWindow(true);
+
 	if (appConfig->_lastLayerSet.empty())
 	{
 		layerMan->LoadLayers(appConfig->lastLayerSettingsFile);
@@ -1954,8 +1965,6 @@ void ApplicationSetup()
 	uiConfig->_moveIcon.setSmooth(true);
 	uiConfig->_moveIconSprite.setTexture(uiConfig->_moveIcon, true);
 
-	logToFile(appConfig, "Initialising app windows");
-	initWindow(true);
 	ImGui::SFML::Init(appConfig->_window);
 	ImGui::SFML::Init(appConfig->_menuWindow);
 
@@ -2097,15 +2106,6 @@ void ApplicationSetup()
 
 	audioConfig->_quietTimer.restart();
 
-	if (appConfig->_checkUpdateThread != nullptr)
-	{
-		if (appConfig->_checkUpdateThread->joinable())
-			appConfig->_checkUpdateThread->join();
-
-		delete appConfig->_checkUpdateThread;
-		appConfig->_checkUpdateThread = nullptr;
-	}
-
 	appConfig->_webSocket = new WebSocket();
 	if (appConfig->_listenHTTP)
 		appConfig->_webSocket->Start();
@@ -2153,6 +2153,15 @@ void Cleanup()
 	Pa_CloseStream(audioConfig->_audioStr);
 	Pa_Terminate();
 
+	if (appConfig->_checkUpdateThread != nullptr)
+	{
+		if (appConfig->_checkUpdateThread->joinable())
+			appConfig->_checkUpdateThread->join();
+
+		delete appConfig->_checkUpdateThread;
+		appConfig->_checkUpdateThread = nullptr;
+	}
+
 	appConfig->_lastLayerSet = layerMan->LastUsedLayerSet();
 
 	appConfig->_loader->saveCommon();
@@ -2171,6 +2180,8 @@ void Cleanup()
 
 	delete appConfig->_loader;
 	delete appConfig->_webSocket;
+
+	appConfig->_logStream.close();
 
 	delete appConfig;
 	delete uiConfig;
