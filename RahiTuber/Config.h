@@ -16,6 +16,9 @@
 
 #include "TextureManager.h"
 
+#include <fstream>
+#include <thread>
+
 #define SCRW 1280
 #define SCRH 720
 
@@ -97,6 +100,9 @@ struct AppConfig
 	TextureManager _textureMan;
 
 	std::string _appLocation = u8"";
+
+	std::string _logFileLocation = "";
+	std::fstream _logStream = {};
 
 	bool _useSpout2Sender = false;
 	bool _spoutNeedsCPU = false;
@@ -231,28 +237,25 @@ static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = fa
 {
 	if (appCfg != nullptr)
 	{
-		std::string logTxt = appCfg->_appLocation + "RahiTuber_Log.txt";
+		if(appCfg->_logFileLocation == "")
+			appCfg->_logFileLocation = appCfg->_appLocation + "RahiTuber_Log.txt";
+
+		if (appCfg->_logStream.is_open() == false)
+		{
+			appCfg->_logStream.open(appCfg->_logFileLocation);
+		}
 
 		std::string cmd = "";
-
-#ifdef _WIN32
 
 #ifdef _DEBUG
 		std::cout << msg << std::endl;
 		OutputDebugStringA((msg + "\n").c_str());
 #endif
 
-		if (clear)
-			cmd = "echo " + msg + " > \"" + logTxt + "\"";
-		else
-			cmd = "echo " + msg + " >> \"" + logTxt + "\"";
-#else
-		if (clear)
-			cmd = "echo '" + msg + "' > '" + logTxt + "'";
-		else
-			cmd = "echo '" + msg + "' >> '" + logTxt + "'";
-#endif
-
-		runProcess(cmd);
+		if (appCfg->_logStream.is_open())
+		{
+			appCfg->_logStream << msg << std::endl << std::flush;
+		}
+			
 	}
 }
