@@ -662,7 +662,7 @@ void menuAdvanced(ImGuiStyle& style)
 		{
 			if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
 			{
-				appConfig->_webSocket->Start();
+				appConfig->_webSocket->Start(appConfig->_httpPort);
 			}
 			else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
 			{
@@ -2108,7 +2108,7 @@ void ApplicationSetup()
 
 	appConfig->_webSocket = new WebSocket();
 	if (appConfig->_listenHTTP)
-		appConfig->_webSocket->Start();
+		appConfig->_webSocket->Start(appConfig->_httpPort);
 
 	logToFile(appConfig, "Setup Complete!");
 

@@ -46,6 +46,7 @@ struct AppConfig
 	bool _nameWindowWithSet = false;
 
 	bool _listenHTTP = false;
+	int _httpPort = 8000;
 	WebSocket* _webSocket;
 
 	bool _transparent = false;

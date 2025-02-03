@@ -2306,14 +2306,41 @@ void LayerManager::DrawStatesGUI()
 
 			ImGui::PushID('id' + stateIdx);
 
+			auto disabledCol = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+
 			auto col = ImGui::GetStyleColorVec4(ImGuiCol_Header);
 			if(state._active)
 				col = ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive);
 			if (state._enabled == false)
-				col = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+				col = disabledCol;
 			ImGui::PushStyleColor(ImGuiCol_Header, col);
 			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+
+				if (_appConfig->_listenHTTP)
+				{
+					ImGui::TextColored(disabledCol, state._webRequest.c_str());
+					if (ImGui::Button("Copy request"))
+					{
+						ImGui::SetClipboardText(state._webRequest.c_str());
+					}
+
+					ImGui::SameLine();
+
+					if (state._webRequest == "" || ImGui::Checkbox(state._webRequestActive?"to activate": "to deactivate", &state._webRequestActive))
+					{
+						std::stringstream ss;
+						ss << "http://localhost:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
+						state._webRequest = ss.str();
+						ImGui::SetClipboardText(state._webRequest.c_str());
+					}
+
+					ImGui::PushStyleColor(ImGuiCol_Separator, disabledCol);
+					ImGui::Separator();
+					ImGui::PopStyleColor();
+				}
+				
+
 				ImGui::Columns(3, 0, false);
 				ImGui::SetColumnWidth(0, 150);
 				ImGui::SetColumnWidth(1, 100);
@@ -2552,7 +2579,6 @@ void LayerManager::DrawStatesGUI()
 
 			ImVec2 endHeaderPos = ImGui::GetCursorPos();
 
-			
 			if (state._renaming)
 			{
 				headerTxtPos.y -= 3;
@@ -2571,6 +2597,11 @@ void LayerManager::DrawStatesGUI()
 			}
 			else
 			{
+				if (_appConfig->_listenHTTP)
+				{
+					name = "[" + std::to_string(stateIdx) + "] " + name;
+				}
+
 				ImGui::SetCursorPos(headerTxtPos);
 				ImGui::Text(ANSIToUTF8(name).c_str());
 			}

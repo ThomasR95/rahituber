@@ -302,6 +302,9 @@ public:
 
 		bool _keyIsHeld = false;
 
+		bool _webRequestActive = true;
+		std::string _webRequest = "";
+
 		sf::Clock _timer;
 	};
 
