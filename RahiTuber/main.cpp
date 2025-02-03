@@ -229,8 +229,34 @@ void getWindowSizes()
 	appConfig->_ratio = appConfig->_scrW / appConfig->_scrH;
 }
 
+void ensurePositionOnMonitor(int& x, int& y)
+{
+#ifdef _WIN32
+	POINT windPos;
+	windPos.x = x;
+	windPos.y = y;
+	HMONITOR monitor = MonitorFromPoint(windPos, MONITOR_DEFAULTTONULL);
+	if (monitor == NULL)
+	{
+		x = 0;
+		y = 0;
+
+		HMONITOR monitor = MonitorFromPoint(windPos, MONITOR_DEFAULTTONEAREST);
+		MONITORINFO mInfo;
+		mInfo.cbSize = sizeof(MONITORINFO);
+		if (GetMonitorInfoA(monitor, &mInfo));
+		{
+			x = mInfo.rcWork.left;
+			y = mInfo.rcWork.top;
+		}
+	}
+#endif
+}
+
 void initWindow(bool firstStart = false)
 {
+	ensurePositionOnMonitor(appConfig->_scrX, appConfig->_scrY);
+
 	if (appConfig->_isFullScreen)
 	{
 		if (appConfig->_window.isOpen())
