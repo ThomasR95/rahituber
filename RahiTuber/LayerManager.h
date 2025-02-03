@@ -186,6 +186,7 @@ public:
 				_renamePopupOpen;
 		}
 
+		void CalculateLayerDepth();
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
@@ -206,6 +207,7 @@ public:
 
 		void SyncAnims(bool sync);
 
+		int _lastCalculatedDepth = 0;
 		std::string _motionParent = "";
 		float _motionDelay = 0;
 		struct MotionLinkData

@@ -141,7 +141,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 	std::sort(calculateOrder.begin(), calculateOrder.end(), [](const LayerInfo* lhs, const LayerInfo* rhs)
 		{
-			return (lhs->_id == rhs->_motionParent);
+			return (lhs->_lastCalculatedDepth < rhs->_lastCalculatedDepth);
 		});
 
 	for (auto layer : calculateOrder)
@@ -1838,6 +1838,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				_appConfig->_nameLock.unlock();
 			}
 
+			for (auto& layer : _layers)
+			{
+				layer.CalculateLayerDepth();
+			}
+
 			logToFile(_appConfig, "Loaded Layer Set " + _loadingPath);
 			_loadingPath = "";
 
@@ -2608,6 +2613,23 @@ void LayerManager::DrawStatesGUI()
 
 		ImGui::EndPopup();
 	}
+}
+
+void LayerManager::LayerInfo::CalculateLayerDepth()
+{
+	if (_parent == nullptr)
+		return;
+
+	int depth = 0;
+	std::string& searchMotionParent = _motionParent;
+	LayerInfo* mp = _parent->GetLayer(searchMotionParent);
+	while (mp != nullptr )
+	{
+		depth++;
+		mp = _parent->GetLayer(mp->_motionParent);
+	}
+
+	_lastCalculatedDepth = depth;
 }
 
 void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
@@ -3703,6 +3725,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 				}
 				ImGui::EndCombo();
+
+				//recalculate the depths
+				for (auto& layer : _parent->_layers)
+				{
+					layer.CalculateLayerDepth();
+				}
 			}
 			ToolTip("Select a layer to copy the motion from", &_parent->_appConfig->_hoverTimer);
 			ImGui::SetCursorPos(oldCursorPos);
