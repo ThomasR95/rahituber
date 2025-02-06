@@ -194,6 +194,8 @@ public:
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
+		void DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth);
+
 		std::vector<int> _animGrid = { 1, 1 };
 		int _animFCount = 1;
 		float _animFPS = 12;
@@ -609,12 +611,14 @@ static sf::Texture* _dupeIcon = nullptr;
 
 
 template <typename T>
-inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true)
+inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr)
 {
 	if (_resetIcon == nullptr)
 		_resetIcon = appConfig->_textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
 
 	_resetIcon->setSmooth(true);
+
+	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
 
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 	if (style)
@@ -623,10 +627,17 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 	sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
 
 	ImGui::PushID(id);
-	if (ImGui::ImageButton(id, *_resetIcon, sf::Vector2f(13, 13), sf::Color::Transparent, btnColor))
+	if (ImGui::ImageButton(id, *_resetIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
 		if (enabled)
 			value = resetValue;
 	ImGui::PopID();
+
+	if (cursorPos)
+	{
+		*cursorPos = ImGui::GetCursorPos();
+		cursorPos->x += btnSize + (style ? style->ItemSpacing.x : 0);
+	}
+
 	ImGui::SameLine();
 }
 

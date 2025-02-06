@@ -20,6 +20,7 @@
 
 #include "wtypes.h"
 #include <Windows.h>
+#include "ShellScalingApi.h"
 #include <fileapi.h>
 #include <Dwmapi.h>
 
@@ -154,7 +155,7 @@ void LoadCustomFont()
 
 	ImFontConfig cfg;
 	cfg.OversampleH = 1;
-	cfg.SizePixels = 13.f;
+	cfg.SizePixels = 26.f;
 	//cfg.MergeMode = true;
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
@@ -163,7 +164,7 @@ void LoadCustomFont()
 	if (!fs::exists(fontpath))
 		return;
 
-	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 13.f, &cfg);
+	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 26.f, &cfg);
 	if (result == nullptr)
 		return;
 
@@ -184,7 +185,7 @@ void LoadCustomFont()
 
 		uiConfig->fontimg.create(tex_width, tex_height, tex_pixels);
 		uiConfig->fontTex.loadFromImage(uiConfig->fontimg);
-		uiConfig->fontTex.setSmooth(false);
+		uiConfig->fontTex.setSmooth(true);
 
 		uiConfig->fontBuilt = true;
 	}
@@ -253,6 +254,28 @@ void ensurePositionOnMonitor(int& x, int& y)
 #endif
 }
 
+float CheckMonitorScaleFactor(const sf::Vector2i& windowPos, const sf::Vector2u windowSize)
+{
+	float scaleFactor = 1.0;
+#ifdef _WIN32
+	RECT windowRect;
+	windowRect.left = windowPos.x;
+	windowRect.top = windowPos.y;
+	windowRect.right = windowRect.left + windowSize.x;
+	windowRect.bottom = windowRect.top + windowSize.y;
+	HMONITOR hMonitor = MonitorFromRect(&windowRect, MONITOR_DEFAULTTONEAREST);
+	DEVICE_SCALE_FACTOR monitorScale;
+
+	if (GetScaleFactorForMonitor(hMonitor, &monitorScale) == S_OK
+		&& monitorScale != DEVICE_SCALE_FACTOR_INVALID)
+	{
+		scaleFactor = (float)monitorScale * 0.01;
+	}
+#endif
+
+	return scaleFactor;
+}
+
 void initWindow(bool firstStart = false)
 {
 	ensurePositionOnMonitor(appConfig->_scrX, appConfig->_scrY);
@@ -294,8 +317,13 @@ void initWindow(bool firstStart = false)
 	}
 	else
 	{
-		appConfig->_scrW = appConfig->_minScrW;
-		appConfig->_scrH = appConfig->_minScrH;
+		if (firstStart)
+		{
+			appConfig->mainWindowScaling = CheckMonitorScaleFactor({appConfig->_scrX, appConfig->_scrY}, { (sf::Uint16)appConfig->_minScrW, (sf::Uint16)appConfig->_minScrH });
+		}
+
+		appConfig->_scrW = appConfig->_minScrW * appConfig->mainWindowScaling;
+		appConfig->_scrH = appConfig->_minScrH * appConfig->mainWindowScaling;
 		if (appConfig->_wasFullScreen || firstStart)
 		{
 			appConfig->_nameLock.lock();
@@ -410,15 +438,14 @@ void swapFullScreen()
 
 void menuHelp(ImGuiStyle& style)
 {
-	ImVec2 preButtonPos = ImGui::GetCursorScreenPos();
-	sf::Vector2f dotpos = toSFVector(preButtonPos);
-	dotpos.x += ImGui::GetWindowWidth() / 2 - 18;
-	uiConfig->_helpBtnPosition = dotpos;
-
-	if (ImGui::Button("Help", { ImGui::GetWindowWidth() / 2 - 10, 20 }))
+	if (ImGui::Button("Help", { -1, 20 * appConfig->scalingFactor }))
 	{
+		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
+		dotpos -= {style.ItemSpacing.x * 3, style.ItemSpacing.y * 6};
+		uiConfig->_helpBtnPosition = dotpos;
+		
 		float h = ImGui::GetWindowHeight();
-		ImGui::SetNextWindowSize({ 400, h });
+		ImGui::SetNextWindowSize({ 400 * appConfig->scalingFactor, h });
 
 		if (appConfig->_menuWindow.isOpen())
 		{
@@ -431,15 +458,23 @@ void menuHelp(ImGuiStyle& style)
 		}
 		ImGui::OpenPopup("Help");
 	}
-	ImGui::SetNextWindowSize({ 400,-1 });
-	//ImGui::SetNextWindowSizeConstraints({ 400, 400 }, { -1,-1 });
+	else
+	{
+		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
+		dotpos -= {style.ItemSpacing.x*3, style.ItemSpacing.y*6};
+		uiConfig->_helpBtnPosition = dotpos;
+	}
+
+	ImGui::SetNextWindowSize({ 400 * appConfig->scalingFactor,-1 });
 
 	uiConfig->_helpPopupActive = false;
 
 	bool p_open = true;
-	if (ImGui::BeginPopupModal("Help", &p_open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
+	if (ImGui::BeginPopupModal("Help", &p_open, ImGuiWindowFlags_NoResize))
 	{
 		uiConfig->_helpPopupActive = true;
+
+		ImGui::SetWindowSize({ 400 * appConfig->scalingFactor,-1 });
 
 		if (appConfig->_updateAvailable)
 		{
@@ -508,12 +543,80 @@ void menuHelp(ImGuiStyle& style)
 
 void menuAdvanced(ImGuiStyle& style)
 {
-	if (ImGui::Button(uiConfig->_advancedMenuShowing ? "Hide Advanced" : "Show Advanced...", { -1, 20 }))
+	if (ImGui::Button("Advanced", { -1, 20 * appConfig->scalingFactor }))
 	{
-		uiConfig->_advancedMenuShowing = !uiConfig->_advancedMenuShowing;
+		float h = ImGui::GetWindowHeight();
+		ImGui::SetNextWindowSize({ 420 * appConfig->scalingFactor, h });
+
+		if (appConfig->_menuWindow.isOpen())
+		{
+			ImVec2 wSize = ImGui::GetCurrentWindow()->Size;
+			ImGui::SetNextWindowPos({ wSize.x / 2 - 200, wSize.y / 4 });
+		}
+		else
+		{
+			ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 4 });
+		}
+		ImGui::OpenPopup("Advanced Settings");
 	}
-	if (uiConfig->_advancedMenuShowing)
+	ImGui::SetNextWindowSize({ 420 * appConfig->scalingFactor,-1 });
+
+
+	uiConfig->_advancedMenuShowing = false;
+
+	bool p_open = true;
+	if (ImGui::BeginPopupModal("Advanced Settings", &p_open, ImGuiWindowFlags_NoResize))
 	{
+		uiConfig->_advancedMenuShowing = true;
+
+		ImGui::SeparatorText("Window Options");
+
+		ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
+
+		ImGui::TableNextColumn();
+		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
+		ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+
+#ifdef _WIN32
+		ImGui::TableNextColumn();
+		if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
+		{
+
+			HWND hwnd = appConfig->_window.getSystemHandle();
+
+			if (appConfig->_alwaysOnTop)
+				SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+			else
+				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+		}
+		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
+#endif
+
+		ImGui::TableNextColumn();
+		if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
+		{
+			initWindow();
+		}
+		ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
+		{
+			appConfig->_nameLock.lock();
+			if (appConfig->_nameWindowWithSet)
+				appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
+			else
+				appConfig->windowName = "RahiTuber";
+			appConfig->_pendingNameChange = true;
+			appConfig->_pendingSpoutNameChange = true;
+			appConfig->_nameLock.unlock();
+		}
+		ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
+
+		ImGui::EndTable();
+
+		ImGui::SeparatorText("Appearance");
+
 		if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
 		{
 			for (auto& theme : uiConfig->_themes)
@@ -524,39 +627,10 @@ void menuAdvanced(ImGuiStyle& style)
 		}
 		ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
 
-		ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchProp);
-		ImGui::TableNextColumn();
+		ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame);
 
-		float col[3] = { (float)appConfig->_bgColor.r / 255, (float)appConfig->_bgColor.g / 255, (float)appConfig->_bgColor.b / 255 };
-		ImVec4 imCol = toImColor(appConfig->_bgColor);
-		bool colBtnClicked = false;
-		bool tooltipShown = false;
-		ImGui::SetCursorPosX(8);
-		for (int x = 0; x < 11; x++)
-		{
-			ImGui::PushID(x);
-			colBtnClicked |= ImGui::ColorEdit3("Background Color", col, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoBorder);
-			ImGui::PopID();
-			if (!tooltipShown)
-				tooltipShown = ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
-			ImGui::SameLine(x * 12.5);
-		}
-
-		if (colBtnClicked)
-		{
-			appConfig->_bgColor = sf::Color(int(255.f * col[0]), int(255.f * col[1]), int(255.f * col[2]));
-		}
-		ImGui::SameLine(140); ImGui::TextWrapped("Background Color");
-
-		ImGui::TableNextColumn();
-
-		ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
-		ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-
-		ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 #ifdef _WIN32
+		ImGui::TableNextColumn();
 		float transChkBoxPos = ImGui::GetCursorPosY();
 		if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
 		{
@@ -601,89 +675,72 @@ void menuAdvanced(ImGuiStyle& style)
 			//             }
 			// #endif
 		}
-		ToolTip("Turns the app background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
+		ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
-#endif
-#ifdef _WIN32
-		if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
-		{
-
-			HWND hwnd = appConfig->_window.getSystemHandle();
-
-			if (appConfig->_alwaysOnTop)
-				SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-			else
-				SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-		}
-		ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
 #endif
 
-		//if (ImGui::Checkbox("Keyboard Hook", &appConfig->_useKeyboardHooks))
-		//{
-		//	kbdTrack->SetHook(appConfig->_useKeyboardHooks);
-		//}
-		//ToolTip("Uses a hook to ensure that hotkeys work while the app is not focused.", &appConfig->_hoverTimer);
-
-				//ImGui::TableNextColumn();
-
-		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
-		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
-
+		ImVec4 imCol = toImColor(appConfig->_bgColor);
 		ImGui::TableNextColumn();
-
-		if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
-		{
-			initWindow();
+		ImGui::BeginDisabled(appConfig->_transparent);
+		if (ImGui::Button("Background Color", { -1, 20 * appConfig->scalingFactor })) {
+			ImGui::OpenPopup("BGColorEdit");
 		}
-		ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+		if (ImGui::BeginPopup("BGColorEdit"))
+		{
+			if (ImGui::ColorPicker3("##bgColor", &imCol.x, ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_DisplayRGB))
+			{
+				appConfig->_bgColor = toSFColor(imCol);
+			}
+			ImGui::EndPopup();
+		}
+		ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
+		ImGui::EndDisabled();
 
 		ImGui::TableNextColumn();
-
 		ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
 		ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
-
-#ifdef _WIN32
-		ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-		ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
+		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
-#endif
+		ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
+		ToolTip("Change teh size of the user interface.", &appConfig->_hoverTimer);
 
+		ImGui::EndTable();
+
+		ImGui::SeparatorText("Behaviour");
+
+		ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame);
+
+		ImGui::TableNextColumn();
 		ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
 		ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
-
 		ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
 		ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
 
 		ImGui::TableNextColumn();
-
 		ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
 		ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
 
-		if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
-		{
-			appConfig->_nameLock.lock();
-			if (appConfig->_nameWindowWithSet)
-				appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
-			else
-				appConfig->windowName = "RahiTuber";
-			appConfig->_pendingNameChange = true;
-			appConfig->_pendingSpoutNameChange = true;
-			appConfig->_nameLock.unlock();
-		}
-		ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
+		ImGui::EndTable();
+
+		ImGui::SeparatorText("Integration");
+
+		ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame);
+
+#ifdef _WIN32
+		ImGui::TableNextColumn();
+		ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+		ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+#endif
 
 		ImGui::TableNextColumn();
-
 		if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
 		{
 			if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
@@ -699,7 +756,11 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::EndTable();
 
-		ImGui::PopStyleColor();
+		if (ImGui::Button("OK", { -1,20 }))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 
@@ -821,7 +882,7 @@ void menuAudio(ImGuiStyle& style)
 
 void menuPresets(ImGuiStyle& style)
 {
-	if (ImGui::Button("Window Presets", { -1,20 }))
+	if (ImGui::Button("Window Presets", { -1,20 * appConfig->scalingFactor }))
 	{
 		if (appConfig->_menuWindow.isOpen())
 		{
@@ -842,7 +903,7 @@ void menuPresets(ImGuiStyle& style)
 	{
 		uiConfig->_presetPopupActive = true;
 
-		ImGui::SetWindowSize({ 450,-1 });
+		ImGui::SetWindowSize({ 450 * appConfig->scalingFactor,-1 });
 		//ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
 
 		ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Save or load presets for window attributes");
@@ -862,7 +923,7 @@ void menuPresets(ImGuiStyle& style)
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Load", { -1,20 }) && uiConfig->_presetNames.size())
+		if (ImGui::Button("Load", { -1,20 * appConfig->scalingFactor }) && uiConfig->_presetNames.size())
 		{
 			//gameConfig->loadFromSettingsFile(gameConfig->m_presetNames[gameConfig->m_presetIdx]);
 			if (appConfig->_loader->loadPreset(uiConfig->_presetNames[uiConfig->_presetIdx]))
@@ -883,15 +944,15 @@ void menuPresets(ImGuiStyle& style)
 		}
 		ImGui::Separator();
 		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Save Preset");
-		ImGui::InputText("Name", uiConfig->_settingsFileBoxName.data(), 30);
+		ImGui::InputText("Name", uiConfig->_settingsFileBoxName.data(), 30 * appConfig->scalingFactor);
 		ImGui::SameLine();
-		if (ImGui::Button("x", { 20,20 }))
+		if (ImGui::Button("x", { 20 * appConfig->scalingFactor,20 * appConfig->scalingFactor }))
 		{
 			uiConfig->_settingsFileBoxName.clear();
 			uiConfig->_settingsFileBoxName.resize(30);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Use Current", { -1,20 }) && uiConfig->_presetNames.size())
+		if (ImGui::Button("Use Current", { -1,20 * appConfig->scalingFactor }) && uiConfig->_presetNames.size())
 		{
 			uiConfig->_settingsFileBoxName.clear();
 			uiConfig->_settingsFileBoxName.resize(30);
@@ -922,7 +983,7 @@ void menuPresets(ImGuiStyle& style)
 
 		std::string name(uiConfig->_settingsFileBoxName.data());
 
-		if ((name != "") && ImGui::Button(saveName.c_str(), { -1,20 }))
+		if ((name != "") && ImGui::Button(saveName.c_str(), { -1,20 * appConfig->scalingFactor }))
 		{
 			if (std::find(uiConfig->_presetNames.begin(), uiConfig->_presetNames.end(), name) == uiConfig->_presetNames.end())
 			{
@@ -946,20 +1007,29 @@ void menu()
 	appConfig->_menuPopped = appConfig->_menuPopPending;
 
 	if (appConfig->_menuPopped)
+	{
+		appConfig->scalingFactor = appConfig->menuWindowScaling * appConfig->customScaling;
 		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
+	}
 	else
+	{
+		appConfig->scalingFactor = appConfig->mainWindowScaling * appConfig->customScaling;
 		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+	}
 
 	auto& style = ImGui::GetStyle();
-	style.FrameRounding = 4;
+	style.FrameRounding = 4 * appConfig->scalingFactor;
+	style.FramePadding = { 3 * appConfig->scalingFactor, 3 * appConfig->scalingFactor };
 	style.WindowTitleAlign = style.ButtonTextAlign = { 0.5f, 0.5f };
-	style.ItemSpacing = { 3,3 };
+	style.ItemSpacing = { 3 * appConfig->scalingFactor, 3 * appConfig->scalingFactor };
+	style.GrabMinSize = 20 * appConfig->scalingFactor;
+	style.ScrollbarSize = 18 * appConfig->scalingFactor;
 	style.FrameBorderSize = 0;
 	style.AntiAliasedLines = true;
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
-	auto io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
 #ifdef _DEBUG
 	io.ConfigDebugHighlightIdConflicts = true;
 	io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent();
@@ -1006,16 +1076,18 @@ void menu()
 	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
 	style.Colors[ImGuiCol_Border] = col_dark;
 
+	io.FontGlobalScale = appConfig->scalingFactor * 0.5;
+	
 	// Main menu window
 
 	float windowHeight = appConfig->_scrH - 20;
 	if (appConfig->_menuPopped == false)
 	{
 		ImGui::SetNextWindowPos(ImVec2(10, 10));
-		ImGui::SetNextWindowSize({ 480, windowHeight });
+		ImGui::SetNextWindowSize({ 480*appConfig->scalingFactor, windowHeight });
 
 		sf::Color backdropCol = { sf::Uint8(255 * col_med.x), sf::Uint8(255 * col_med.y), sf::Uint8(255 * col_med.z) };
-		sf::RectangleShape backdrop({ 474, windowHeight - 6 });
+		sf::RectangleShape backdrop({ 474 * appConfig->scalingFactor, windowHeight - 6*appConfig->scalingFactor });
 		backdrop.setPosition(13, 13);
 		backdrop.setFillColor(backdropCol);
 		appConfig->_layersRT.draw(backdrop);
@@ -1045,34 +1117,43 @@ void menu()
 			menuShowName = "Show Interface (Esc)";
 	}
 
-	if (ImGui::Button(menuShowName.c_str(), { ImGui::GetWindowWidth() / 2 - 10,20 }))
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
+	ImGui::BeginTable("##menuVisibility", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame);
+	ImGui::TableNextColumn();
+	if (ImGui::Button(menuShowName.c_str(), { -1,20 * appConfig->scalingFactor }))
 	{
 		uiConfig->_menuShowing = !uiConfig->_menuShowing;
 	}
-	ImGui::SameLine();
-	if (ImGui::Button(menuPopName.c_str(), { -1,20 }))
+	ImGui::TableNextColumn();
+	if (ImGui::Button(menuPopName.c_str(), { -1,20 * appConfig->scalingFactor }))
 	{
 		appConfig->_menuPopPending = !appConfig->_menuPopPending;
 	}
-
+	ImGui::EndTable();
+	ImGui::PopStyleVar();
 
 	//	FULLSCREEN
-	if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 }))
+	if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 * appConfig->scalingFactor }))
 	{
 		swapFullScreen();
 	}
 
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
+	ImGui::BeginTable("##menuVisibility", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame);
+	ImGui::TableNextColumn();
 	menuHelp(style);
 
-	ImGui::SameLine();
+	ImGui::TableNextColumn();
 
 	menuAdvanced(style);
+	ImGui::EndTable();
+	ImGui::PopStyleVar();
 
 	ImGui::Separator();
 	float separatorPos = ImGui::GetCursorPosY();
-	float nextSectionPos = windowHeight - 150;
+	float nextSectionPos = windowHeight - 150 * appConfig->scalingFactor;
 	if (!uiConfig->_audioExpanded)
-		nextSectionPos = windowHeight - 104;
+		nextSectionPos = windowHeight - 104 * appConfig->scalingFactor;
 
 	layerMan->DrawGUI(style, nextSectionPos - separatorPos);
 
@@ -1081,7 +1162,7 @@ void menu()
 	ImGui::Separator();
 	menuAudio(style);
 
-	ImGui::SetCursorPosY(windowHeight - 54);
+	ImGui::SetCursorPosY(windowHeight - 54 * appConfig->scalingFactor);
 	ImGui::Separator();
 	menuPresets(style);
 
@@ -1094,7 +1175,7 @@ void menu()
 	ImGui::PushStyleColor(ImGuiCol_Button, col_dark);
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
-	if (ImGui::Button("Exit RahiTuber", { -1, 20 }))
+	if (ImGui::Button("Exit RahiTuber", { -1, 20 * appConfig->scalingFactor }))
 	{
 		if (appConfig->_menuWindow.isOpen())
 			appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
@@ -1116,12 +1197,12 @@ void menu()
 	if (!appConfig->_isFullScreen && uiConfig->_menuShowing)
 	{
 		// Move tab in the top centre
-		ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 40, 0 });
-		ImGui::SetNextWindowSize({ uiConfig->_moveTabSize.x, uiConfig->_moveTabSize.y });
+		ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 40 * appConfig->mainWindowScaling, 0 });
+		ImGui::SetNextWindowSize({ uiConfig->_moveTabSize.x * appConfig->mainWindowScaling, uiConfig->_moveTabSize.y * appConfig->mainWindowScaling });
 
 		ImGui::Begin("move_tab", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
-		ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12,4 });
-		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24, 24), sf::Color(255 * col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
+		ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12 * appConfig->mainWindowScaling,4 * appConfig->mainWindowScaling });
+		ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24 * appConfig->mainWindowScaling, 24 * appConfig->mainWindowScaling), sf::Color(255 * col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
 		ImGui::End();
 	}
 
@@ -1131,16 +1212,21 @@ void menu()
 	if (appConfig->_updateAvailable)
 	{
 		sf::Color pulseColor(255u, 255u, 255u, 128u + 127u * pulse);
-		sf::CircleShape dotShape(4, 12);
+		sf::CircleShape dotShape(style.FrameRounding, 12);
 		dotShape.setFillColor(toSFColor(col_light2) * pulseColor);
 		dotShape.setOutlineThickness(0.5);
 		dotShape.setOutlineColor(toSFColor(col_light) * pulseColor);
-		dotShape.setPosition(uiConfig->_helpBtnPosition);
-
+		
 		if (appConfig->_menuPopped)
+		{
+			dotShape.setPosition(uiConfig->_helpBtnPosition / appConfig->menuWindowScaling);
 			appConfig->_menuWindow.draw(dotShape);
+		}
 		else
+		{
+			dotShape.setPosition(uiConfig->_helpBtnPosition);
 			appConfig->_menuRT.draw(dotShape);
+		}
 	}
 
 	if (menuUnpopped)
@@ -1152,7 +1238,10 @@ void menu()
 
 	if (menuPoppedNow)
 	{
-		appConfig->_menuWindow.create(sf::VideoMode(480, appConfig->_scrH + 4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+		float scaleFactor = CheckMonitorScaleFactor(appConfig->_lastMenuPopPosition, { (sf::Uint16)(480u * appConfig->customScaling), (sf::Uint16)appConfig->_scrH + 4u });
+		float scaleFactorDiff = scaleFactor / appConfig->mainWindowScaling;
+
+		appConfig->_menuWindow.create(sf::VideoMode(480*scaleFactor * appConfig->customScaling, appConfig->_scrH * scaleFactorDiff + 4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
 		appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 		appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);
@@ -1433,10 +1522,20 @@ void handleEvents()
 
 			if (menuEvt.type == menuEvt.Resized)
 			{
-				sf::Vector2u windSize = appConfig->_menuWindow.getSize();
-				windSize.x = 480u;
-				appConfig->_menuWindow.setSize(windSize);
-				render();
+				auto windowPos = appConfig->_menuWindow.getPosition();
+				sf::Uint16 wHeight = appConfig->_menuWindow.getSize().y;
+
+				float scaleFactor = CheckMonitorScaleFactor(windowPos, { (sf::Uint16)(480u * appConfig->customScaling), wHeight});
+				
+				if (scaleFactor != appConfig->menuWindowScaling)
+				{
+					float scaleFactorDiff = scaleFactor / appConfig->menuWindowScaling;
+
+					appConfig->_menuWindow.setSize({ (sf::Uint16)(480u * scaleFactor * appConfig->customScaling), (sf::Uint16)(wHeight * scaleFactorDiff) });
+					appConfig->menuWindowScaling = scaleFactor;
+
+					ImGui::SFML::Init(appConfig->_menuWindow);
+				}
 			}
 
 			if (menuEvt.type == menuEvt.KeyPressed || menuEvt.type == menuEvt.MouseButtonPressed)
@@ -1583,6 +1682,18 @@ void handleEvents()
 				appConfig->_scrX = windowPos.x;
 				appConfig->_scrY = windowPos.y;
 				appConfig->_window.setPosition(windowPos);
+
+#ifdef _WIN32
+				float scaleFactor = CheckMonitorScaleFactor(windowPos, appConfig->_window.getSize());
+
+				if (scaleFactor != appConfig->mainWindowScaling)
+				{
+					appConfig->mainWindowScaling = scaleFactor;
+					initWindow();
+
+					ImGui::SFML::Init(appConfig->_window);					
+				}
+#endif
 			}
 		}
 
@@ -1834,6 +1945,8 @@ void ApplicationSetup()
 		fs::path exe = fname;
 		appConfig->_appLocation = exe.parent_path().string() + "\\";
 	}
+
+	SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 #else
 	appConfig->_appLocation = getAppLocation();
 #endif
@@ -2004,6 +2117,8 @@ void ApplicationSetup()
 	ImGui::SFML::SetCurrentWindow(appConfig->_window);
 	logToFile(appConfig, "Loading font in main window.");
 	LoadCustomFont();
+
+	ImGui::GetIO().FontGlobalScale = 0.5;
 
 	//setup debug bars
 	audioConfig->_frames.resize(FRAMES_PER_BUFFER * 3);

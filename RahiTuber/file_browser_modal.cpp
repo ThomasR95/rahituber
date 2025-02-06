@@ -286,6 +286,8 @@ file_browser_modal::file_browser_modal(const char* title) :
 const bool file_browser_modal::render(const bool isVisible, std::string& outPath) {
   bool result = false;
 
+  float uiScale = ImGui::GetIO().FontGlobalScale * 2;
+
   if (m_oldVisibility != isVisible) {
     m_oldVisibility = isVisible;
     //Visiblity has changed.
@@ -311,7 +313,10 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       ImVec2 wSize = ImGui::GetWindowSize();
       ImVec2 wPos = ImGui::GetWindowPos();
 
-      ImGui::SetNextWindowSize({ wSize.x, 460 });
+      m_width = 480;
+      m_height = 460;
+
+      ImGui::SetNextWindowSize({ m_width, m_height * uiScale });
       ImGui::SetNextWindowPos({ wPos.x, wPos.y });
 
       //Make the modal visible.
@@ -322,6 +327,9 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
   bool isOpen = true;
   if (ImGui::BeginPopupModal(m_title, &isOpen, modal_flags)) {
+
+
+    ImGui::SetWindowSize({ m_width * uiScale, m_height * uiScale });
 
     std::string dir = m_currentPath.parent_path().u8string();
     if(fs::is_directory(m_currentPath))
@@ -374,7 +382,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     ImGui::TextWrapped(file.data());
 
     ImGui::Spacing();
-    ImGui::SameLine(ImGui::GetWindowWidth() - 60);
+    ImGui::SameLine(ImGui::GetWindowWidth() - 60* uiScale);
 
     // Make the "Select" button look / act disabled if the current selection is a directory.
     if (m_currentPathIsDir) {

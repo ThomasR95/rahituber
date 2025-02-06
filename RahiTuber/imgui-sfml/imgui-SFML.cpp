@@ -886,26 +886,6 @@ void SetJoystickMapping(int key, unsigned int joystickButton) {
     // For partial backwards compatibility, also expect some ImGuiNavInput_* values.
     ImGuiKey finalKey;
     switch (key) {
-    case ImGuiNavInput_Activate:
-        finalKey = ImGuiKey_GamepadFaceDown;
-        break;
-    case ImGuiNavInput_Cancel:
-        finalKey = ImGuiKey_GamepadFaceRight;
-        break;
-    case ImGuiNavInput_Input:
-        finalKey = ImGuiKey_GamepadFaceUp;
-        break;
-    case ImGuiNavInput_Menu:
-        finalKey = ImGuiKey_GamepadFaceLeft;
-        break;
-    case ImGuiNavInput_FocusPrev:
-    case ImGuiNavInput_TweakSlow:
-        finalKey = ImGuiKey_GamepadL1;
-        break;
-    case ImGuiNavInput_FocusNext:
-    case ImGuiNavInput_TweakFast:
-        finalKey = ImGuiKey_GamepadR1;
-        break;
     default:
         assert(key >= ImGuiKey_NamedKey_BEGIN && key < ImGuiKey_NamedKey_END);
         finalKey = static_cast<ImGuiKey>(key);
@@ -952,7 +932,7 @@ void SetRStickYAxis(sf::Joystick::Axis rStickYAxis, bool inverted) {
 
 void SetLTriggerAxis(sf::Joystick::Axis lTriggerAxis) {
     assert(s_currWindowCtx);
-    s_currWindowCtx->rTriggerInfo.axis = lTriggerAxis;
+    s_currWindowCtx->lTriggerInfo.axis = lTriggerAxis;
 }
 
 void SetRTriggerAxis(sf::Joystick::Axis rTriggerAxis) {

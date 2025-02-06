@@ -35,6 +35,9 @@ namespace imgui_ext {
 
     std::vector<file> m_filesInScope;
 
+    float m_width = 400;
+    float m_height = 400;
+
   public:
 
     file_browser_modal(const char* title);

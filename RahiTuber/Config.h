@@ -62,6 +62,10 @@ struct AppConfig
 	float _ratio = 16.f / 9.f;
 	int _scrX = 0;
 	int _scrY = 0;
+	float scalingFactor = 1.0;
+	float mainWindowScaling = 1.0;
+	float menuWindowScaling = 1.0;
+	float customScaling = 1.0;
 
 	bool _enableVSync = true;
 
@@ -230,7 +234,6 @@ struct UIConfig
 	sf::Texture fontTex;
 	sf::Image fontimg;
 	bool fontBuilt = false;
-
 };
 
 

@@ -301,6 +301,93 @@ static bool runProcess(const std::string& cmd) {
 #endif
 }
 
+////////////////////////////////////////////////////////////
+/// \relates Vector2
+/// \brief Overload of binary operator *
+///
+/// \param left  Left operand (a vector)
+/// \param right Right operand (a vector)
+///
+/// \return Hadamard product of the two vectors
+///
+////////////////////////////////////////////////////////////
+template <typename T>
+inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
+{
+	return sf::Vector2<T>(left.x * right.x, left.y * right.y);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates Vector2
+/// \brief Overload of binary operator *
+///
+/// \param left  Left operand (a vector)
+/// \param right Right operand (a vector)
+///
+/// \return Hadamard division of the two vectors
+///
+////////////////////////////////////////////////////////////
+template <typename T>
+inline sf::Vector2<T> operator /(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
+{
+	return sf::Vector2<T>(left.x / right.x, left.y / right.y);
+}
+
+inline float Clamp(float in, float min, float max)
+{
+	if (in < min)
+		return min;
+
+	if (in > max)
+		return max;
+
+	return in;
+}
+
+template <typename T>
+inline sf::Vector2<T> Clamp(sf::Vector2<T> in, T min, T max)
+{
+	if (in.x < min)
+		in.x = min;
+
+	if (in.x > max)
+		in.x = max;
+
+	if (in.y < min)
+		in.y = min;
+
+	if (in.y > max)
+		in.y = max;
+
+	return in;
+}
+
+inline float Abs(float in)
+{
+	if (in < 0)
+		return in * -1.f;
+
+	return in;
+}
+
+template<typename T>
+inline float Max(T a, T b)
+{
+	if (a > b)
+		return a;
+
+	return b;
+}
+
+template<typename T>
+inline float Min(T a, T b)
+{
+	if (a < b)
+		return a;
+
+	return b;
+}
+
 static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
 {
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
@@ -314,15 +401,32 @@ static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
 
 inline sf::Color toSFColor(const ImVec4& col)
 {
-	return sf::Color(sf::Uint8(col.x * 255), sf::Uint8(col.y * 255), sf::Uint8(col.z * 255), sf::Uint8(col.w * 255));
+	return sf::Color(sf::Uint8(Clamp(col.x * 255u, 0, 255u)), 
+		sf::Uint8(Clamp(col.y * 255u, 0, 255u)), 
+		sf::Uint8(Clamp(col.z * 255u, 0, 255u)), 
+		sf::Uint8(Clamp(col.w * 255u, 0, 255u)));
 }
 
 inline sf::Color toSFColor(const float* col)
 {
 	if (col != nullptr)
 	{
-		return sf::Color(sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255), sf::Uint8(col[0] * 255));
+		if(sizeof(col) >= (sizeof(float) * 4))
+		{
+			return sf::Color(sf::Uint8(Clamp(col[0] * 255u, 0, 255u)),
+				sf::Uint8(Clamp(col[1] * 255u, 0, 255u)),
+				sf::Uint8(Clamp(col[2] * 255u, 0, 255u)),
+				sf::Uint8(Clamp(col[3] * 255u, 0, 255u)));
+		}
+		else if (sizeof(col) >= (sizeof(float) * 3))
+		{
+			return sf::Color(sf::Uint8(Clamp(col[0] * 255u, 0, 255u)),
+				sf::Uint8(Clamp(col[1] * 255u, 0, 255u)),
+				sf::Uint8(Clamp(col[2] * 255u, 0, 255u)),
+				sf::Uint8(255u));
+		}
 	}
+	return sf::Color::White;
 }
 
 inline ImVec4 toImColor(const float* col)
@@ -417,93 +521,6 @@ inline std::string UTF8ToANSI(const std::string& input)
     // linux already using utf8 (probably)
     return input;
 #endif
-}
-
-////////////////////////////////////////////////////////////
-/// \relates Vector2
-/// \brief Overload of binary operator *
-///
-/// \param left  Left operand (a vector)
-/// \param right Right operand (a vector)
-///
-/// \return Hadamard product of the two vectors
-///
-////////////////////////////////////////////////////////////
-template <typename T>
-inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
-{
-	return sf::Vector2<T>(left.x * right.x, left.y * right.y);
-}
-
-////////////////////////////////////////////////////////////
-/// \relates Vector2
-/// \brief Overload of binary operator *
-///
-/// \param left  Left operand (a vector)
-/// \param right Right operand (a vector)
-///
-/// \return Hadamard division of the two vectors
-///
-////////////////////////////////////////////////////////////
-template <typename T>
-inline sf::Vector2<T> operator /(const sf::Vector2<T>& left, const sf::Vector2<T>& right)
-{
-	return sf::Vector2<T>(left.x / right.x, left.y / right.y);
-}
-
-inline float Clamp(float in, float min, float max)
-{
-	if (in < min)
-		return min;
-
-	if (in > max)
-		return max;
-
-	return in;
-}
-
-template <typename T>
-inline sf::Vector2<T> Clamp(sf::Vector2<T> in, T min, T max)
-{
-	if (in.x < min)
-		in.x = min;
-
-	if (in.x > max)
-		in.x = max;
-
-	if (in.y < min)
-		in.y = min;
-
-	if (in.y > max)
-		in.y = max;
-
-	return in;
-}
-
-inline float Abs(float in)
-{
-	if (in < 0)
-		return in * -1.f;
-
-	return in;
-}
-
-template<typename T>
-inline float Max(T a, T b)
-{
-	if (a > b)
-		return a;
-
-	return b;
-}
-
-template<typename T>
-inline float Min(T a, T b)
-{
-	if (a < b)
-		return a;
-
-	return b;
 }
 
 inline float Length(const sf::Vector2f& v)
