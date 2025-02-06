@@ -481,6 +481,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 	if (ImGui::CollapsingHeader("Global Settings"))
 	{
+		ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
+
 		AddResetButton("pos", _globalPos, sf::Vector2f(0.0, 0.0), _appConfig, &style);
 		float pos[2] = { _globalPos.x, _globalPos.y };
 		if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
@@ -488,9 +490,11 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			_globalPos.x = pos[0];
 			_globalPos.y = pos[1];
 		}
+		ToolTip("Change the position for all layers", &_appConfig->_hoverTimer, true);
 
 		AddResetButton("rot", _globalRot, 0.f, _appConfig, &style);
 		ImGui::SliderFloat("Rotation", &_globalRot, -180.f, 180.f);
+		ToolTip("Change the rotation for all layers", &_appConfig->_hoverTimer, true);
 
 		AddResetButton("scale", _globalScale, sf::Vector2f(1.0, 1.0), _appConfig, &style);
 		float scale[2] = { _globalScale.x, _globalScale.y };
@@ -510,10 +514,13 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 				_globalScale = { scale[1] , scale[1] };
 			}
 		}
+		ToolTip("Change the scale for all layers", &_appConfig->_hoverTimer, true);
+
 		ImGui::Checkbox("Constrain", &_globalKeepAspect);
 		ToolTip("Keeps the Scale x/y values the same.", &_appConfig->_hoverTimer);
 	}
-	ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
+	else
+		ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
 
 	ImGui::Separator();
 
@@ -1306,6 +1313,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
 			thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
 
+			thisLayer->SetAttribute("constantHeight", layer._constantPos.y);
+			thisLayer->SetAttribute("constantMoveX", layer._constantPos.x);
+			thisLayer->SetAttribute("constantRotation", layer._constantRot);
+			thisLayer->SetAttribute("constantScaleX", layer._constantScale.x);
+			thisLayer->SetAttribute("constantScaleY", layer._constantScale.y);
+
 			thisLayer->SetAttribute("restartAnimsOnVisible", layer._restartAnimsOnVisible);
 
 			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
@@ -1356,6 +1369,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("distanceLimit", layer._distanceLimit);
 			thisLayer->SetAttribute("rotationEffect", layer._rotationEffect);
 			thisLayer->SetAttribute("inheritTint", layer._inheritTint);
+
+			thisLayer->SetAttribute("allowIndividualMotion", layer._allowIndividualMotion);
 
 			thisLayer->SetAttribute("followMouse", layer._followMouse);
 			if (layer._followMouse)
@@ -1623,6 +1638,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
 				thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
 
+				thisLayer->QueryAttribute("constantHeight", &layer._constantPos.y);
+				thisLayer->QueryAttribute("constantMoveX", &layer._constantPos.x);
+				thisLayer->QueryAttribute("constantRotation", &layer._constantRot);
+				thisLayer->QueryAttribute("constantScaleX", &layer._constantScale.x);
+				thisLayer->QueryAttribute("constantScaleY", &layer._constantScale.y);
+
 				thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
 
 				if (const char* idlePth = thisLayer->Attribute("idlePath"))
@@ -1714,6 +1735,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("distanceLimit", &layer._distanceLimit);
 				thisLayer->QueryAttribute("rotationEffect", &layer._rotationEffect);
 				thisLayer->QueryAttribute("inheritTint", &layer._inheritTint);
+				thisLayer->QueryAttribute("allowIndividualMotion", &layer._allowIndividualMotion);
 
 				layer._blendMode = g_blendmodes["Normal"];
 				if (const char* blend = thisLayer->Attribute("blendMode"))
@@ -2210,7 +2232,8 @@ void LayerManager::ResetStates()
 
 void LayerManager::DrawStatesGUI()
 {
-	float windowSize = 400 * _appConfig->scalingFactor;
+	float uiScale = _appConfig->scalingFactor;
+	float windowSize = 400 * uiScale;
 
 	if (_statesMenuOpen != _oldStatesMenuOpen)
 	{
@@ -2238,9 +2261,8 @@ void LayerManager::DrawStatesGUI()
 	if (_editIcon == nullptr)
 		_editIcon = _textureMan->GetTexture(_appConfig->_appLocation + "res/edit.png");
 
-	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen, ImGuiWindowFlags_NoResize))
+	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen))
 	{
-		ImGui::SetWindowSize({ windowSize, windowSize });
 
 		ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
 		sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
@@ -2534,7 +2556,7 @@ void LayerManager::DrawStatesGUI()
 					if (timeoutActive)
 					{
 						ImGui::SliderFloat("##timeoutSlider", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
-						ToolTip("How long the state stays active for", &_appConfig->_hoverTimer);
+						ToolTip("How long the state stays active for", &_appConfig->_hoverTimer, true);
 					}
 				}
 
@@ -2547,60 +2569,64 @@ void LayerManager::DrawStatesGUI()
 				if (state._schedule && state._activeType != StatesInfo::Permanent)
 				{
 					ImGui::SliderFloat("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
-					ToolTip("Sets how long the state will be inactive before reactivating", &_appConfig->_hoverTimer);
+					ToolTip("Sets how long the state will be inactive before reactivating", &_appConfig->_hoverTimer, true);
 					ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
-					ToolTip("Adds a random variation to the Interval.\nThis sets the maximum variation.", &_appConfig->_hoverTimer);
+					ToolTip("Adds a random variation to the Interval.\nThis sets the maximum variation.", &_appConfig->_hoverTimer, true);
 				}
 
 				ImGui::Columns();
 
 				ImGui::Separator();
 
-				ImGui::BeginTable("hotkeystates", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg);
-				ImGui::TableSetupColumn("Layer Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
-				ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-				ImGui::TableSetupColumn("Hide", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-				ImGui::TableSetupColumn("No Change", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-				ImGui::TableHeadersRow();
-
-				int layerIdx = 0;
-				for (auto& l : _layers)
+				if (ImGui::BeginTable("hotkeystates", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, 200.f * uiScale }))
 				{
-					if (state._layerStates.count(l._id) == 0)
-						state._layerStates[l._id] = StatesInfo::NoChange;
+					ImGui::TableSetupColumn("Layer Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
+					ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupColumn("Hide", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupColumn("No Change", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupScrollFreeze(0, 1);
+					ImGui::TableHeadersRow();
 
-					if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
-						continue;
+					int layerIdx = 0;
+					for (auto& l : _layers)
+					{
+						if (state._layerStates.count(l._id) == 0)
+							state._layerStates[l._id] = StatesInfo::NoChange;
 
-					ImGui::PushID(l._id.c_str());
+						if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
+							continue;
 
-					ImGui::TableNextColumn();
+						ImGui::PushID(l._id.c_str());
 
-					ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
+						ImGui::TableNextColumn();
 
-					//if (++layerIdx % 2)
-					//	ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+						ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
 
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text(ANSIToUTF8(l._name).c_str());
+						//if (++layerIdx % 2)
+						//	ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
 
-					ImGui::TableNextColumn();
-					ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
-					ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
-					
-					ImGui::TableNextColumn();
-					ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
-					ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
-					
-					ImGui::TableNextColumn();
-					ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
-					ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
-					ImGui::PopID();
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text(ANSIToUTF8(l._name).c_str());
 
-					ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
+						ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
+
+						ImGui::TableNextColumn();
+						ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
+						ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+
+						ImGui::TableNextColumn();
+						ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
+						ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+						ImGui::PopID();
+
+						ImGui::TableNextRow();
+					}
+
+					ImGui::EndTable();
 				}
-
-				ImGui::EndTable();
+				
 			}
 			ImGui::PopStyleColor();
 
@@ -2633,7 +2659,7 @@ void LayerManager::DrawStatesGUI()
 				ImGui::Text(ANSIToUTF8(name).c_str());
 			}
 
-			ImVec2 btnSize = { 17 * _appConfig->scalingFactor, 17 * _appConfig->scalingFactor };
+			ImVec2 btnSize = { 17 * uiScale, 17 * uiScale };
 
 			ImGui::SetCursorPos(delButtonPos);
 			ImGuiStyle& style = ImGui::GetStyle();
@@ -2690,6 +2716,257 @@ void LayerManager::LayerInfo::CalculateLayerDepth()
 	}
 
 	_lastCalculatedDepth = depth;
+}
+
+void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos)
+{
+	float newMotionY = 0;
+	float newMotionX = 0;
+
+	switch (_bounceType)
+	{
+	case LayerManager::LayerInfo::BounceNone:
+		break;
+	case LayerManager::LayerInfo::BounceLoudness:
+		_isBouncing = false;
+		if (talking || screaming)
+		{
+			_isBouncing = true;
+
+			newMotionX += _bounceMove.x * talkAmount;
+			newMotionY += _bounceMove.y * talkAmount;
+			rot += _bounceRotation * talkAmount;
+			motionScale += _bounceScale * talkAmount;
+		}
+		break;
+	case LayerManager::LayerInfo::BounceRegular:
+		if ((talking || screaming) && _bounceFrequency > 0)
+		{
+			if (!_isBouncing)
+			{
+				_isBouncing = true;
+				_motionTimer.restart();
+			}
+
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
+			float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
+			float bounceAmount = (-0.5 * cos(phase) + 0.5);
+			newMotionX += _bounceMove.x * bounceAmount;
+			newMotionY += _bounceMove.y * bounceAmount;
+			rot += _bounceRotation * bounceAmount;
+			motionScale += _bounceScale * bounceAmount;
+		}
+		else
+			_isBouncing = false;
+
+		break;
+	default:
+		break;
+	}
+
+	if (_doBreathing)
+	{
+		bool talkActive = (talking && _swapWhenTalking || _isBouncing) && !_breatheWhileTalking;
+
+		if (!talkActive && _breathFrequency > 0)
+		{
+			if (!_isBreathing)
+			{
+				_motionTimer.restart();
+				_isBreathing = true;
+			}
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+
+			float coolDownTime = _breathFrequency / 5;
+
+			bool coolingDown = motionTime < coolDownTime && !_breatheWhileTalking;
+			float coolDownFactor = Clamp((coolDownTime - motionTime) / coolDownTime, 0.0, 1.0);
+
+			motionTime = fmod(motionTime, _breathFrequency);
+			float phase = (motionTime / _breathFrequency) * 2.0 * PI;
+			if (coolingDown)
+			{
+				_breathAmount.x = std::max(_breathAmount.x * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f - coolDownFactor);
+				if (_breathCircular)
+					_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)sin(phase) + 0.5f) * 1.0f - coolDownFactor);
+				else
+					_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f - coolDownFactor);
+			}
+			else
+			{
+				_breathAmount.x = (-0.5f * cos(phase) + 0.5f);
+				if (_breathCircular)
+					_breathAmount.y = (-0.5f * sin(phase) + 0.5f);
+				else
+					_breathAmount.y = (-0.5f * cos(phase) + 0.5f);
+			}
+		}
+		else
+		{
+			if (_isBreathing)
+			{
+				_motionTimer.restart();
+				_isBreathing = false;
+			}
+			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
+
+			_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
+			_breathAmount.y = std::max(0.0f, _breathAmount.y * coolDownFactor);
+		}
+
+		newMotionX += _breathAmount.x * _breathMove.x;
+		newMotionY += _breathAmount.y * _breathMove.y;
+		rot += _breathAmount.y * _breathRotation;
+
+		if (_doBreathTint)
+		{
+			ImVec4 idleColAmount = activeSpriteCol * (1.0 - _breathAmount.y);
+			ImVec4 breathColAmount = _breathTint * _breathAmount.y;
+			activeSpriteCol = idleColAmount + breathColAmount;
+		}
+
+		motionScale = motionScale * sf::Vector2f(1.0, 1.0) + _breathAmount.y * _breathScale;
+	}
+
+	_motionY += (newMotionY - _motionY) * 0.3f;
+	_motionX += (newMotionX - _motionX) * 0.3f;
+
+	motionPos.x += _motionX;
+	motionPos.y -= _motionY;
+}
+
+void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot, ImVec4& mpTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite)
+{
+	LayerInfo* mp = _parent->GetLayer(_motionParent);
+	if (mp)
+	{
+		float motionDelayNow = _motionDelay;
+		if (motionDelayNow < 0)
+			motionDelayNow = 0;
+
+		if (motionDelayNow > 0)
+		{
+			sf::Time totalParentStoredTime;
+			for (auto& frame : mp->_motionLinkData)
+				totalParentStoredTime += frame._frameTime;
+
+			if (motionDelayNow > totalParentStoredTime.asSeconds())
+				motionDelayNow = totalParentStoredTime.asSeconds();
+
+			size_t prev = 0;
+			size_t next = 0;
+			sf::Time cumulativeTime;
+			sf::Time prevCumulativeTime;
+			size_t idx = 0;
+			for (auto& frame : mp->_motionLinkData)
+			{
+				if (cumulativeTime.asSeconds() > motionDelayNow)
+				{
+					next = idx;
+					break;
+				}
+
+				if (cumulativeTime.asSeconds() <= motionDelayNow)
+					prev = idx;
+
+				prevCumulativeTime = cumulativeTime;
+				cumulativeTime += frame._frameTime;
+				idx++;
+			}
+
+			if (mp->_motionLinkData.size() > next)
+			{
+				float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
+				float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
+				float fraction = framePosition / frameDuration;
+				mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
+				mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+				mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+				mpTint = mp->_motionLinkData[prev]._tint + (mp->_motionLinkData[next]._tint - mp->_motionLinkData[prev]._tint) * fraction;
+			}
+		}
+		else if (mp->_motionLinkData.size() > 0)
+		{
+			mpScale = mp->_motionLinkData[0]._scale;
+			mpPos = mp->_motionLinkData[0]._pos;
+			mpRot = mp->_motionLinkData[0]._rot;
+			mpTint = mp->_motionLinkData[0]._tint;
+		}
+
+		// transform this layer's position by the parent position
+		sf::Vector2f originalOffset = _pos - mp->_pos;
+		sf::Vector2f originalOffsetRotated = Rotate(originalOffset, Deg2Rad(mpRot));
+		sf::Vector2f offsetScaled = { originalOffsetRotated.x * mpScale.x, originalOffsetRotated.y * mpScale.y };
+		sf::Vector2f originMove = offsetScaled - originalOffset;
+
+		mpPos += originMove;
+
+		bool physics = (_motionDrag > 0 || _motionSpring > 0);
+		physicsPos = mpPos;
+
+		if (physics && becameVisible)
+		{
+			_lastAccel = { 0.f, 0.f };
+			_physicsTimer.restart();
+		}
+		else if (physics && lastActiveSprite != nullptr && _motionLinkData.size() > 0)
+		{
+			float motionDrag = _motionDrag;
+			float motionSpring = _motionSpring;
+			float fadeIn = _physicsTimer.getElapsedTime().asSeconds() / 0.5;
+			if (fadeIn < 1.0)
+			{
+				motionDrag = _motionDrag * fadeIn;
+				motionSpring = _motionSpring * fadeIn;
+			}
+
+			auto lastFrame = _motionLinkData.front();
+			sf::Vector2f oldScale = lastFrame._scale;
+			sf::Vector2f oldPos = lastFrame._physicsPos;
+			float oldRot = lastFrame._rot;
+
+			sf::Vector2f idealAccel = mpPos - oldPos;
+			sf::Vector2f accel = _lastAccel + (idealAccel - _lastAccel) * (1.0f - motionSpring);
+			sf::Vector2f newMpPos = oldPos + (1.0f - motionDrag) * accel;
+			_lastAccel = accel;
+
+			sf::Vector2f offset = mpPos - newMpPos;
+			float dist = Length(offset);
+
+			sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
+			pivotDiff = Rotate(pivotDiff, Deg2Rad(mpRot));
+			float lenPivot = Length(pivotDiff);
+			if (lenPivot > 0 && dist > 0 && _rotationEffect != 0)
+			{
+				float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
+
+				mpRot += _rotationEffect * rotMult * (dist * lenPivot);
+			}
+
+			physicsPos = newMpPos;
+
+			if (_distanceLimit == 0.f)
+			{
+				newMpPos = mpPos;
+			}
+			else if (_distanceLimit > 0.f && dist > _distanceLimit)
+			{
+				sf::Vector2f offsetNorm = offset / dist;
+				newMpPos = mpPos + offsetNorm * _distanceLimit;
+			}
+
+			mpPos = newMpPos;
+		}
+	}
+}
+
+void LayerManager::LayerInfo::DoConstantMotion(sf::Time& frameTime, sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot)
+{
+	_storedConstantRot += _constantRot * frameTime.asSeconds();
+
+	mpRot += _storedConstantRot;
 }
 
 void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
@@ -2753,6 +3030,77 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	bool screaming = _scream && talkFactor > _screamThreshold;
 	bool talking = !screaming && talkFactor > _talkThreshold;
+	DetermineVisibleSprites(talking, screaming, activeSpriteCol, talkAmount);
+
+	_wasTalking = talking;
+
+	sf::Vector2f mpScale = { 1.0,1.0 };
+	sf::Vector2f mpPos = { 0, 0 };
+	sf::Vector2f physicsPos = mpPos;
+	float mpRot = 0;
+	ImVec4 mpTint;
+	sf::Vector2f pivot = { _pivot.x * _idleSprite->Size().x, _pivot.y * _idleSprite->Size().y };
+
+	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
+	if (hasParent)
+		CalculateInheritedMotion(mpScale, mpPos, mpRot, mpTint, physicsPos, becameVisible, lastActiveSprite);
+
+	if (_inheritTint)
+		activeSpriteCol = mpTint;
+
+	if(!hasParent || _allowIndividualMotion)
+		DoIndividualMotion(talking, screaming, talkAmount, mpRot, mpScale, activeSpriteCol, mpPos);
+
+	DoConstantMotion(frameTime, mpScale, mpPos, mpRot);
+
+	AddMouseMovement(mpPos);
+
+	if (screaming && _screamVibrate)
+	{
+		if (!_isScreaming)
+		{
+			_motionTimer.restart();
+			_isScreaming = true;
+		}
+
+		float motionTime = _motionTimer.getElapsedTime().asSeconds();
+		mpPos.y += sin(motionTime / 0.02 * _screamVibrateSpeed) * _screamVibrateAmount;
+		mpPos.x += sin(motionTime / 0.05* _screamVibrateSpeed) * _screamVibrateAmount;
+	}
+	else
+	{
+		_isScreaming = false;
+	}
+
+	MotionLinkData thisFrame;
+	thisFrame._frameTime = frameTime;
+	thisFrame._pos = mpPos;
+	thisFrame._physicsPos = physicsPos;
+	thisFrame._scale = mpScale;
+	thisFrame._rot = mpRot;
+	thisFrame._tint = activeSpriteCol;
+	_motionLinkData.push_front(thisFrame);
+
+	sf::Time totalMotionStoredTime;
+	for (auto& frame : _motionLinkData)
+		totalMotionStoredTime += frame._frameTime;
+
+	while (totalMotionStoredTime > sf::seconds(1.1))
+	{
+		totalMotionStoredTime -= _motionLinkData.back()._frameTime;
+		_motionLinkData.pop_back();
+	}
+
+	_activeSprite->setOrigin(pivot);
+	_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
+	_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
+	_activeSprite->setRotation(_rot + mpRot);
+	_activeSprite->SetColor(activeSpriteCol);
+
+}
+
+void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
+{
 
 	bool blinkAvailable = _blinkImage && !talking && !screaming;
 	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkImage && talking && !screaming;
@@ -2827,337 +3175,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_screamSprite->SetColor(_screamTint);
 		activeSpriteCol = _screamTint;
 	}
-
-	_wasTalking = talking;
-
-	if (_motionParent == "" || _motionParent == "-1")
-	{
-		sf::Vector2f motionPos;
-		float rot = _rot;
-
-		float newMotionY = 0;
-		float newMotionX = 0;
-
-		sf::Vector2f motionScale = { 1.0,1.0 };
-
-		switch (_bounceType)
-		{
-		case LayerManager::LayerInfo::BounceNone:
-			break;
-		case LayerManager::LayerInfo::BounceLoudness:
-			_isBouncing = false;
-			if (talking || screaming)
-			{
-				_isBouncing = true;
-
-				newMotionX += _bounceMove.x * talkAmount;
-				newMotionY += _bounceMove.y * talkAmount;
-				rot += _bounceRotation * talkAmount;
-				motionScale += _bounceScale * talkAmount;
-			}
-			break;
-		case LayerManager::LayerInfo::BounceRegular:
-			if ((talking || screaming) && _bounceFrequency > 0)
-			{
-				if (!_isBouncing)
-				{
-					_isBouncing = true;
-					_motionTimer.restart();
-				}
-
-				float motionTime = _motionTimer.getElapsedTime().asSeconds();
-				motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
-				float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
-				float bounceAmount = (-0.5 * cos(phase) + 0.5);
-				newMotionX += _bounceMove.x * bounceAmount;
-				newMotionY += _bounceMove.y * bounceAmount;
-				rot += _bounceRotation * bounceAmount;
-				motionScale += _bounceScale * bounceAmount;
-			}
-			else
-				_isBouncing = false;
-
-			break;
-		default:
-			break;
-		}
-
-		if (_doBreathing)
-		{
-			bool talkActive = (talking && _swapWhenTalking || _isBouncing) && !_breatheWhileTalking;
-
-			if (!talkActive && _breathFrequency > 0)
-			{
-				if (!_isBreathing)
-				{
-					_motionTimer.restart();
-					_isBreathing = true;
-				}
-				float motionTime = _motionTimer.getElapsedTime().asSeconds();
-
-				float coolDownTime = _breathFrequency / 5;
-
-				bool coolingDown = motionTime < coolDownTime && !_breatheWhileTalking;
-				float coolDownFactor = Clamp((coolDownTime - motionTime) / coolDownTime, 0.0, 1.0);
-
-				motionTime = fmod(motionTime, _breathFrequency);
-				float phase = (motionTime / _breathFrequency) * 2.0 * PI;
-				if (coolingDown)
-				{
-					_breathAmount.x = std::max(_breathAmount.x * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f - coolDownFactor);
-					if (_breathCircular)
-						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)sin(phase) + 0.5f) * 1.0f - coolDownFactor);
-					else
-						_breathAmount.y = std::max(_breathAmount.y * coolDownFactor, (-0.5f * (float)cos(phase) + 0.5f) * 1.0f - coolDownFactor);
-				}
-				else
-				{
-					_breathAmount.x = (-0.5f * cos(phase) + 0.5f);
-					if (_breathCircular)
-						_breathAmount.y = (-0.5f * sin(phase) + 0.5f);
-					else
-						_breathAmount.y = (-0.5f * cos(phase) + 0.5f);
-				}
-			}
-			else
-			{
-				if (_isBreathing)
-				{
-					_motionTimer.restart();
-					_isBreathing = false;
-				}
-				float motionTime = _motionTimer.getElapsedTime().asSeconds();
-				float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
-
-				_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
-				_breathAmount.y = std::max(0.0f, _breathAmount.y * coolDownFactor);
-			}
-
-			newMotionX += _breathAmount.x * _breathMove.x;
-			newMotionY += _breathAmount.y * _breathMove.y;
-			rot += _breathAmount.y * _breathRotation;
-
-			if (_doBreathTint)
-			{
-				ImVec4 idleColAmount = activeSpriteCol * (1.0 - _breathAmount.y);
-				ImVec4 breathColAmount = _breathTint * _breathAmount.y;
-				activeSpriteCol = idleColAmount + breathColAmount;
-			}
-
-			motionScale = motionScale * sf::Vector2f(1.0, 1.0) + _breathAmount.y * _breathScale;
-		}
-
-		_motionY += (newMotionY - _motionY) * 0.3f;
-		_motionX += (newMotionX - _motionX) * 0.3f;
-
-		motionPos.x += _motionX;
-		motionPos.y -= _motionY;
-
-		AddMouseMovement(motionPos);
-
-		if (screaming && _screamVibrate)
-		{
-			if (!_isScreaming)
-			{
-				_motionTimer.restart();
-				_isScreaming = true;
-			}
-
-			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			motionPos.y += sin(motionTime / 0.02) * _screamVibrateAmount;
-			motionPos.x += sin(motionTime / 0.05) * _screamVibrateAmount;
-		}
-		else
-		{
-			_isScreaming = false;
-		}
-
-		_activeSprite->setOrigin({ _pivot.x * _activeSprite->Size().x, _pivot.y * _activeSprite->Size().y });
-		_activeSprite->setScale({ _scale.x * motionScale.x, _scale.y * motionScale.y });
-		_activeSprite->setPosition({ windowWidth / 2 + _pos.x + motionPos.x, windowHeight / 2 + _pos.y + motionPos.y });
-		_activeSprite->setRotation(rot);
-		_activeSprite->SetColor(activeSpriteCol);
-
-		MotionLinkData thisFrame;
-		thisFrame._frameTime = frameTime;
-		thisFrame._pos = motionPos;
-		thisFrame._scale = motionScale;
-		thisFrame._rot = rot;
-		thisFrame._tint = activeSpriteCol;
-		_motionLinkData.push_front(thisFrame);
-
-		sf::Time totalMotionStoredTime;
-		for (auto& frame : _motionLinkData)
-			totalMotionStoredTime += frame._frameTime;
-
-		while (totalMotionStoredTime > sf::seconds(1.1))
-		{
-			totalMotionStoredTime -= _motionLinkData.back()._frameTime;
-			_motionLinkData.pop_back();
-		}
-	}
-	else
-	{
-		LayerInfo* mp = _parent->GetLayer(_motionParent);
-		if (mp)
-		{
-			float motionDelayNow = _motionDelay;
-			if (motionDelayNow < 0)
-				motionDelayNow = 0;
-
-			sf::Vector2f mpScale = { 1.0,1.0 };
-			sf::Vector2f mpPos;
-			float mpRot = 0;
-			ImVec4 mpTint;
-
-			if (motionDelayNow > 0)
-			{
-				sf::Time totalParentStoredTime;
-				for (auto& frame : mp->_motionLinkData)
-					totalParentStoredTime += frame._frameTime;
-
-				if (motionDelayNow > totalParentStoredTime.asSeconds())
-					motionDelayNow = totalParentStoredTime.asSeconds();
-
-				size_t prev = 0;
-				size_t next = 0;
-				sf::Time cumulativeTime;
-				sf::Time prevCumulativeTime;
-				size_t idx = 0;
-				for (auto& frame : mp->_motionLinkData)
-				{
-					if (cumulativeTime.asSeconds() > motionDelayNow)
-					{
-						next = idx;
-						break;
-					}
-
-					if (cumulativeTime.asSeconds() <= motionDelayNow)
-						prev = idx;
-
-					prevCumulativeTime = cumulativeTime;
-					cumulativeTime += frame._frameTime;
-					idx++;
-				}
-
-				if (mp->_motionLinkData.size() > next)
-				{
-					float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
-					float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
-					float fraction = framePosition / frameDuration;
-					mpScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
-					mpPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
-					mpRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
-					mpTint = mp->_motionLinkData[prev]._tint + (mp->_motionLinkData[next]._tint - mp->_motionLinkData[prev]._tint) * fraction;
-				}
-			}
-			else if (mp->_motionLinkData.size() > 0)
-			{
-				mpScale = mp->_motionLinkData[0]._scale;
-				mpPos = mp->_motionLinkData[0]._pos;
-				mpRot = mp->_motionLinkData[0]._rot;
-				mpTint = mp->_motionLinkData[0]._tint;
-			}
-
-			// transform this layer's position by the parent position
-			sf::Vector2f originalOffset = _pos - mp->_pos;
-			sf::Vector2f originalOffsetRotated = Rotate(originalOffset, Deg2Rad(mpRot));
-			sf::Vector2f offsetScaled = { originalOffsetRotated.x * mpScale.x, originalOffsetRotated.y * mpScale.y };
-			sf::Vector2f originMove = offsetScaled - originalOffset;
-
-			mpPos += originMove;
-
-			sf::Vector2f pivot = { _pivot.x * _idleSprite->Size().x, _pivot.y * _idleSprite->Size().y };
-
-			bool physics = (_motionDrag > 0 || _motionSpring > 0);
-			sf::Vector2f physicsPos = mpPos;
-
-			if (physics && becameVisible)
-			{
-				_lastAccel = { 0.f, 0.f };
-				_physicsTimer.restart();
-			}
-			else if (physics && lastActiveSprite != nullptr && _motionLinkData.size() > 0)
-			{
-				float motionDrag = _motionDrag;
-				float motionSpring = _motionSpring;
-				float fadeIn = _physicsTimer.getElapsedTime().asSeconds() / 0.5;
-				if (fadeIn < 1.0)
-				{
-					motionDrag = _motionDrag * fadeIn;
-					motionSpring = _motionSpring * fadeIn;
-				}
-
-				auto lastFrame = _motionLinkData.front();
-				sf::Vector2f oldScale = lastFrame._scale;
-				sf::Vector2f oldPos = lastFrame._physicsPos;
-				float oldRot = lastFrame._rot;
-
-				sf::Vector2f idealAccel = mpPos - oldPos;
-				sf::Vector2f accel = _lastAccel + (idealAccel - _lastAccel) * (1.0f - motionSpring);
-				sf::Vector2f newMpPos = oldPos + (1.0f - motionDrag) * accel;
-				_lastAccel = accel;
-
-				sf::Vector2f offset = mpPos - newMpPos;
-				float dist = Length(offset);
-
-				sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
-				pivotDiff = Rotate(pivotDiff, Deg2Rad(mpRot));
-				float lenPivot = Length(pivotDiff);
-				if (lenPivot > 0 && dist > 0 && _rotationEffect != 0)
-				{
-					float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
-
-					mpRot += _rotationEffect * rotMult * (dist * lenPivot);
-				}
-
-				physicsPos = newMpPos;
-
-				if (_distanceLimit == 0.f)
-				{
-					newMpPos = mpPos;
-				}
-				else if (_distanceLimit > 0.f && dist > _distanceLimit)
-				{
-					sf::Vector2f offsetNorm = offset / dist;
-					newMpPos = mpPos + offsetNorm * _distanceLimit;
-				}
-
-				mpPos = newMpPos;
-			}
-
-			AddMouseMovement(mpPos);
-
-			if (_inheritTint)
-				activeSpriteCol = mpTint;
-
-			MotionLinkData thisFrame;
-			thisFrame._frameTime = frameTime;
-			thisFrame._pos = mpPos;
-			thisFrame._physicsPos = physicsPos;
-			thisFrame._scale = mpScale;
-			thisFrame._rot = mpRot;
-			thisFrame._tint = activeSpriteCol;
-			_motionLinkData.push_front(thisFrame);
-
-			sf::Time totalMotionStoredTime;
-			for (auto& frame : _motionLinkData)
-				totalMotionStoredTime += frame._frameTime;
-
-			while (totalMotionStoredTime > sf::seconds(1.1))
-			{
-				totalMotionStoredTime -= _motionLinkData.back()._frameTime;
-				_motionLinkData.pop_back();
-			}
-
-			_activeSprite->setOrigin(pivot);
-			_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
-			_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
-			_activeSprite->setRotation(_rot + mpRot);
-			_activeSprite->SetColor(activeSpriteCol);
-		}
-	}
-
 }
 
 void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
@@ -3589,6 +3606,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
 				ImGui::Indent(indentSize);
 
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
@@ -3655,7 +3673,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
 				barPos.x += -indentSize + style.GrabMinSize * 0.5 - style.ItemSpacing.x;
 				float barWidth = ImGui::CalcItemWidth() - style.GrabMinSize;
-				ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer);
+				ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer, true);
 				ImGui::Columns(1);
 				ImGui::NewLine();
 
@@ -3663,12 +3681,18 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::Checkbox("Vibrate", &_screamVibrate);
 				ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
+				AddResetButton("vibamt", _screamVibrateAmount, 5.f, _parent->_appConfig, &style);
 				ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px");
-				ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer);
+				ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer, true);
+				AddResetButton("vibspeed", _screamVibrateSpeed, 1.f, _parent->_appConfig, &style);
+				ImGui::SliderFloat("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f px");
+				ToolTip("The speed of the vibration", &_parent->_appConfig->_hoverTimer, true);
 
 				ImGui::Unindent(indentSize);
 			}
-			ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+			else
+				ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+
 			auto oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
 			ImGui::Checkbox("##Scream", &_scream);
@@ -3678,57 +3702,63 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
 				ImGui::Indent(indentSize);
 				ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 				ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
 				AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
 				ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
-				ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer);
+				ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer, true);
 				AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
 				ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
-				ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer);
+				ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer, true);
 				AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
 				ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
-				ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer, true);
 				ImGui::Unindent(indentSize);
 			}
-			ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
+			else
+				ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
+
 			oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
 			ImGui::Checkbox("##Blink", &_useBlinkFrame);
 			ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
 			ImGui::SetCursorPos(oldCursorPos);
 
+			bool hasParent = !(_motionParent == "" || _motionParent == "-1");
+
 			subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 			if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
+				ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
 				ImGui::Indent(indentSize);
-				if (_motionParent != "")
+				if (hasParent)
 				{
 					float md = _motionDelay;
 					AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
 					if (ImGui::SliderFloat("Delay", &md, 0.0, 1.0, "%.2f s"))
 						_motionDelay = Clamp(md, 0.0, 1.0);
 
-					ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer);
+					ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("motionDrag", _motionDrag, 0.f, _parent->_appConfig, &style);
 					if (ImGui::SliderFloat("Drag", &_motionDrag, 0.f, .999f, "%.2f"))
 						_motionDrag = Clamp(_motionDrag, 0.f, .999f);
-					ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("motionSpring", _motionSpring, 0.f, _parent->_appConfig, &style);
 					if (ImGui::SliderFloat("Spring", &_motionSpring, 0.f, .999f, "%.2f"))
 						_motionSpring = Clamp(_motionSpring, 0.f, .999f);
-					ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Distance limit", &_distanceLimit, -1.0, 500.f, "%.1f");
-					ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
 					ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
-					ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer);
+					ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer, true);
 
 					ImGui::Checkbox("Hide with Parent", &_hideWithParent);
 					ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
@@ -3736,11 +3766,17 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::Checkbox("Inherit Tint", &_inheritTint);
 					ToolTip("Inherit the tint color of the parent layer.", &_parent->_appConfig->_hoverTimer);
 
+					ImGui::Checkbox("Allow Individual Motion", &_allowIndividualMotion);
+					ToolTip("Enable the original motion settings in addition to the parent.", &_parent->_appConfig->_hoverTimer);
+
 				}
 
 				ImGui::Unindent(indentSize);
 			}
-			ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
+			else
+				ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
+
+
 			oldCursorPos = ImGui::GetCursorPos();
 			ImGui::SetCursorPos(subHeaderBtnPos);
 			LayerInfo* oldMp = _parent->GetLayer(_motionParent);
@@ -3748,7 +3784,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushItemWidth(headerBtnSize.x * 7);
 			if (ImGui::BeginCombo("##MotionInherit", ANSIToUTF8(mpName).c_str()))
 			{
-				if (ImGui::Selectable("Off", _motionParent == "" || _motionParent == "-1"))
+				if (ImGui::Selectable("Off", !hasParent))
 					_motionParent = "-1";
 				for (auto& layer : _parent->GetLayers())
 				{
@@ -3770,146 +3806,172 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::SetCursorPos(oldCursorPos);
 			ImGui::PopItemWidth();
 
-			if (_motionParent == "" || _motionParent == "-1")
+			if (!hasParent || _allowIndividualMotion)
 			{
-				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Bouncing", ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowItemOverlap))
 				{
 					ImGui::Indent(indentSize);
-					if (_bounceType != BounceNone)
+					if (ImGui::BeginTabBar("##indivMotionTabs"))
 					{
-						AddResetButton("breathmove", _bounceMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
-						float data[2] = { _bounceMove.x, _bounceMove.y };
-						if (ImGui::SliderFloat2("Bounce Move", data, -50, 50, "%.2f"))
-							_bounceMove = { data[0], data[1] };
-						ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("breathrotate", _bounceRotation, 0.0f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Bounce Rotation", &_bounceRotation, -180.f, 180.f, "%.1f");
-						ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
-						float data2[2] = { _bounceScale.x, _bounceScale.y };
-						if (ImGui::SliderFloat2("Bounce Scale", data2, -1, 1, "%.2f"))
+						if (ImGui::BeginTabItem("Talking"))
 						{
-							if (!_bounceScaleConstrain)
+							std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
+							ImGui::PushItemWidth(headerBtnSize.x * 7);
+							if (ImGui::BeginCombo("Motion Type", bobOptions[_bounceType]))
 							{
-								_bounceScale.x = data2[0];
-								_bounceScale.y = data2[1];
+								if (ImGui::Selectable("None", _bounceType == BounceNone))
+									_bounceType = BounceNone;
+								ToolTip("No Talking Motion", &_parent->_appConfig->_hoverTimer);
+								if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
+									_bounceType = BounceLoudness;
+								ToolTip("Motion is determined by the audio level", &_parent->_appConfig->_hoverTimer);
+								if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
+									_bounceType = BounceRegular;
+								ToolTip("Fixed motion, on a regular time interval", &_parent->_appConfig->_hoverTimer);
+								ImGui::EndCombo();
 							}
-							else if (data2[0] != _bounceScale.x)
+							ToolTip("Select the talking motion type", &_parent->_appConfig->_hoverTimer);
+
+							if (_bounceType != BounceNone)
 							{
-								_bounceScale = { data2[0] , data2[0] };
+								AddResetButton("bounceMoveReset", _bounceMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+								float data[2] = { _bounceMove.x, _bounceMove.y };
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								if (ImGui::SliderFloat2("Move##talkingMove", data, -50, 50, "%.2f"))
+									_bounceMove = { data[0], data[1] };
+								ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
+
+								AddResetButton("bouncerotatereset", _bounceRotation, 0.0f, _parent->_appConfig, &style);
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								ImGui::SliderFloat("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg");
+								ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
+
+								AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
+								float data2[2] = { _bounceScale.x, _bounceScale.y };
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								if (ImGui::SliderFloat2("Scale##talkingScale", data2, -1, 1, "%.2f"))
+								{
+									if (!_bounceScaleConstrain)
+									{
+										_bounceScale.x = data2[0];
+										_bounceScale.y = data2[1];
+									}
+									else if (data2[0] != _bounceScale.x)
+									{
+										_bounceScale = { data2[0] , data2[0] };
+									}
+									else if (data2[1] != _bounceScale.y)
+									{
+										_bounceScale = { data2[1] , data2[1] };
+									}
+								}
+								ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer, true);
+
+								ImGui::PushID("BounceScaleConstrain");
+								ImGui::Checkbox("Constrain", &_bounceScaleConstrain);
+								ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+								ImGui::PopID();
+
+
+								if (_bounceType == BounceRegular)
+								{
+									AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
+									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+									ImGui::SliderFloat("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+									ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
+								}
 							}
-							else if (data2[1] != _bounceScale.y)
-							{
-								_bounceScale = { data2[1] , data2[1] };
-							}
+							ImGui::EndTabItem();
 						}
-						ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Move the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
 
-						ImGui::PushID("BounceScaleConstrain");
-						ImGui::Checkbox("Constrain", &_bounceScaleConstrain);
-						ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
-						ImGui::PopID();
-
-
-						if (_bounceType == BounceRegular)
+						if (ImGui::BeginTabItem("Idle"))
 						{
-							AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
-							ImGui::SliderFloat("Bounce time", &_bounceFrequency, 0.0, 2.0, "%.2f s");
-							ToolTip("The time between each bounce", &_parent->_appConfig->_hoverTimer);
+							ImGui::Checkbox("Do Idle Motion", &_doBreathing);
+							if (_doBreathing)
+							{
+								AddResetButton("breathmove", _breathMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+								float data[2] = { _breathMove.x, _breathMove.y };
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								if (ImGui::SliderFloat2("Move##idleMove", data, -50, 50, "%.2f"))
+									_breathMove = { data[0], data[1] };
+								ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
+
+								AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, &style);
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								ImGui::SliderFloat("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg");
+								ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
+
+								AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
+								float data2[2] = { _breathScale.x, _breathScale.y };
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								if (ImGui::SliderFloat2("Scale##idleScale", data2, -1, 1, "%.2f"))
+								{
+									if (!_breathScaleConstrain)
+									{
+										_breathScale.x = data2[0];
+										_breathScale.y = data2[1];
+									}
+									else if (data2[0] != _breathScale.x)
+									{
+										_breathScale = { data2[0] , data2[0] };
+									}
+									else if (data2[1] != _breathScale.y)
+									{
+										_breathScale = { data2[1] , data2[1] };
+									}
+								}
+								ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer, true);
+
+								ImGui::PushID("BreathScaleConstrain");
+								ImGui::Checkbox("Constrain", &_breathScaleConstrain);
+								ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+								ImGui::PopID();
+
+								ImGui::Checkbox("Circular Motion", &_breathCircular);
+								ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
+
+								ImGui::Checkbox("Continue Whilst Talking", &_breatheWhileTalking);
+								ToolTip("Idle animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
+
+								AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
+								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+								ImGui::SliderFloat("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s");
+								ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
+
+								ImGui::Checkbox("Change Color", &_doBreathTint);
+								ToolTip("Interpolate the active sprite's Tint color with this one while breathing", &_parent->_appConfig->_hoverTimer);
+
+								if (_doBreathTint)
+								{
+									AddResetButton("breathtintreset", _breathTint, _idleTint, _parent->_appConfig, &style);
+									ImGui::ColorEdit4("Tint##BreathTint", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+								}
+							}
+							ImGui::EndTabItem();
 						}
+
+						if (ImGui::BeginTabItem("Constant"))
+						{
+							if (ImGui::Button("Reset"))
+							{
+								_storedConstantScale = { 1.f, 1.f };
+								_storedConstantPos = { 0,0 };
+								_storedConstantRot = 0;
+							}
+							ToolTip("Reset the stored constant motion", &_parent->_appConfig->_hoverTimer);
+
+							ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+							AddResetButton("rotspeedreset", _constantRot, 0.f, _parent->_appConfig, &style);
+							ImGui::SliderFloat("Rotation Speed", &_constantRot, -360, 360, "%.1f deg/s");
+							ToolTip("Continuously rotate the sprite with this speed \n(degrees per second)", &_parent->_appConfig->_hoverTimer, true);
+							ImGui::EndTabItem();
+						}
+
+						ImGui::EndTabBar();
 					}
 					ImGui::Unindent(indentSize);
 				}
-				ToolTip("Bounce the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
-				oldCursorPos = ImGui::GetCursorPos();
-				ImGui::SetCursorPos(subHeaderBtnPos);
-				std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
-				ImGui::PushItemWidth(headerBtnSize.x * 7);
-				if (ImGui::BeginCombo("##BounceType", bobOptions[_bounceType]))
-				{
-					if (ImGui::Selectable("None", _bounceType == BounceNone))
-						_bounceType = BounceNone;
-					ToolTip("No bouncing", &_parent->_appConfig->_hoverTimer);
-					if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
-						_bounceType = BounceLoudness;
-					ToolTip("Bounce height is determined by the audio level", &_parent->_appConfig->_hoverTimer);
-					if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
-						_bounceType = BounceRegular;
-					ToolTip("Fixed bounce height, on a regular time interval", &_parent->_appConfig->_hoverTimer);
-					ImGui::EndCombo();
-				}
-				ToolTip("Select the bouncing mode", &_parent->_appConfig->_hoverTimer);
-				ImGui::SetCursorPos(oldCursorPos);
-				ImGui::PopItemWidth();
-
-				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Breathing", ImGuiTreeNodeFlags_AllowItemOverlap))
-				{
-					ImGui::Indent(indentSize);
-					if (_doBreathing)
-					{
-						AddResetButton("breathmove", _breathMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
-						float data[2] = { _breathMove.x, _breathMove.y };
-						if (ImGui::SliderFloat2("Breath Move", data, -50, 50, "%.2f"))
-							_breathMove = { data[0], data[1] };
-						ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Breath Rotation", &_breathRotation, -180.f, 180.f, "%.1f");
-						ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
-						float data2[2] = { _breathScale.x, _breathScale.y };
-						if (ImGui::SliderFloat2("Breath Scale", data2, -1, 1, "%.2f"))
-						{
-							if (!_breathScaleConstrain)
-							{
-								_breathScale.x = data2[0];
-								_breathScale.y = data2[1];
-							}
-							else if (data2[0] != _breathScale.x)
-							{
-								_breathScale = { data2[0] , data2[0] };
-							}
-							else if (data2[1] != _breathScale.y)
-							{
-								_breathScale = { data2[1] , data2[1] };
-							}
-						}
-						ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer);
-
-						ImGui::PushID("BreathScaleConstrain");
-						ImGui::Checkbox("Constrain", &_breathScaleConstrain);
-						ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
-						ImGui::PopID();
-
-						ImGui::Checkbox("Circular Motion", &_breathCircular);
-						ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
-
-						ImGui::Checkbox("Breathe Whilst Talking", &_breatheWhileTalking);
-						ToolTip("Breathing animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Breath Time", &_breathFrequency, 0.0, 10.f, "%.2f s");
-
-						ImGui::Checkbox("Change Color", &_doBreathTint);
-						ToolTip("Interpolate the active sprite's Tint color with this one while breathing", &_parent->_appConfig->_hoverTimer);
-
-						if (_doBreathTint)
-						{
-							AddResetButton("breathfreq", _breathTint, _idleTint, _parent->_appConfig, &style);
-							ImGui::ColorEdit4("Tint##Breath", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-						}
-					}
-					ImGui::Unindent(indentSize);
-				}
-				oldCursorPos = ImGui::GetCursorPos();
-				ImGui::SetCursorPos(subHeaderBtnPos);
-				ImGui::Checkbox("##Breathing", &_doBreathing);
-				ImGui::SetCursorPos(oldCursorPos);
 			}
 
 			if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
@@ -3917,17 +3979,22 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::Indent(indentSize);
 				AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 				float pos[2] = { _pos.x, _pos.y };
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 				if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f, "%.1f px"))
 				{
 					_pos.x = pos[0];
 					_pos.y = pos[1];
 				}
+				ToolTip("The position of this layer.", &_parent->_appConfig->_hoverTimer, true);
 
 				AddResetButton("rot", _rot, 0.f, _parent->_appConfig, &style);
-				ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f, "%.1f");
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+				ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f, "%.1f deg");
+				ToolTip("The rotation of this layer.", &_parent->_appConfig->_hoverTimer, true);
 
 				AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
 				float scale[2] = { _scale.x, _scale.y };
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 				if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
 				{
 					if (!_keepAspect)
@@ -3944,6 +4011,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						_scale = { scale[1] , scale[1] };
 					}
 				}
+				ToolTip("The scale of this layer.", &_parent->_appConfig->_hoverTimer, true);
+
 				ImGui::Checkbox("Constrain", &_keepAspect);
 				ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
 
@@ -3962,6 +4031,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					pivot = { _pivot.x * spriteSize.x, _pivot.y * spriteSize.y };
 				}
 
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 				if (ImGui::SliderFloat2("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str()))
 				{
 					if (!_pivotPx)
@@ -3976,9 +4046,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 
 				}
-				ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer, true);
 				ImGui::SameLine();
-				if (ImGui::SmallButton(_pivotPx ? "px" : "%"))
+				if (ImGui::Button(_pivotPx ? "px" : "%"))
 				{
 					_pivotPx = !_pivotPx;
 				}
@@ -4005,16 +4075,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				if (_followMouse)
 				{
 					AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
-					ToolTip("The screen position that results in 0 movement.", &_parent->_appConfig->_hoverTimer);
+					ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
 
 					AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
-					ToolTip("The maximum mouse distance from the Neutral position.", &_parent->_appConfig->_hoverTimer);
+					ToolTip("The maximum mouse distance from the Neutral position.\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
 
 					AddResetButton("moveLimits", _mouseMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					ImGui::SliderFloat2("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px");
-					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer);
+					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer, true);
 
 					ImGui::Checkbox("Elliptical", &_followElliptical);
 					ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);

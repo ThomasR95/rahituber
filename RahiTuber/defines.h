@@ -388,11 +388,15 @@ inline float Min(T a, T b)
 	return b;
 }
 
-static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer)
+static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
 	{
 		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Separator), txt);
+		if (forSlider)
+		{
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), "CTRL + Click to type a value");
+		}
 		ImGui::EndTooltip();
 		return true;
 	}

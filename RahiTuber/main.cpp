@@ -1066,9 +1066,9 @@ void menu()
 	style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
 	style.Colors[ImGuiCol_FrameBgHovered] = col_med2;
 	style.Colors[ImGuiCol_ScrollbarBg] = style.Colors[ImGuiCol_FrameBg] = col_dark;
-	style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = col_med;
-	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = col_light2;
-	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = col_light;
+	style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = style.Colors[ImGuiCol_Tab] = col_med;
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = style.Colors[ImGuiCol_TabActive] = col_light2;
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = style.Colors[ImGuiCol_TabHovered] = col_light;
 	style.Colors[ImGuiCol_TitleBgActive] = style.Colors[ImGuiCol_TitleBg] = style.Colors[ImGuiCol_TitleBgCollapsed] = col_dark;
 	style.Colors[ImGuiCol_CheckMark] = style.Colors[ImGuiCol_Text] = col_light3;
 	style.Colors[ImGuiCol_TextDisabled] = greyoutCol;

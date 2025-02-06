@@ -117,6 +117,7 @@ public:
 		bool _isScreaming = false;
 		bool _screamVibrate = true;
 		float _screamVibrateAmount = 5;
+		float _screamVibrateSpeed = 1;
 
 		std::string _idleImagePath = u8"";
 		sf::Texture* _idleImage = nullptr;
@@ -188,7 +189,15 @@ public:
 
 		void CalculateLayerDepth();
 
+		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos);
+
+		void CalculateInheritedMotion(sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot, ImVec4& mpTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite);
+
+		void DoConstantMotion(sf::Time& frameTime, sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot);
+
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
+
+		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount);
 
 		void AddMouseMovement(sf::Vector2f& mpPos);
 
@@ -228,6 +237,7 @@ public:
 		float _distanceLimit = -1.f;
 		float _rotationEffect = 0.f;
 		sf::Vector2f _lastAccel = { 0.f, 0.f };
+		bool _allowIndividualMotion = false;
 
 		std::deque<MotionLinkData> _motionLinkData;
 
@@ -239,6 +249,13 @@ public:
 		sf::Vector2f _lastHeaderScreenPos;
 		sf::Vector2f _lastHeaderPos;
 		sf::Vector2f _lastHeaderSize;
+
+		sf::Vector2f _constantScale = { 1.f, 1.f };
+		sf::Vector2f _constantPos = { 0,0 };
+		float _constantRot = 0;
+		sf::Vector2f _storedConstantScale = { 1.f, 1.f };
+		sf::Vector2f _storedConstantPos = { 0,0 };
+		float _storedConstantRot = 0;
 
 		bool _followMouse = false;
 		bool _followElliptical = false;
