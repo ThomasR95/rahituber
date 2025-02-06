@@ -396,3 +396,25 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Dependencies and Outputs
+Delivered/
+Delivery/
+Delivery-linux/
+debug_dist/
+build-gcc/
+
+imgui/
+lib/
+lib-linux/
+lib_old/
+mongoose-7.16/
+portaudio/
+tinyxml2/
+
+#configs
+*.dmp
+*.ini
+*.xml
+*[Ll]og.*
+/RahiTuber/build/-gccDesktop_GCC-RelWithDebInfo
