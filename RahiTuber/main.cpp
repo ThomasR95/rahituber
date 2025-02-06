@@ -752,7 +752,7 @@ void menuAdvanced(ImGuiStyle& style)
 				appConfig->_webSocket->Stop();
 			}
 		}
-		ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]", &appConfig->_hoverTimer);
+		ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]\nhttp://localhost:8000/state?[\"state name\",active]", &appConfig->_hoverTimer);
 
 		ImGui::EndTable();
 

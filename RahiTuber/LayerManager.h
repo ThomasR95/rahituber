@@ -434,6 +434,8 @@ private:
 	std::string _loadingPath = u8"";
 	std::string _loadingProgress = u8"";
 
+	bool _copyStateNames = true;
+
 	float _lastTalkLevel = 0.0;
 	float _lastTalkMax = 1.0;
 
@@ -485,6 +487,8 @@ private:
 	sf::Clock _statesTimer;
 	bool _statesDirty = false;
 	void DrawStatesGUI();
+
+	void DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& disabledCol, int stateIdx);
 
 	std::string _errorMessage = u8"";
 

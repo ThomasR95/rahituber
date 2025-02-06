@@ -14,7 +14,7 @@ class WebSocket
 public:
 
 	struct QueueItem {
-		int stateIdx;
+		std::string stateId;
 		int activeState;
 	};
 
@@ -22,6 +22,8 @@ public:
 	{
 		if (_active)
 			return;
+
+		_port = port;
 
 		if (_pollThread != nullptr)
 		{
@@ -37,7 +39,7 @@ public:
 		_pollThread = new std::thread([&] {
 
 			mg_mgr_init(&_eventManager);
-			mg_http_listen(&_eventManager, ("http://0.0.0.0:"+std::to_string(port)).c_str(), ev_handler, this);
+			mg_http_listen(&_eventManager, ("http://0.0.0.0:"+std::to_string(_port)).c_str(), ev_handler, this);
 
 			while (_active)
 			{
@@ -78,7 +80,7 @@ public:
 	{
 		if (_msgQueue.size() > 0)
 			return _msgQueue.front();
-		else return {-1, -1};
+		else return {"-1", -1};
 	}
 
 	void PopQueueFront() 
@@ -98,6 +100,7 @@ private:
 	std::thread* _pollThread = nullptr;
 	bool _active = false;
 	std::deque<QueueItem> _msgQueue;
+	int _port = 8000;
 
 };
 
@@ -114,8 +117,21 @@ inline void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 
 		if (mg_match(hm->uri, mg_str("/state"), NULL))
 		{
-			long stateID = mg_json_get_long(hm->query, "$[0]", -1);
-			long stateActive = mg_json_get_long(hm->query, "$[1]", -1);
+			std::string decodedQuery;
+			decodedQuery.resize(hm->query.len);
+			mg_url_decode(hm->query.buf, hm->query.len, decodedQuery.data(), hm->query.len, 0);
+
+			auto query = mg_str(decodedQuery.c_str());
+
+			char* stringRet = mg_json_get_str(query, "$[0]");
+			std::string stateID = "";
+
+			if (stringRet == NULL)
+				stateID = std::to_string(mg_json_get_long(query, "$[0]", -1));
+			else
+				stateID = stringRet;
+
+			long stateActive = mg_json_get_long(query, "$[1]", -1);
 			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
 				"{%m:%d, %m:%d}\n", MG_ESC("state"), stateID, MG_ESC("active"), stateActive);
 

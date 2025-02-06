@@ -2116,7 +2116,11 @@ void LayerManager::CheckHotkeys()
 		if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
 		{
 			WebSocket::QueueItem qItem = _appConfig->_webSocket->QueueFront();
-			if (qItem.stateIdx == h)
+
+			bool match = qItem.stateId == std::to_string(h);
+			match |= qItem.stateId == stateInfo._name;
+
+			if (match)
 			{
 				if (qItem.activeState == 1)
 				{
@@ -2361,27 +2365,11 @@ void LayerManager::DrawStatesGUI()
 			if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 			{
 
+				ImGui::PopStyleColor();
+
 				if (_appConfig->_listenHTTP)
 				{
-					ImGui::TextColored(disabledCol, state._webRequest.c_str());
-					if (ImGui::Button("Copy request"))
-					{
-						ImGui::SetClipboardText(state._webRequest.c_str());
-					}
-
-					ImGui::SameLine();
-
-					if (state._webRequest == "" || ImGui::Checkbox(state._webRequestActive ? "to activate" : "to deactivate", &state._webRequestActive))
-					{
-						std::stringstream ss;
-						ss << "http://localhost:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
-						state._webRequest = ss.str();
-						ImGui::SetClipboardText(state._webRequest.c_str());
-					}
-
-					ImGui::PushStyleColor(ImGuiCol_Separator, disabledCol);
-					ImGui::Separator();
-					ImGui::PopStyleColor();
+					DrawHTTPCopyHelpers(state, disabledCol, stateIdx);
 				}
 
 
@@ -2628,7 +2616,8 @@ void LayerManager::DrawStatesGUI()
 				}
 				
 			}
-			ImGui::PopStyleColor();
+			else
+				ImGui::PopStyleColor();
 
 			ImVec2 endHeaderPos = ImGui::GetCursorPos();
 
@@ -2699,6 +2688,73 @@ void LayerManager::DrawStatesGUI()
 
 		ImGui::EndPopup();
 	}
+}
+
+void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& disabledCol, int stateIdx)
+{
+	ImGui::TextColored(disabledCol, state._webRequest.c_str());
+
+	bool optionChanged = false;
+	ImGui::PushID(&state);
+	if (ImGui::BeginTable("##urlCopy", 5, ImGuiTableFlags_SizingStretchSame))
+	{
+		ImGui::TableSetupColumn("");
+		ImGui::TableSetupColumn("");
+		ImGui::TableSetupColumn("");
+		ImGui::TableSetupColumn("");
+		ImGui::TableSetupColumn("copybtn", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("Copy request").x + ImGui::GetStyle().ItemSpacing.x*2);
+
+		ImGui::TableNextColumn();
+		if (ImGui::Selectable("Activate", state._webRequestActive, ImGuiSelectableFlags_DontClosePopups))
+		{
+			state._webRequestActive = true;
+			optionChanged = true;
+		}
+
+		ImGui::TableNextColumn();
+		if (ImGui::Selectable("Dectivate", !state._webRequestActive, ImGuiSelectableFlags_DontClosePopups))
+		{
+			state._webRequestActive = false;
+			optionChanged = true;
+		}
+
+		ImGui::TableNextColumn();
+		if (ImGui::Selectable("Name", _copyStateNames, ImGuiSelectableFlags_DontClosePopups))
+		{
+			_copyStateNames = true;
+			optionChanged = true;
+		}
+
+		ImGui::TableNextColumn();
+		if (ImGui::Selectable("ID", !_copyStateNames, ImGuiSelectableFlags_DontClosePopups))
+		{
+			_copyStateNames = false;
+			optionChanged = true;
+		}
+
+		ImGui::TableNextColumn();
+		if (ImGui::Button("Copy request"))
+		{
+			ImGui::SetClipboardText(state._webRequest.c_str());
+		}
+		ImGui::EndTable();
+	}
+	ImGui::PopID();
+
+	if (state._webRequest == "" || optionChanged)
+	{
+		std::stringstream ss;
+		if (_copyStateNames)
+			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[\"" << state._name << "\"," << state._webRequestActive << "]";
+		else
+			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
+		state._webRequest = ss.str();
+		//ImGui::SetClipboardText(state._webRequest.c_str());
+	}
+
+	ImGui::PushStyleColor(ImGuiCol_Separator, disabledCol);
+	ImGui::Separator();
+	ImGui::PopStyleColor();
 }
 
 void LayerManager::LayerInfo::CalculateLayerDepth()
