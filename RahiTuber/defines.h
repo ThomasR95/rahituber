@@ -412,59 +412,44 @@ static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlide
 }
 
 struct TableFlags {
-	bool open = false;
 	bool childOpen = false;
 	float indentSize = 0;
-	float tableTop = -1;
-	float tableBottom = -1;
+	float childTop = 0;
+	float childBottom = -1;
 };
 
-static std::map < std::string, TableFlags> g_tableFlags;
+static std::map < std::string, TableFlags> g_indentFlags;
 
 static std::deque<std::string> g_lastIndent;
 
 static inline void BetterIndent(float indSize, const std::string& id)
 {
-	float widthAvailable = ImGui::GetContentRegionAvail().x;
+	float maxWidth = ImGui::GetContentRegionAvail().x;
+	float widthAvailable = maxWidth;
 	widthAvailable -= indSize;
 
-	TableFlags table;
-	if (g_tableFlags.count(id))
-		table = g_tableFlags[id];
+	TableFlags child;
+	if (g_indentFlags.count(id))
+		child = g_indentFlags[id];
 
-	table.indentSize = indSize;
-	table.open = false;
-	table.childOpen = false;
+	child.indentSize = indSize;
+	child.childOpen = false;
 
 	ImGui::Indent(indSize);
 
-	//if (ImGui::BeginTable(("##indent"+id).c_str(), 2, ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_SizingFixedFit ))
-	//{
-	//	table.open = true;
-	//	ImGui::TableSetupColumn("##indentColumn", ImGuiTableColumnFlags_WidthFixed, indSize);
-	//	ImGui::TableSetupColumn("##content");
-	//	ImGui::TableNextColumn();
-	//	ImGui::TableNextColumn();
-	//	ImGui::TableSetColumnIndex(1);
+	float childHeight = 1;
 
-	float childHeight = 0;
-	if (table.tableBottom < table.tableTop)
-		table.tableBottom = -1;
+	if (child.childBottom > child.childTop)
+		childHeight = child.childBottom - child.childTop;
 
-	if (table.tableBottom >= -1)
-		childHeight = table.tableBottom - table.tableTop;
+	child.childOpen = true;
+	ImGui::BeginChild(("##content" + id).c_str(), { widthAvailable, childHeight }, 0, ImGuiWindowFlags_NoScrollbar);
+	child.childTop = 0;
 
-	if (childHeight > 0)
-	{
-		table.childOpen = ImGui::BeginChild(("##content" + id).c_str(), { widthAvailable,childHeight }, 0, ImGuiWindowFlags_NoScrollbar);
-	}
-
-	table.tableTop = ImGui::GetCursorPosY();
-	//}
 
 	g_lastIndent.push_back(id);
 	
-	g_tableFlags[id] = table;
+	g_indentFlags[id] = child;
 }
 
 static inline void BetterUnindent(const std::string& id)
@@ -472,24 +457,21 @@ static inline void BetterUnindent(const std::string& id)
 	if (g_lastIndent.back() != id)
 		__debugbreak();
 
-	if (g_tableFlags.count(id))
+	if (g_indentFlags.count(id))
 	{
 		g_lastIndent.pop_back();
 
-		auto& table = g_tableFlags[id];
+		auto& child = g_indentFlags[id];
 
-		table.tableBottom = ImGui::GetCursorPosY();// +ImGui::GetFontSize();
+		float cursorPos = ImGui::GetCursorPosY();
+		if (cursorPos > 0)
+			child.childBottom = cursorPos;
 
-		if(table.childOpen)
-			ImGui::EndChild();
+		ImGui::EndChild();
 
-		//if(table.open)
-		//	ImGui::EndTable();
+		ImGui::Unindent(child.indentSize);
 
-		ImGui::Unindent(table.indentSize);
-
-		table.childOpen = false;
-		table.open = false;
+		child.childOpen = false;
 	}
 }
 

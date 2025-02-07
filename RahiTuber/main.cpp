@@ -1033,8 +1033,14 @@ void menu()
 #ifdef _DEBUG
 	io.ConfigDebugHighlightIdConflicts = true;
 	io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent();
+	io.ConfigErrorRecovery = true;
+	io.ConfigErrorRecoveryEnableDebugLog = true;
+	io.ConfigErrorRecoveryEnableTooltip = true;
 #else
+	io.ConfigDebugIsDebuggerPresent = false;
 	io.ConfigDebugHighlightIdConflicts = false;
+	io.ConfigErrorRecoveryEnableTooltip = false;
+	io.ConfigErrorRecovery = false;
 #endif
 
 	if (ImGui::IsAnyItemHovered() == false)

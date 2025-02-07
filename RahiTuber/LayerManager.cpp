@@ -289,6 +289,16 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			{
 				// Draw sprite borders
 
+				bool layerHovered = false;
+				for (auto& hl : _hoveredLayers)
+					if (hl == layer._id)
+					{
+						layerHovered = true;
+						break;
+					}
+
+				auto theme = _uiConfig->_themes[_uiConfig->_theme];
+
 				sf::Vector2f origin = layer._activeSprite->getOrigin();
 				sf::Vector2f pos = layer._activeSprite->getPosition();
 				sf::Vector2f scale = layer._activeSprite->getScale();
@@ -302,16 +312,23 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				box.setOrigin(boxOrigin);
 				box.setPosition(pos);
 				box.setRotation(rot);
-				box.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive)));
+				box.setOutlineColor(toSFColor(theme.first + ImVec4(0.2,0.2,0.2,0.2)));
 				box.setOutlineThickness((1.0f / _globalScale.x) * _appConfig->mainWindowScaling);
-				sf::Color fill = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
-				fill.a = 0.5;
+				sf::Color fill = toSFColor(theme.first);
+				if(layerHovered)
+					fill.a = 40;
+				else
+					fill.a = 0;
 				box.setFillColor(fill);
 
-				auto circle = sf::CircleShape(3 * _appConfig->mainWindowScaling, 8);
+				float circleRadius = 3 * _appConfig->mainWindowScaling;
+				if (layerHovered)
+					circleRadius = 6 * _appConfig->mainWindowScaling;
+				auto circle = sf::CircleShape(circleRadius, 8);
 				circle.setPosition(pos);
-				circle.setFillColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text)));
-				circle.setOutlineColor(toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Button)));
+				circle.setOrigin({ circleRadius ,circleRadius });
+				circle.setFillColor(toSFColor(theme.second + ImVec4(0.2, 0.2, 0.2, 0.2)));
+				circle.setOutlineColor(toSFColor(theme.first));
 				circle.setOutlineThickness(2 * _appConfig->mainWindowScaling);
 
 				circle.setScale({ 1.0f / _globalScale.x, 1.0f / _globalScale.y });
@@ -326,9 +343,39 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				target->draw(box, state);
 				target->draw(circle, state);
+
+				if (layerHovered && layer._followMouse)
+				{
+					auto targetColor = toSFColor(theme.second * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
+					float targetSize = 10 * _appConfig->mainWindowScaling;
+					float targetLineW = 2 * _appConfig->mainWindowScaling;
+					auto circle2 = sf::CircleShape(targetSize, 16);
+					auto targetPos = layer._mouseNeutralPos - (sf::Vector2f)_appConfig->_window.getPosition();
+					circle2.setPosition(targetPos);
+					circle2.setOrigin({ targetSize ,targetSize });
+					circle2.setFillColor(sf::Color::Transparent);
+					circle2.setOutlineColor(targetColor);
+					circle2.setOutlineThickness(2 * _appConfig->mainWindowScaling);
+
+					auto lineV = sf::RectangleShape({ targetSize*2 ,targetLineW });
+					lineV.setPosition(targetPos);
+					lineV.setOrigin({ targetSize, targetLineW / 2 });
+					lineV.setFillColor(targetColor);
+
+					auto lineH = lineV;
+					lineH.setSize({ targetLineW ,targetSize*2 });
+					lineH.setOrigin({ targetLineW / 2, targetSize });
+
+					target->draw(lineH, sf::RenderStates::Default);
+					target->draw(lineV, sf::RenderStates::Default);
+					target->draw(circle2, sf::RenderStates::Default);
+				}
+				
 			}
 		}
 	}
+
+	_hoveredLayers.clear();
 }
 
 void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
@@ -3330,7 +3377,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}
 
 
-	ImGui::PushID(this); {
+	ImGui::PushID((_id+_name).c_str()); {
 
 #ifdef DEBUG
 		std::string name = "[" + std::to_string(layerID) + "] " + _name;
@@ -3347,7 +3394,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		_lastHeaderScreenPos = toSFVector(ImGui::GetCursorScreenPos());
 		_lastHeaderPos = toSFVector(ImGui::GetCursorPos());
-		_lastHeaderSize = sf::Vector2f(ImGui::GetWindowWidth() - 8, 20 * uiScale);
+		_lastHeaderSize = sf::Vector2f(ImGui::GetContentRegionAvail().x - 8*uiScale, 20 * uiScale);
 
 		if (_isFolder)
 		{
@@ -3358,6 +3405,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			if (_isFolder == false)
+				_parent->_hoveredLayers.push_back(_id);
+
 			if (_isFolder)
 			{
 				ImGui::PopStyleVar(2);
@@ -3372,9 +3422,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				if (layer != nullptr)
 					layer->DrawGUI(style, layerIdx);
 			}
-			ImGui::Unindent(indentSize);
-
-			BetterIndent(indentSize, "mainGroup" + _id);
+			
 
 			if (_isFolder == false)
 			{
@@ -4193,11 +4241,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			}
 
-			BetterUnindent("mainGroup" + _id);
+			ImGui::Unindent(indentSize);
 
 		}
 		else
 		{
+			if (ImGui::IsItemHovered() && _isFolder == false)
+				_parent->_hoveredLayers.push_back(_id);
+
 			if (_isFolder)
 			{
 				ImGui::PopStyleVar(2);

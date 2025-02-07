@@ -501,6 +501,8 @@ private:
 	sf::Clock _layerDragTimer;
 	bool _dragActive = false;
 
+	std::vector<std::string> _hoveredLayers;
+
 	void AppendStateToOrder(StatesInfo* state)
 	{
 		for (StatesInfo* searchKey : _statesOrder)
