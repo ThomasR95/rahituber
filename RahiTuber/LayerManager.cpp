@@ -2771,14 +2771,14 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 			}
 
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable("Name", _copyStateNames, ImGuiSelectableFlags_DontClosePopups))
+			if (ImGui::Selectable("Name", _copyStateNames && state._name != "", ImGuiSelectableFlags_DontClosePopups))
 			{
 				_copyStateNames = true;
 				optionChanged = true;
 			}
 
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable("ID", !_copyStateNames, ImGuiSelectableFlags_DontClosePopups))
+			if (ImGui::Selectable("ID", !_copyStateNames || state._name == "", ImGuiSelectableFlags_DontClosePopups))
 			{
 				_copyStateNames = false;
 				optionChanged = true;
@@ -2796,7 +2796,7 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 	if (state._webRequest == "" || optionChanged)
 	{
 		std::stringstream ss;
-		if (_copyStateNames)
+		if (_copyStateNames && state._name != "")
 			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[\"" << state._name << "\"," << state._webRequestActive << "]";
 		else
 			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
