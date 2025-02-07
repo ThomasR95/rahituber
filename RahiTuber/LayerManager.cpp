@@ -4181,7 +4181,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						if (_parent->_pivotPreservePosition)
 						{
-							_pos += (_pivot - prevPivot) * spriteSize * _scale;
+							auto pivotDiff = _pivot - prevPivot;
+							auto pivotRotatedDiff = Rotate(pivotDiff, Deg2Rad(_rot));
+							_pos += pivotRotatedDiff * spriteSize * _scale;
 						}
 
 					}
@@ -4309,6 +4311,26 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::OpenPopup("Rename Layer");
 			}
 
+			if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
+			{
+				char inputStr[32] = " ";
+				ANSIToUTF8(_renamingString).copy(inputStr, 32);
+				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+				{
+					_renamingString = UTF8ToANSI(inputStr);
+				}
+				ImGui::SameLine();
+
+				if (ImGui::Button("Save"))
+				{
+					_renamePopupOpen = false;
+					_name = _renamingString;
+					ImGui::CloseCurrentPopup();
+				}
+
+				ImGui::EndPopup();
+			}
+
 		}ImGui::PopID();//renamebtn
 
 		ToolTip("Rename the layer", &_parent->_appConfig->_hoverTimer);
@@ -4339,25 +4361,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PopStyleColor(4);
 		ImGui::PopStyleVar(2);
 
-		if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
-		{
-			char inputStr[32] = " ";
-			ANSIToUTF8(_renamingString).copy(inputStr, 32);
-			if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
-			{
-				_renamingString = UTF8ToANSI(inputStr);
-			}
-			ImGui::SameLine();
-
-			if (ImGui::Button("Save"))
-			{
-				_renamePopupOpen = false;
-				_name = _renamingString;
-				ImGui::CloseCurrentPopup();
-			}
-
-			ImGui::EndPopup();
-		}
+		
 
 		ImGui::SetCursorPos(oldCursorPos);
 
