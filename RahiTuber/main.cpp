@@ -679,7 +679,7 @@ void menuAdvanced(ImGuiStyle& style)
 
 #endif
 
-		ImVec4 imCol = toImColor(appConfig->_bgColor);
+		ImVec4 imCol = toImVec4(appConfig->_bgColor);
 		ImGui::TableNextColumn();
 		ImGui::BeginDisabled(appConfig->_transparent);
 		if (ImGui::Button("Background Color", { -1, 20 * appConfig->scalingFactor })) {

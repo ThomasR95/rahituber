@@ -238,6 +238,7 @@ public:
 		float _rotationEffect = 0.f;
 		sf::Vector2f _lastAccel = { 0.f, 0.f };
 		bool _allowIndividualMotion = false;
+		bool _rotationIgnorePivots = false;
 
 		std::deque<MotionLinkData> _motionLinkData;
 
@@ -482,6 +483,8 @@ private:
 	float _globalRot = 0.0;
 	bool _globalKeepAspect = true;
 
+	bool _pivotPreservePosition = true;
+
 	std::map<std::string, bool> _defaultLayerStates;
 	std::vector<StatesInfo*> _statesOrder;
 	sf::Clock _statesTimer;
@@ -630,9 +633,8 @@ static sf::Texture* _delIcon = nullptr;
 static sf::Texture* _dupeIcon = nullptr;
 
 
-
 template <typename T>
-inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr)
+inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
 {
 	if (_resetIcon == nullptr)
 		_resetIcon = appConfig->_textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
@@ -652,14 +654,25 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 		if (enabled)
 			value = resetValue;
 	ImGui::PopID();
-
+	
+	if (zeroValue != nullptr)
+	{
+		ImGui::SameLine();
+		ImGui::PushID(id + 1);
+		if (ImGui::Button("0"))
+			if (enabled)
+				value = {};
+		ImGui::PopID();
+	}
+	
 	if (cursorPos)
 	{
 		*cursorPos = ImGui::GetCursorPos();
 		cursorPos->x += btnSize + (style ? style->ItemSpacing.x : 0);
 	}
 
-	ImGui::SameLine();
+	ImGui::SameLine(0);
+
 }
 
 inline float GetRandom01()

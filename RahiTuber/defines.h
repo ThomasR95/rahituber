@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include <map>
+#include <deque>
 
 #define PI 3.14159265359
 
@@ -333,6 +334,13 @@ inline sf::Vector2<T> operator /(const sf::Vector2<T>& left, const sf::Vector2<T
 	return sf::Vector2<T>(left.x / right.x, left.y / right.y);
 }
 
+template <typename T, typename T2>
+inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const T2& right)
+{
+	return sf::Vector2<T>(left.x * (T)right, left.y * (T)right);
+}
+
+
 inline float Clamp(float in, float min, float max)
 {
 	if (in < min)
@@ -403,6 +411,88 @@ static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlide
 	return false;
 }
 
+struct TableFlags {
+	bool open = false;
+	bool childOpen = false;
+	float indentSize = 0;
+	float tableTop = -1;
+	float tableBottom = -1;
+};
+
+static std::map < std::string, TableFlags> g_tableFlags;
+
+static std::deque<std::string> g_lastIndent;
+
+static inline void BetterIndent(float indSize, const std::string& id)
+{
+	float widthAvailable = ImGui::GetContentRegionAvail().x;
+	widthAvailable -= indSize;
+
+	TableFlags table;
+	if (g_tableFlags.count(id))
+		table = g_tableFlags[id];
+
+	table.indentSize = indSize;
+	table.open = false;
+	table.childOpen = false;
+
+	ImGui::Indent(indSize);
+
+	//if (ImGui::BeginTable(("##indent"+id).c_str(), 2, ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_SizingFixedFit ))
+	//{
+	//	table.open = true;
+	//	ImGui::TableSetupColumn("##indentColumn", ImGuiTableColumnFlags_WidthFixed, indSize);
+	//	ImGui::TableSetupColumn("##content");
+	//	ImGui::TableNextColumn();
+	//	ImGui::TableNextColumn();
+	//	ImGui::TableSetColumnIndex(1);
+
+	float childHeight = 0;
+	if (table.tableBottom < table.tableTop)
+		table.tableBottom = -1;
+
+	if (table.tableBottom >= -1)
+		childHeight = table.tableBottom - table.tableTop;
+
+	if (childHeight > 0)
+	{
+		table.childOpen = ImGui::BeginChild(("##content" + id).c_str(), { widthAvailable,childHeight }, 0, ImGuiWindowFlags_NoScrollbar);
+	}
+
+	table.tableTop = ImGui::GetCursorPosY();
+	//}
+
+	g_lastIndent.push_back(id);
+	
+	g_tableFlags[id] = table;
+}
+
+static inline void BetterUnindent(const std::string& id)
+{
+	if (g_lastIndent.back() != id)
+		__debugbreak();
+
+	if (g_tableFlags.count(id))
+	{
+		g_lastIndent.pop_back();
+
+		auto& table = g_tableFlags[id];
+
+		table.tableBottom = ImGui::GetCursorPosY();// +ImGui::GetFontSize();
+
+		if(table.childOpen)
+			ImGui::EndChild();
+
+		//if(table.open)
+		//	ImGui::EndTable();
+
+		ImGui::Unindent(table.indentSize);
+
+		table.childOpen = false;
+		table.open = false;
+	}
+}
+
 inline sf::Color toSFColor(const ImVec4& col)
 {
 	return sf::Color(sf::Uint8(Clamp(col.x * 255u, 0, 255u)), 
@@ -433,7 +523,7 @@ inline sf::Color toSFColor(const float* col)
 	return sf::Color::White;
 }
 
-inline ImVec4 toImColor(const float* col)
+inline ImVec4 toImVec4(const float* col)
 {
 	if (col != nullptr)
 	{
@@ -441,9 +531,22 @@ inline ImVec4 toImColor(const float* col)
 	}
 }
 
-inline ImVec4 toImColor(const sf::Color& col)
+inline ImVec4 toImVec4(const sf::Color& col)
 {
 	return ImVec4((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
+}
+
+inline ImColor toImColor(const float* col)
+{
+	if (col != nullptr)
+	{
+		return ImColor(col[0], col[1], col[2], col[3]);
+	}
+}
+
+inline ImColor toImColor(const sf::Color& col)
+{
+	return ImColor((float)col.r / 255, (float)col.g / 255, (float)col.b / 255, (float)col.a / 255);
 }
 
 inline sf::Vector2f toSFVector(const ImVec2& vec)
