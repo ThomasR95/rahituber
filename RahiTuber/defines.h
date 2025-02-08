@@ -454,9 +454,6 @@ static inline void BetterIndent(float indSize, const std::string& id)
 
 static inline void BetterUnindent(const std::string& id)
 {
-	if (g_lastIndent.back() != id)
-		__debugbreak();
-
 	if (g_indentFlags.count(id))
 	{
 		g_lastIndent.pop_back();
