@@ -311,6 +311,12 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       if (!m_currentPathIsDir)
         initDirectory = m_currentPath.parent_path();
 
+      if (initDirectory.empty() || initDirectory == "")
+      {
+        m_currentPath = fs::current_path();
+        m_currentPathIsDir = true;
+      }
+
       //Update paths based on current path
       get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
 

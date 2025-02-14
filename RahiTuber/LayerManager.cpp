@@ -1879,7 +1879,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 	std::string outFile = settingsFileName;
 	if (outFile.find("/") == std::string::npos && outFile.find("\\") == std::string::npos)
 	{
-		outFile = _appConfig->_appLocation + outFile;
+		outFile = fs::path(_appConfig->_appLocation).append(outFile).string();
 	}
 
 	doc.SaveFile(outFile.c_str());
@@ -2267,6 +2267,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			}
 			
 			_fullLoadedXMLPath = fs::absolute(_loadingPath).string();
+			_lastSavedLocation = _fullLoadedXMLPath;
 			_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation).string();
 			_loadedXMLAbsDirectory = fs::absolute(_loadingPath).parent_path().string();
 			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
