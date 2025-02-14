@@ -27,12 +27,40 @@ class TextureManager
 {
 public:
 
+	enum IconID {
+		ICON_EMPTY,
+		ICON_ANIM,
+		ICON_UP,
+		ICON_DN,
+		ICON_EDIT,
+		ICON_DEL,
+		ICON_DUPE,
+		ICON_NEWFILE,
+		ICON_OPEN,
+		ICON_SAVE,
+		ICON_SAVEAS,
+		ICON_MAKEPORTABLE,
+		ICON_RELOAD,
+		ICON_NEWLAYER,
+		ICON_NEWFOLDER,
+		ICON_STATES,
+		ICON_RESET,
+	};
+
+	void LoadIcons(const std::string& appLocation);
+
 	sf::Texture* GetTexture(const std::string& path, std::string* errString = nullptr);
+
+	bool LoadTexture(const std::string& path, sf::Texture*& storage, std::string* errString = nullptr);
 
 	void Reset();
 
+	sf::Texture* GetIcon(IconID id);
+
 private:
 	std::map<std::string, sf::Texture*> _textures;
+
+	std::map<IconID, sf::Texture*> _icons;
 
 	sf::Vector2i GetDimensions(const char* path) 
 	{

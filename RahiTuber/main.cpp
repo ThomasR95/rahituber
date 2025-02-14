@@ -161,7 +161,8 @@ void LoadCustomFont()
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
 
 	fs::path fontpath(appConfig->_appLocation + "res/monof55.ttf");
-	if (!fs::exists(fontpath))
+	std::error_code ec;
+	if (!fs::exists(fontpath, ec))
 		return;
 
 	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 26.f, &cfg);
@@ -627,136 +628,150 @@ void menuAdvanced(ImGuiStyle& style)
 		}
 		ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
 
-		ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame);
-
-#ifdef _WIN32
-		ImGui::TableNextColumn();
-		float transChkBoxPos = ImGui::GetCursorPosY();
-		if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
+		//ImGui::SetNextItemWidth(-1);
+		if (ImGui::BeginCombo("Layer Set UI", (uiConfig->_layerUITypeNames[uiConfig->_layersUIType]).c_str()))
 		{
-			if (appConfig->_transparent)
-			{
-				if (appConfig->_isFullScreen)
-				{
-					appConfig->_scrW = appConfig->_fullScrW + 1;
-					appConfig->_scrH = appConfig->_fullScrH + 1;
-					appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), appConfig->windowName, 0);
-					appConfig->_window.setIcon((int)uiConfig->_ico.getSize().x, (int)uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
-					appConfig->_window.setSize({ (sf::Uint16)appConfig->_scrW, (sf::Uint16)appConfig->_scrH });
-					appConfig->_window.setPosition({ 0,0 });
-					sf::View v = appConfig->_window.getView();
-					v.setSize({ appConfig->_scrW, appConfig->_scrH });
-					v.setCenter({ appConfig->_scrW / 2, appConfig->_scrH / 2 });
-					appConfig->_window.setView(v);
-				}
+			for (auto& ltype : uiConfig->_layerUITypeNames)
+				if (ImGui::Selectable(ltype.second.c_str(), uiConfig->_layersUIType == ltype.first))
+					uiConfig->_layersUIType = ltype.first;
 
-				MARGINS margins;
-				margins.cxLeftWidth = -1;
-
-				DwmExtendFrameIntoClientArea(appConfig->_window.getSystemHandle(), &margins);
-			}
-			else
-			{
-				SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
-				EnableWindow(appConfig->_window.getSystemHandle(), true);
-			}
-			// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
-			// #else
-			//             Display* display = XOpenDisplay(NULL);
-			//             if (display != NULL)
-			//             {
-			//                 Window wind = appConfig->_window.getSystemHandle();
-
-			//                 setWindowTransparency(display, wind, appConfig->_transparent);
-			//                 setWindowProperties(display, wind);
-
-			//                 enableWindow(display, wind, true);
-			//                 XCloseDisplay(display);
-			//             }
-			// #endif
+			ImGui::EndCombo();
 		}
-		ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
+		ToolTip("Choose the UI for Layer Set controls.", &appConfig->_hoverTimer);
+
+		if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
+		{
+#ifdef _WIN32
+			ImGui::TableNextColumn();
+			float transChkBoxPos = ImGui::GetCursorPosY();
+			if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
+			{
+				if (appConfig->_transparent)
+				{
+					if (appConfig->_isFullScreen)
+					{
+						appConfig->_scrW = appConfig->_fullScrW + 1;
+						appConfig->_scrH = appConfig->_fullScrH + 1;
+						appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), appConfig->windowName, 0);
+						appConfig->_window.setIcon((int)uiConfig->_ico.getSize().x, (int)uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
+						appConfig->_window.setSize({ (sf::Uint16)appConfig->_scrW, (sf::Uint16)appConfig->_scrH });
+						appConfig->_window.setPosition({ 0,0 });
+						sf::View v = appConfig->_window.getView();
+						v.setSize({ appConfig->_scrW, appConfig->_scrH });
+						v.setCenter({ appConfig->_scrW / 2, appConfig->_scrH / 2 });
+						appConfig->_window.setView(v);
+					}
+
+					MARGINS margins;
+					margins.cxLeftWidth = -1;
+
+					DwmExtendFrameIntoClientArea(appConfig->_window.getSystemHandle(), &margins);
+				}
+				else
+				{
+					SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
+					EnableWindow(appConfig->_window.getSystemHandle(), true);
+				}
+				// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
+				// #else
+				//             Display* display = XOpenDisplay(NULL);
+				//             if (display != NULL)
+				//             {
+				//                 Window wind = appConfig->_window.getSystemHandle();
+
+				//                 setWindowTransparency(display, wind, appConfig->_transparent);
+				//                 setWindowProperties(display, wind);
+
+				//                 enableWindow(display, wind, true);
+				//                 XCloseDisplay(display);
+				//             }
+				// #endif
+			}
+			ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
 
 #endif
 
-		ImVec4 imCol = toImVec4(appConfig->_bgColor);
-		ImGui::TableNextColumn();
-		ImGui::BeginDisabled(appConfig->_transparent);
-		if (ImGui::Button("Background Color", { -1, 20 * appConfig->scalingFactor })) {
-			ImGui::OpenPopup("BGColorEdit");
-		}
-
-		if (ImGui::BeginPopup("BGColorEdit"))
-		{
-			if (ImGui::ColorPicker3("##bgColor", &imCol.x, ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_DisplayRGB))
-			{
-				appConfig->_bgColor = toSFColor(imCol);
+			ImVec4 imCol = toImVec4(appConfig->_bgColor);
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(appConfig->_transparent);
+			if (ImGui::Button("Background Color", { -1, ImGui::GetFrameHeight()})) {
+				ImGui::OpenPopup("BGColorEdit");
 			}
-			ImGui::EndPopup();
+
+			if (ImGui::BeginPopup("BGColorEdit"))
+			{
+				if (ImGui::ColorPicker3("##bgColor", &imCol.x, ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_DisplayRGB))
+				{
+					appConfig->_bgColor = toSFColor(imCol);
+				}
+				ImGui::EndPopup();
+			}
+			ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
+			ImGui::EndDisabled();
+
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
+			ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
+
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
+			ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
+
+			ImGui::TableNextColumn();
+			ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
+			ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
+
+			ImGui::EndTable();
 		}
-		ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
-		ImGui::EndDisabled();
-
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
-		ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
-		ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
-		ToolTip("Change teh size of the user interface.", &appConfig->_hoverTimer);
-
-		ImGui::EndTable();
 
 		ImGui::SeparatorText("Behaviour");
 
-		ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame);
+		if (ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame))
+		{
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
+			ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
-		ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
+			ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
 
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
-		ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
-		ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
+			ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
 
 
-		ImGui::EndTable();
+			ImGui::EndTable();
+		}
 
 		ImGui::SeparatorText("Integration");
 
-		ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame);
-
+		if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
+		{
 #ifdef _WIN32
-		ImGui::TableNextColumn();
-		ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-		ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+			ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
 #endif
 
-		ImGui::TableNextColumn();
-		if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
-		{
-			if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+			ImGui::TableNextColumn();
+			if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
 			{
-				appConfig->_webSocket->Start(appConfig->_httpPort);
+				if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+				{
+					appConfig->_webSocket->Start(appConfig->_httpPort);
+				}
+				else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+				{
+					appConfig->_webSocket->Stop();
+				}
 			}
-			else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
-			{
-				appConfig->_webSocket->Stop();
-			}
+			ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]\nhttp://localhost:8000/state?[\"state name\",active]", &appConfig->_hoverTimer);
+
+			ImGui::EndTable();
 		}
-		ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]\nhttp://localhost:8000/state?[\"state name\",active]", &appConfig->_hoverTimer);
 
-		ImGui::EndTable();
-
-		if (ImGui::Button("OK", { -1,20 }))
+		if (ImGui::Button("OK", { -1, ImGui::GetFrameHeight()}))
 		{
 			ImGui::CloseCurrentPopup();
 		}
@@ -1191,6 +1206,8 @@ void menu()
 	}
 	ImGui::PopStyleColor(3);
 
+	bool popupOpen = ImGui::IsPopupOpen(ImGuiID(0), ImGuiPopupFlags_AnyPopup);
+
 	ImGui::End();
 
 	if (appConfig->_menuPopped)
@@ -1215,7 +1232,7 @@ void menu()
 	ImGui::EndFrame();
 	ImGui::SFML::Render(appConfig->_menuRT);
 
-	if (appConfig->_updateAvailable)
+	if (appConfig->_updateAvailable && !popupOpen)
 	{
 		sf::Color pulseColor(255u, 255u, 255u, 128u + 127u * pulse);
 		sf::CircleShape dotShape(style.FrameRounding, 12);
@@ -2094,7 +2111,7 @@ void ApplicationSetup()
 	layerMan->SetLayerSet(appConfig->_lastLayerSet);
 
 	if (appConfig->_lastLayerSet.empty() == false)
-		layerMan->LoadLayers(appConfig->_lastLayerSet + ".xml");
+		layerMan->LoadLayers(appConfig->_lastLayerSet);
 
 	//kbdTrack->SetHook(appConfig->_useKeyboardHooks);
 

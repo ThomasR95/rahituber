@@ -312,10 +312,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				box.setOrigin(boxOrigin);
 				box.setPosition(pos);
 				box.setRotation(rot);
-				box.setOutlineColor(toSFColor(theme.first + ImVec4(0.2,0.2,0.2,0.2)));
+				box.setOutlineColor(toSFColor(theme.first + ImVec4(0.2, 0.2, 0.2, 0.2)));
 				box.setOutlineThickness((1.0f / _globalScale.x) * _appConfig->mainWindowScaling);
 				sf::Color fill = toSFColor(theme.first);
-				if(layerHovered)
+				if (layerHovered)
 					fill.a = 40;
 				else
 					fill.a = 0;
@@ -357,25 +357,398 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					circle2.setOutlineColor(targetColor);
 					circle2.setOutlineThickness(2 * _appConfig->mainWindowScaling);
 
-					auto lineV = sf::RectangleShape({ targetSize*2 ,targetLineW });
+					auto lineV = sf::RectangleShape({ targetSize * 2 ,targetLineW });
 					lineV.setPosition(targetPos);
 					lineV.setOrigin({ targetSize, targetLineW / 2 });
 					lineV.setFillColor(targetColor);
 
 					auto lineH = lineV;
-					lineH.setSize({ targetLineW ,targetSize*2 });
+					lineH.setSize({ targetLineW ,targetSize * 2 });
 					lineH.setOrigin({ targetLineW / 2, targetSize });
 
 					target->draw(lineH, sf::RenderStates::Default);
 					target->draw(lineV, sf::RenderStates::Default);
 					target->draw(circle2, sf::RenderStates::Default);
 				}
-				
+
 			}
 		}
 	}
 
 	_hoveredLayers.clear();
+}
+
+void LayerManager::DrawOldLayerSetUI()
+{
+
+	float uiScale = _appConfig->scalingFactor;
+
+	if (ImGui::BeginTable("##layerInOut", 5, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp))
+	{
+		ImGui::TableSetupColumn("Text");
+		ImGui::TableSetupColumn("LayerSetName");
+		ImGui::TableSetupColumn("Browse", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Save", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Load", ImGuiTableColumnFlags_WidthFixed, uiScale * 80);
+		ImGui::TableNextColumn();
+
+		ImGui::AlignTextToFramePadding();
+		ImGui::Text("Layer Set:");
+
+		ImGui::TableNextColumn();
+
+		char inputStr[MAX_PATH] = " ";
+		fs::path appFolder = fs::absolute(_appConfig->_appLocation);
+		fs::path relativeDir = fs::proximate(_loadedXMLAbsDirectory, appFolder);
+		fs::path relativePath = _layerSetName;
+		if (relativeDir != ".")
+			relativePath = relativeDir.append(_layerSetName);
+		ANSIToUTF8(relativePath.string()).copy(inputStr, MAX_PATH);
+
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::InputText("##layersXMLInput", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll) || ImGui::IsItemDeactivatedAfterEdit())
+		{
+			fs::current_path(appFolder);
+
+			fs::path xmlPath = fs::absolute(UTF8ToANSI(inputStr));
+			if (xmlPath.extension().string() != ".xml")
+				xmlPath.replace_extension(".xml");
+
+			std::error_code ec;
+			_loadedXMLExists = fs::exists(xmlPath, ec);
+
+			_layerSetName = xmlPath.filename().replace_extension("").string();
+			UpdateWindowTitle();
+
+		}
+		ToolTip("Enter the name of a layer set to load.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		_loadXMLOpen = ImGui::Button("...", { 30 * uiScale,ImGui::GetFrameHeight() });
+		ToolTip("Browse for a layer set (.xml) file.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		_saveXMLOpen = ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { uiScale * 80 , ImGui::GetFrameHeight() }) && !_loadedXMLRelPath.empty();
+		if (_saveXMLOpen)
+		{
+			_fullLoadedXMLPath = fs::absolute(_loadedXMLAbsDirectory).append(_layerSetName).replace_extension(".xml").string();
+			fs::path proximateXMLPath = fs::proximate(_fullLoadedXMLPath, appFolder);
+			_loadedXMLRelDirectory = proximateXMLPath.parent_path().string();
+			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
+		}
+		ToolTip("Save the current layer set.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+
+		if (_loadedXMLExists)
+		{
+			ImGui::PushID("loadXMLBtn"); {
+				_reloadXMLOpen = ImGui::Button("Load", { uiScale * 80 , ImGui::GetFrameHeight() });
+			}ImGui::PopID();
+		}
+		ToolTip("Load the specified layer set.", &_appConfig->_hoverTimer);
+		ImGui::EndTable();
+	}
+
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
+	if (ImGui::BeginTable("##layerControls", 4, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame))
+	{
+		ImGui::TableNextColumn();
+
+		_newLayerOpen = ImGui::Button("Add Layer", { -1, ImGui::GetFrameHeight() });
+		ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		_newFolderOpen = ImGui::Button("Add Folder", { -1, ImGui::GetFrameHeight() });
+		ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		_clearLayersOpen = ImGui::Button("Remove All", { -1, ImGui::GetFrameHeight() });
+		ToolTip("Removes all layers from the list.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		_editStatesOpen = ImGui::Button("States", { -1, ImGui::GetFrameHeight() });
+		ToolTip("Opens the States setup menu.", &_appConfig->_hoverTimer);
+
+		ImGui::EndTable();
+	}
+
+	ImGui::PopStyleVar();
+}
+
+void LayerManager::UpdateWindowTitle()
+{
+	_appConfig->_lastLayerSet = _fullLoadedXMLPath;
+
+	if (_appConfig->_nameWindowWithSet)
+	{
+		_appConfig->_nameLock.lock();
+		{
+			_appConfig->windowName = "RahiTuber - " + _layerSetName;
+			_appConfig->_pendingNameChange = true;
+			_appConfig->_pendingSpoutNameChange = true;
+			
+		}
+		_appConfig->_nameLock.unlock();
+	}
+}
+
+void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem::path targetFolder, std::filesystem::copy_options copyOpts)
+{
+	std::error_code ec;
+	fs::path fsFilePath(filePath);
+	if (filePath != "")
+	{
+		fs::copy(fsFilePath, targetFolder, copyOpts, ec);
+		if (!ec)
+			filePath = targetFolder.append(fsFilePath.filename().string()).string();
+	}
+}
+
+void LayerManager::DoMenuBarLogic()
+{
+	//////////////////////////////// NEW ///////////////////////////////////
+
+	fs::path appFolder = fs::absolute(_appConfig->_appLocation);
+
+	ImGui::PushID("newXMLBtn"); {
+		static imgui_ext::file_browser_modal newFolderSelect("New Layer Set");
+		newFolderSelect._acceptedExt = { ".xml" };
+		//_newXMLOpen = ImGui::Button("New", { -1, ImGui::GetFrameHeight() });
+		if (_newXMLOpen)
+			newFolderSelect.SetStartingDir(appFolder);
+		if (newFolderSelect.render(_newXMLOpen, _savingXMLPath, true))
+		{
+			ResetStates();
+			_statesOrder.clear();
+			_layers.clear();
+			_states.clear();
+
+			fs::path xmlPath = fs::absolute(_savingXMLPath);
+			if (xmlPath.extension().string() != ".xml")
+				xmlPath.replace_extension(".xml");
+
+			SaveLayers(xmlPath.string());
+
+			std::error_code ec;
+			_loadedXMLExists = fs::exists(xmlPath, ec);
+			_fullLoadedXMLPath = xmlPath.string();
+			_loadedXMLAbsDirectory = xmlPath.parent_path().string();
+			_layerSetName = xmlPath.filename().replace_extension("").string();
+			fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
+			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
+			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
+
+			UpdateWindowTitle();
+		}
+	}ImGui::PopID();
+
+	//////////////////////////////// OPEN ///////////////////////////////////
+
+	ImGui::PushID("openXMLBtn"); {
+		static imgui_ext::file_browser_modal fileBrowserXML("Load Layer Set");
+		fileBrowserXML._acceptedExt = { ".xml" };
+		//_loadXMLOpen = ImGui::Button("Open", { -1, ImGui::GetFrameHeight() });
+		if (_loadXMLOpen)
+			fileBrowserXML.SetStartingDir(_lastSavedLocation);
+		if (fileBrowserXML.render(_loadXMLOpen, _fullLoadedXMLPath))
+		{
+			fs::path xmlPath = fs::absolute(_fullLoadedXMLPath);
+			std::error_code ec;
+			_loadedXMLExists = fs::exists(xmlPath, ec);
+			_fullLoadedXMLPath = xmlPath.string();
+			_loadedXMLAbsDirectory = xmlPath.parent_path().string();
+			fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
+			_loadedXMLRelDirectory = proximateXMLPath.parent_path().string();
+			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
+			LoadLayers(_fullLoadedXMLPath);
+
+			UpdateWindowTitle();
+		}
+	}ImGui::PopID();
+
+	//////////////////////////////// SAVE ///////////////////////////////////
+
+	static imgui_ext::file_browser_modal folderSelect("Save Layer Set");
+	folderSelect._acceptedExt = { ".xml" };
+
+	if (_makePortableOpen)
+	{
+		ImGui::OpenPopup("Make Portable");
+		_makePortableOpen = false;
+	}
+
+	if (ImGui::BeginPopupModal("Make Portable"))
+	{
+		_saveLayersPortable = false;
+		_copyImagesPortable = false;
+
+		ImGui::SetWindowSize({ 400 * _appConfig->scalingFactor, -1.f });
+		ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of RahiTuber.\n\n\
+This works best when all your sprite images are located in a subfolder of RahiTuber's directory.\n\nCopy them there now?");
+
+		if (ImGui::Button("Copy files and create portable XML", { -1, ImGui::GetFrameHeight() }))
+		{
+			_saveAsXMLOpen = true;
+			_saveLayersPortable = true;
+			_copyImagesPortable = true;
+			ImGui::CloseCurrentPopup();
+		}
+		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory.\nThen a folder will be created with the\nsame name, and your sprites copied there.", &_appConfig->_hoverTimer);
+
+		if (ImGui::Button("Create portable XML only", {-1, ImGui::GetFrameHeight()}))
+		{
+			_saveAsXMLOpen = true;
+			_saveLayersPortable = true;
+			ImGui::CloseCurrentPopup();
+		}
+		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory. \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of RahiTuber's directory.", &_appConfig->_hoverTimer);
+
+
+		if (ImGui::Button("Cancel", { -1, ImGui::GetFrameHeight() }))
+		{
+			_saveLayersPortable = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ToolTip("Cancels the Make Portable process and leaves your files unchanged.", &_appConfig->_hoverTimer);
+
+
+		ImGui::EndPopup();
+	}
+
+	if (_saveXMLOpen)
+	{
+		SaveLayers(_savingXMLPath = _fullLoadedXMLPath);
+		_saveXMLOpen = false;
+	}
+
+	if (_saveAsXMLOpen)
+		folderSelect.SetStartingDir(_savingXMLPath = _fullLoadedXMLPath);
+	if (_saveLayersPortable)
+		folderSelect.SetStartingDir(fs::path(_appConfig->_appLocation).append(_layerSetName + ".xml").string());
+	if (folderSelect.render(_saveAsXMLOpen, _savingXMLPath, true))
+	{
+		fs::path xmlPath = fs::absolute(_savingXMLPath);
+		if (xmlPath.extension().string() != ".xml")
+			xmlPath.replace_extension(".xml");
+
+		auto oldLSName = _layerSetName;
+		_layerSetName = xmlPath.filename().replace_extension("").string();
+
+		if (SaveLayers(xmlPath.string(), _saveLayersPortable, _copyImagesPortable))
+		{
+			std::error_code ec;
+			_loadedXMLExists = fs::exists(xmlPath, ec);
+			_fullLoadedXMLPath = xmlPath.string();
+			_loadedXMLAbsDirectory = xmlPath.parent_path().string();
+			fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
+			_loadedXMLRelDirectory = proximateXMLPath.parent_path().string();
+			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
+
+			UpdateWindowTitle();
+		}
+		else
+		{
+			_layerSetName = oldLSName;
+		}
+
+		_saveLayersPortable = false;
+		_copyImagesPortable = false;
+	}
+
+	//////////////////////////////// RELOAD ///////////////////////////////////
+	if (_reloadXMLOpen)
+	{
+		_reloadXMLOpen = false;
+		if (_loadedXMLExists)
+		{
+			LoadLayers(_fullLoadedXMLPath);
+		}
+	}
+
+	/////////////////////////////// LAYERS /////////////////////////////////////
+	if (_newLayerOpen)
+	{
+		AddLayer();
+		_newLayerOpen = false;
+	}
+
+	if (_newFolderOpen)
+	{
+		AddLayer(nullptr, true);
+		_newFolderOpen = false;
+	}
+
+	if (_clearLayersOpen)
+	{
+		_layers.clear();
+		_clearLayersOpen = false;
+	}
+
+	if (_editStatesOpen)
+	{
+		_statesMenuOpen = true;
+		_editStatesOpen = false;
+	}
+
+	if (_clearStatesOpen)
+	{
+		ResetStates();
+		_states.clear();
+	}
+}
+
+void LayerManager::DrawButtonsLayerSetUI()
+{
+	TextCentered(ANSIToUTF8(_layerSetName).c_str());
+	float uiScale = _appConfig->scalingFactor;
+	float btnSize = uiScale * 38;
+	float separatorY = btnSize / 2 - uiScale * 5;
+	sf::Color btnColor = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+	if (ImGui::BeginTable("##toolButtons", 11, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp))
+	{
+		ImGui::TableNextColumn();
+		_newXMLOpen = ImGui::ImageButton("##newFile", *_newFileIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("New", "Start a new layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_loadXMLOpen = ImGui::ImageButton("##Open", *_openFileIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Open", "Browse for a layer set (.xml) file.", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_saveXMLOpen = ImGui::ImageButton("##save", *_saveIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Save", "Save the current layer set.", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_saveAsXMLOpen = ImGui::ImageButton("##saveAs", *_saveAsIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Save As", "Save the current layer set with a new name.", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_makePortableOpen = ImGui::ImageButton("##makePortable", *_makePortableIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Make Portable", "Save a version of this layer set with\nfile paths relative to RahiTuber", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_reloadXMLOpen = ImGui::ImageButton("##reload", *_reloadIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Reload", "Reload the specified layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + separatorY);
+		ImGui::Text("|");
+
+		ImGui::TableNextColumn();
+		_newLayerOpen = ImGui::ImageButton("##newLayer", *_newLayerIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Add Layer", "Add a new Layer to the top of the list.", &_appConfig->_hoverTimer);
+		ImGui::TableNextColumn();
+		_newFolderOpen = ImGui::ImageButton("##newFolder", *_newFolderIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("Add Folder", "Add a new Folder to the top of the list.", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + separatorY);
+		ImGui::Text("|");
+
+		ImGui::TableNextColumn();
+		_editStatesOpen = ImGui::ImageButton("##states", *_statesIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
+		ToolTip("States", "Configure the States for this Layer Set.", &_appConfig->_hoverTimer);
+
+		ImGui::EndTable();
+	}
 }
 
 void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
@@ -387,137 +760,21 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		float frameW = ImGui::GetWindowWidth();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
-		ImGui::BeginTable("##layerInOut", 5, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp);
-		ImGui::TableSetupColumn("Text");
-		ImGui::TableSetupColumn("LayerSetName");
-		ImGui::TableSetupColumn("Browse", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Save", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Load", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableNextColumn();
+		if (_uiConfig->_layersUIType == _uiConfig->LayersUI_Old)
+			DrawOldLayerSetUI();
+		else if (_uiConfig->_layersUIType == _uiConfig->LayersUI_Menus)
+			DrawMenusLayerSetUI();
+		else
+			DrawButtonsLayerSetUI();
 
-		ImGui::AlignTextToFramePadding();
-		ImGui::Text("Layer Set:");
+		DoMenuBarLogic();
 
-		ImGui::TableNextColumn();
-
-		char inputStr[MAX_PATH] = " ";
-		fs::path appFolder = _appConfig->_appLocation;
-		ANSIToUTF8(_loadedXML).copy(inputStr, MAX_PATH);
-
-		ImGui::SetNextItemWidth(-1);
-		if (ImGui::InputText("##layersXMLInput", inputStr, MAX_PATH, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll))
-		{
-			_loadedXML = UTF8ToANSI(inputStr);
-
-			fs::path xmlPath = appFolder.append(_loadedXML);
-
-			if (xmlPath.extension().string() != ".xml")
-				xmlPath.replace_extension(".xml");
-
-			_loadedXMLExists = fs::exists(xmlPath);
-
-			_layerSetName = xmlPath.filename().replace_extension("").string();
-			if (_appConfig->_nameWindowWithSet)
-			{
-				_appConfig->_nameLock.lock();
-				{
-					_appConfig->windowName = "RahiTuber - " + _layerSetName;
-					_appConfig->_pendingNameChange = true;
-					_appConfig->_pendingSpoutNameChange = true;
-				}
-				_appConfig->_nameLock.unlock();
-			}
-
-		}
-		ToolTip("Enter the name of a layer set to load.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-
-		static imgui_ext::file_browser_modal fileBrowserXML("Load Layer Set");
-		fileBrowserXML._acceptedExt = { ".xml" };
-		_loadXMLOpen = ImGui::Button("...", { 30 * _appConfig->scalingFactor,20 * _appConfig->scalingFactor });
-		if (_loadXMLOpen)
-			fileBrowserXML.SetStartingDir(_fullLoadedXMLPath);
-		if (fileBrowserXML.render(_loadXMLOpen, _loadedXMLPath))
-		{
-			fs::path appFolder = _appConfig->_appLocation;
-			fs::path xmlPath = fs::path(_loadedXMLPath);
-			_loadedXMLExists = fs::exists(xmlPath);
-			_fullLoadedXMLPath = xmlPath.string();
-			fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
-			_loadedXMLPath = proximateXMLPath.string();
-			_loadedXML = proximateXMLPath.replace_extension("").string();
-			LoadLayers(_loadedXMLPath);
-		}
-		ToolTip("Browse for a layer set (.xml) file.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-
-		float textMargin = ImGui::GetCursorPosX();
-		ImGui::PushID("saveXMLBtn"); {
-			if (ImGui::Button(_loadedXMLExists ? "Overwrite" : "Save", { _appConfig->scalingFactor * 80 , 20 * _appConfig->scalingFactor }) && !_loadedXML.empty())
-			{
-				fs::path appFolder = _appConfig->_appLocation;
-				fs::path xmlPath = appFolder.append(_loadedXML);
-				if (xmlPath.extension().string() != ".xml")
-					xmlPath.replace_extension(".xml");
-
-				SaveLayers(xmlPath.string());
-
-				_loadedXMLExists = fs::exists(xmlPath);
-				_fullLoadedXMLPath = xmlPath.string();
-				_loadedXMLPath = fs::proximate(xmlPath, appFolder).string();
-
-			}
-		}ImGui::PopID();
-		ToolTip("Save the current layer set.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-
-		if (_loadedXMLExists)
-		{
-			ImGui::PushID("loadXMLBtn"); {
-				if (ImGui::Button("Load", { _appConfig->scalingFactor * 80 , 20 * _appConfig->scalingFactor }) && _loadedXMLExists)
-					LoadLayers(_loadedXML + ".xml");
-			}ImGui::PopID();
-		}
-		ToolTip("Load the specified layer set.", &_appConfig->_hoverTimer);
-
-		ImGui::EndTable();
 		ImGui::PopStyleVar();
 
 		if (_errorMessage.empty() == false)
 		{
 			ImGui::TextColored(ImVec4(1.0, 0.0, 0.0, 1.0), ANSIToUTF8(_errorMessage).c_str());
 		}
-
-		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
-		ImGui::BeginTable("##layerControls", 4, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame);
-		ImGui::TableNextColumn();
-
-		if (ImGui::Button("Add Layer", { -1, 20 * _appConfig->scalingFactor }))
-			AddLayer();
-		ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		if (ImGui::Button("Add Folder", { -1, 20 * _appConfig->scalingFactor }))
-			AddLayer(nullptr, true);
-		ToolTip("Adds a new layer to the list.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		if (ImGui::Button("Remove All", { -1, 20 * _appConfig->scalingFactor }))
-			_layers.clear();
-		ToolTip("Removes all layers from the list.", &_appConfig->_hoverTimer);
-
-		ImGui::TableNextColumn();
-		ImGui::PushID("statesBtn"); {
-			if (ImGui::Button("States", { -1, 20 * _appConfig->scalingFactor }))
-				_statesMenuOpen = true;
-		}ImGui::PopID();
-		ToolTip("Opens the States setup menu.", &_appConfig->_hoverTimer);
-
-		ImGui::EndTable();
-		ImGui::PopStyleVar();
 
 		ImGui::PushID("statesPopup"); {
 			DrawStatesGUI();
@@ -685,6 +942,69 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::EndTooltip();
 	}
 
+}
+
+void LayerManager::DrawMenusLayerSetUI()
+{
+	TextCentered(ANSIToUTF8(_layerSetName).c_str());
+	if (ImGui::BeginTable("##layerInOutNew", 3, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame))
+	{
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::BeginCombo("##FileMenu", "File", ImGuiComboFlags_NoArrowButton))
+		{
+			_newXMLOpen = ImGui::Selectable("New");
+			ToolTip("Start a new layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
+
+			_loadXMLOpen = ImGui::Selectable("Open");
+			ToolTip("Browse for a layer set (.xml) file.", &_appConfig->_hoverTimer);
+
+			_saveXMLOpen = ImGui::Selectable("Save");
+			ToolTip("Save the current layer set.", &_appConfig->_hoverTimer);
+
+			_saveAsXMLOpen = ImGui::Selectable("Save As");
+			ToolTip("Save the current layer set with a new name.", &_appConfig->_hoverTimer);
+
+			_makePortableOpen = ImGui::Selectable("Make Portable");
+			ToolTip("Save a version of this layer set with\nfile paths relative to RahiTuber", &_appConfig->_hoverTimer);
+
+			_reloadXMLOpen = ImGui::Selectable("Reload");
+			ToolTip("Reload the specified layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::BeginCombo("##LayersMenu", "Layers", ImGuiComboFlags_NoArrowButton))
+		{
+			_newLayerOpen = ImGui::Selectable("New Layer");
+			ToolTip("Add a new Layer to the top of the list.", &_appConfig->_hoverTimer);
+
+			_newFolderOpen = ImGui::Selectable("New Folder");
+			ToolTip("Add a new Folder to the top of the list.", &_appConfig->_hoverTimer);
+
+			_clearLayersOpen = ImGui::Selectable("Remove All Layers");
+			ToolTip("Removes all layers and folders from the list.", &_appConfig->_hoverTimer);
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(-1);
+		if (ImGui::BeginCombo("##StatesMenu", "States", ImGuiComboFlags_NoArrowButton))
+		{
+			_editStatesOpen = ImGui::Selectable("Edit States");
+			ToolTip("Configure the States for this Layer Set.", &_appConfig->_hoverTimer);
+
+			_clearStatesOpen = ImGui::Selectable("Remove All States");
+			ToolTip("Removes all States.", &_appConfig->_hoverTimer);
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::EndTable();
+	}
 }
 
 LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool isFolder, int insertPosition)
@@ -1256,7 +1576,7 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 	}
 }
 
-bool LayerManager::SaveLayers(const std::string& settingsFileName)
+bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePortable, bool copyImages)
 {
 	if (_loadingFinished == false)
 	{
@@ -1306,6 +1626,25 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 		return false;
 	}
 
+	if (makePortable && copyImages)
+	{
+		fs::path targetFolder(_appConfig->_appLocation);
+		targetFolder.append(_layerSetName);
+		std::error_code cec;
+		fs::create_directory(targetFolder, cec);
+
+		fs::copy_options copyOpts = fs::copy_options::update_existing;
+
+		for (auto& layer : _layers)
+		{
+			CopyFileAndUpdatePath(layer._idleImagePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._talkImagePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._blinkImagePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._talkBlinkImagePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._screamImagePath, targetFolder, copyOpts);
+		}
+	}
+	
 	layers->DeleteChildren();
 
 	ResetStates();
@@ -1314,7 +1653,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 	{
 		auto thisLayer = layers->InsertEndChild(doc.NewElement("layer"))->ToElement();
 
-		const auto& layer = _layers[l];
+		auto& layer = _layers[l];
 
 		thisLayer->SetAttribute("id", layer._id.c_str());
 
@@ -1368,6 +1707,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName)
 			thisLayer->SetAttribute("constantScaleY", layer._constantScale.y);
 
 			thisLayer->SetAttribute("restartAnimsOnVisible", layer._restartAnimsOnVisible);
+
+			if (makePortable)
+			{
+				layer._idleImagePath = fs::proximate(layer._idleImagePath, _appConfig->_appLocation).string();
+				layer._talkImagePath = fs::proximate(layer._talkImagePath, _appConfig->_appLocation).string();
+				layer._blinkImagePath = fs::proximate(layer._blinkImagePath, _appConfig->_appLocation).string();
+				layer._talkBlinkImagePath = fs::proximate(layer._talkBlinkImagePath, _appConfig->_appLocation).string();
+				layer._screamImagePath = fs::proximate(layer._screamImagePath, _appConfig->_appLocation).string();
+			}
 
 			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
 			thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
@@ -1555,7 +1903,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 	_errorMessage = "";
 	_loadingProgress = "";
 
-	_loadingPath = settingsFileName;
+	_loadingPath = fs::path(settingsFileName).replace_extension(".xml").string();
 
 	if (_loadingThread != nullptr)
 	{
@@ -1575,11 +1923,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			if (doc.Error())
 			{
-				doc.LoadFile((_appConfig->_appLocation + _loadingPath).c_str());
+				_loadingPath = _appConfig->_appLocation + _loadingPath;
+				doc.LoadFile((_loadingPath).c_str());
 
 				if (doc.Error())
 				{
-					if (_loadingPath != "lastLayers.xml")
+					if (settingsFileName != "lastLayers.xml")
 						_errorMessage = "Could not read document: " + _loadingPath;
 
 					_loadingPath = "";
@@ -1616,6 +1965,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			_statesOrder.clear();
 			_layers.clear();
+			_textureMan->Reset();
 
 			_lastSavedLocation = _loadingPath;
 
@@ -1707,11 +2057,13 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (const char* screamPth = thisLayer->Attribute("screamPath"))
 					layer._screamImagePath = screamPth;
 
-				layer._idleImage = _textureMan->GetTexture(layer._idleImagePath, &_errorMessage);
-				layer._talkImage = _textureMan->GetTexture(layer._talkImagePath, &_errorMessage);
-				layer._blinkImage = _textureMan->GetTexture(layer._blinkImagePath, &_errorMessage);
-				layer._talkBlinkImage = _textureMan->GetTexture(layer._talkBlinkImagePath, &_errorMessage);
-				layer._screamImage = _textureMan->GetTexture(layer._screamImagePath, &_errorMessage);
+				fs::current_path(_appConfig->_appLocation);
+
+				layer._idleImage = _textureMan->GetTexture(fs::absolute(layer._idleImagePath).string(), &_errorMessage);
+				layer._talkImage = _textureMan->GetTexture(fs::absolute(layer._talkImagePath).string(), &_errorMessage);
+				layer._blinkImage = _textureMan->GetTexture(fs::absolute(layer._blinkImagePath).string(), &_errorMessage);
+				layer._talkBlinkImage = _textureMan->GetTexture(fs::absolute(layer._talkBlinkImagePath).string(), &_errorMessage);
+				layer._screamImage = _textureMan->GetTexture(fs::absolute(layer._screamImagePath).string(), &_errorMessage);
 
 				if (layer._idleImage)
 					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -1913,7 +2265,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
-
+			
+			_fullLoadedXMLPath = fs::absolute(_loadingPath).string();
+			_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation).string();
+			_loadedXMLAbsDirectory = fs::absolute(_loadingPath).parent_path().string();
+			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
 			_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
 
 			if (_appConfig->_nameWindowWithSet)
@@ -2285,6 +2641,35 @@ void LayerManager::ResetStates()
 	}
 }
 
+void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
+{
+	_appConfig = appConf;
+	_uiConfig = uiConf;
+	if (_appConfig)
+	{
+		_textureMan = &_appConfig->_textureMan;
+		_textureMan->LoadIcons(_appConfig->_appLocation);
+
+		_resetIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_RESET);
+		_emptyIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EMPTY);
+		_animIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_ANIM);
+		_upIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_UP);
+		_dnIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_DN);
+		_editIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EDIT);
+		_delIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_DEL);
+		_dupeIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_DUPE);
+		_newFileIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWFILE);
+		_openFileIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_OPEN);
+		_saveIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_SAVE);
+		_saveAsIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_SAVEAS);
+		_makePortableIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_MAKEPORTABLE);
+		_reloadIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_RELOAD);
+		_newLayerIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWLAYER);
+		_newFolderIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWFOLDER);
+		_statesIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_STATES);
+	}
+}
+
 void LayerManager::DrawStatesGUI()
 {
 	float uiScale = _appConfig->scalingFactor;
@@ -2312,9 +2697,6 @@ void LayerManager::DrawStatesGUI()
 	}
 
 	auto& style = ImGui::GetStyle();
-
-	if (_editIcon == nullptr)
-		_editIcon = _textureMan->GetTexture(_appConfig->_appLocation + "res/edit.png");
 
 	if (ImGui::BeginPopupModal("States Setup", &_statesMenuOpen))
 	{
@@ -2676,9 +3058,10 @@ void LayerManager::DrawStatesGUI()
 				{
 					headerTxtPos.y -= 3;
 					ImGui::SetCursorPos(headerTxtPos);
-					char inputStr[32] = " ";
+					char inputStr[MAX_PATH] = {};
 					ANSIToUTF8(state._name).copy(inputStr, MAX_PATH);
-					if (ImGui::InputText("##rename", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+					ImGui::SetKeyboardFocusHere();
+					if (ImGui::InputText("##rename", inputStr, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
 					{
 						state._name = UTF8ToANSI(inputStr);
 					}
@@ -3321,37 +3704,7 @@ void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 
 bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
-
 	float uiScale = _parent->_appConfig->scalingFactor;
-
-	if (_animIcon == nullptr)
-		_animIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/anim.png");
-
-	if (_emptyIcon == nullptr)
-		_emptyIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/empty.png");
-
-	if (_upIcon == nullptr)
-		_upIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/arrowup.png");
-
-	if (_dnIcon == nullptr)
-		_dnIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/arrowdn.png");
-
-	if (_editIcon == nullptr)
-		_editIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/edit.png");
-
-	if (_delIcon == nullptr)
-		_delIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/delete.png");
-
-	if (_dupeIcon == nullptr)
-		_dupeIcon = _parent->_textureMan->GetTexture(_parent->_appConfig->_appLocation + "res/duplicate.png");
-
-	_animIcon->setSmooth(true);
-	_dupeIcon->setSmooth(true);
-	_delIcon->setSmooth(true);
-	_editIcon->setSmooth(true);
-	_emptyIcon->setSmooth(true);
-	_upIcon->setSmooth(true);
-	_dnIcon->setSmooth(true);
 
 	ImVec4 col = style.Colors[ImGuiCol_Text];
 	sf::Color btnColor = toSFColor(col);
@@ -3377,7 +3730,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}
 
 
-	ImGui::PushID((_id+_name).c_str()); {
+	ImGui::PushID((_id + _name).c_str()); {
 
 #ifdef DEBUG
 		std::string name = "[" + std::to_string(layerID) + "] " + _name;
@@ -3394,7 +3747,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		_lastHeaderScreenPos = toSFVector(ImGui::GetCursorScreenPos());
 		_lastHeaderPos = toSFVector(ImGui::GetCursorPos());
-		_lastHeaderSize = sf::Vector2f(ImGui::GetContentRegionAvail().x - 8*uiScale, 20 * uiScale);
+		_lastHeaderSize = sf::Vector2f(ImGui::GetContentRegionAvail().x - 8 * uiScale, ImGui::GetFrameHeight());
 
 		if (_isFolder)
 		{
@@ -3405,35 +3758,27 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
-			if (_isFolder == false)
-				_parent->_hoveredLayers.push_back(_id);
-
 			if (_isFolder)
 			{
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor();
-			}
 
-			ImGui::Indent(indentSize);
-			for (int l = 0; l < _folderContents.size(); l++)
-			{
-				int layerIdx = 0;
-				auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
-				if (layer != nullptr)
-					layer->DrawGUI(style, layerIdx);
+				ImGui::Indent(indentSize);
+				for (int l = 0; l < _folderContents.size(); l++)
+				{
+					int layerIdx = 0;
+					auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
+					if (layer != nullptr)
+						layer->DrawGUI(style, layerIdx);
+				}
 			}
-			
-
-			if (_isFolder == false)
+			else
 			{
-				static imgui_ext::file_browser_modal fileBrowserIdle("Import Idle Sprite");
-				static imgui_ext::file_browser_modal fileBrowserTalk("Import Talk Sprite");
-				static imgui_ext::file_browser_modal fileBrowserBlink("Import Blink Sprite");
+				_parent->_hoveredLayers.push_back(_id);
 
 				float imgBtnWidth = 108 * uiScale;
 				float smlImageBtnWidth = 48 * uiScale;
-				float animBtnWidth = 20 * uiScale;
-				fs::path chosenDir = fileBrowserIdle.GetLastChosenDir();
+				float animBtnWidth = ImGui::GetFrameHeight();
 
 				if (ImGui::BeginTable("imagebuttons", 3, ImGuiTableFlags_SizingFixedSame))
 				{
@@ -3446,16 +3791,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
 						sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-						_importIdleOpen = ImGui::ImageButton("idleimgbtn", *idleIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, idleCol);
-						ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-						if (_importIdleOpen && _idleImage)
-							fileBrowserIdle.SetStartingDir(_idleImagePath);
-						if (fileBrowserIdle.render(_importIdleOpen, _idleImagePath))
-						{
-							_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
-							_idleImage->setSmooth(_scaleFiltering);
-							_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
-						}
+						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", idleIcon, imgBtnWidth, idleCol, _idleImage, _idleImagePath, _idleSprite.get());
 
 						ImGui::SameLine();
 						_spriteIdleOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
@@ -3468,7 +3804,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							char idlebuf[256] = "                           ";
 							ANSIToUTF8(_idleImagePath).copy(idlebuf, MAX_PATH);
 							ImGui::SetNextItemWidth(-1);
-							if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+							if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 							{
 								_idleImagePath = UTF8ToANSI(idlebuf);
 								_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
@@ -3495,20 +3831,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("talkimport"); {
 							sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
 							sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-							_importTalkOpen = ImGui::ImageButton("talkimgbtn", *talkIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, talkCol);
-							ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-							fileBrowserTalk.SetStartingDir(chosenDir);
-							if (_talkImage)
-								fileBrowserTalk.SetStartingDir(_talkImagePath);
-							if (fileBrowserTalk.render(_importTalkOpen, _talkImagePath))
-							{
-								_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
-								if (_talkImage)
-								{
-									_talkImage->setSmooth(_scaleFiltering);
-									_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
-								}
-							}
+							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", talkIcon, imgBtnWidth, talkCol, _talkImage, _talkImagePath, _talkSprite.get());
 
 							ImGui::SameLine();
 							ImGui::PushID("talkanimbtn"); {
@@ -3523,7 +3846,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								char talkbuf[256] = "                           ";
 								ANSIToUTF8(_talkImagePath).copy(talkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+								if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_talkImagePath = UTF8ToANSI(talkbuf);
 									_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
@@ -3547,26 +3870,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					{
 						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-						sf::Vector2f blinkBtnSize = _blinkWhileTalking ? sf::Vector2f(smlImageBtnWidth, smlImageBtnWidth) : sf::Vector2f(imgBtnWidth, imgBtnWidth);
+						float blinkBtnSize = _blinkWhileTalking ? smlImageBtnWidth : imgBtnWidth;
 
 						ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
 						ImGui::PushID("blinkimport"); {
 							sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 							sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
-							_importBlinkOpen = ImGui::ImageButton("blinkimgbtn", *blinkIcon, blinkBtnSize, sf::Color::Transparent, blinkCol);
-							ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-							fileBrowserBlink.SetStartingDir(chosenDir);
-							if (_blinkImage)
-								fileBrowserBlink.SetStartingDir(_blinkImagePath);
-							if (fileBrowserBlink.render(_importBlinkOpen, _blinkImagePath))
-							{
-								_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
-								if (_blinkImage)
-								{
-									_blinkImage->setSmooth(_scaleFiltering);
-									_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
-								}
-							}
+							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkIcon, blinkBtnSize, blinkCol, _blinkImage, _blinkImagePath, _blinkSprite.get());
 
 							ImGui::SameLine();
 							auto tintPos = ImGui::GetCursorPos();
@@ -3582,7 +3892,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								char blinkbuf[256] = "                           ";
 								ANSIToUTF8(_blinkImagePath).copy(blinkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+								if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_blinkImagePath = UTF8ToANSI(blinkbuf);
 									_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
@@ -3611,20 +3921,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushID("talkblinkimport"); {
 								sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
 								sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
-								_importTalkBlinkOpen = ImGui::ImageButton("talkblinkimgbtn", *talkblinkIcon, blinkBtnSize, sf::Color::Transparent, talkblinkCol);
-								ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-								fileBrowserBlink.SetStartingDir(chosenDir);
-								if (_talkBlinkImage)
-									fileBrowserBlink.SetStartingDir(_talkBlinkImagePath);
-								if (fileBrowserBlink.render(_importTalkBlinkOpen, _talkBlinkImagePath))
-								{
-									_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
-									if (_talkBlinkImage)
-									{
-										_talkBlinkImage->setSmooth(_scaleFiltering);
-										_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
-									}
-								}
+								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", talkblinkIcon, blinkBtnSize, talkblinkCol, _talkBlinkImage, _talkBlinkImagePath, _talkBlinkSprite.get());
 
 								ImGui::SameLine();
 								auto tintPos = ImGui::GetCursorPos();
@@ -3641,7 +3938,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									char talkblinkbuf[256] = "                           ";
 									ANSIToUTF8(_talkBlinkImagePath).copy(talkblinkbuf, MAX_PATH);
 									ImGui::SetNextItemWidth(-1);
-									if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+									if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 									{
 										_talkBlinkImagePath = UTF8ToANSI(talkblinkbuf);
 										_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
@@ -3740,21 +4037,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 					ImGui::PushID("screamimport"); {
 						sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
-						sf::Texture* talkIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
-						_importScreamOpen = ImGui::ImageButton("screamimgbtn", *talkIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, screamCol);
-						ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-						fileBrowserTalk.SetStartingDir(chosenDir);
-						if (_screamImage)
-							fileBrowserTalk.SetStartingDir(_screamImagePath);
-						if (fileBrowserTalk.render(_importScreamOpen, _screamImagePath))
-						{
-							_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
-							if (_screamImage)
-							{
-								_screamImage->setSmooth(_scaleFiltering);
-								_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
-							}
-						}
+						sf::Texture* screamIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
+						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", screamIcon, imgBtnWidth, screamCol, _screamImage, _screamImagePath, _screamSprite.get());
 
 						ImGui::SameLine();
 						ImGui::PushID("screamanimbtn"); {
@@ -4311,17 +4595,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::OpenPopup("Rename Layer");
 			}
 
-			if (ImGui::BeginPopupModal("Rename Layer", &_renamePopupOpen, ImGuiWindowFlags_NoResize))
+			if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize))
 			{
 				char inputStr[32] = " ";
 				ANSIToUTF8(_renamingString).copy(inputStr, 32);
+				ImGui::SetKeyboardFocusHere();
 				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
 				{
 					_renamingString = UTF8ToANSI(inputStr);
 				}
+				bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
 				ImGui::SameLine();
 
-				if (ImGui::Button("Save"))
+				if (deactivated || ImGui::Button("Save"))
 				{
 					_renamePopupOpen = false;
 					_name = _renamingString;
@@ -4332,8 +4618,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 
 		}ImGui::PopID();//renamebtn
-
 		ToolTip("Rename the layer", &_parent->_appConfig->_hoverTimer);
+
 		ImGui::SameLine();
 		ImGui::PushID("duplicateBtn"); {
 			if (ImGui::ImageButton("dupebtn", *_dupeIcon, headerBtnSize, sf::Color::Transparent, btnColor))
@@ -4361,13 +4647,36 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PopStyleColor(4);
 		ImGui::PopStyleVar(2);
 
-		
+
 
 		ImGui::SetCursorPos(oldCursorPos);
 
 	}ImGui::PopID();
 
 	return allowContinue;
+}
+
+void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, sf::Texture*& texture, std::string& path, SpriteSheet* sprite)
+{
+	static imgui_ext::file_browser_modal fileBrowserIdle("Import Sprite");
+	if (fileBrowserIdle.GetLastChosenDir() == "")
+		fileBrowserIdle.SetStartingDir(_parent->_loadedXMLAbsDirectory);
+	else
+		fileBrowserIdle.SetStartingDir(fileBrowserIdle.GetLastChosenDir());
+
+	openFlag = ImGui::ImageButton(btnname, *idleIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, idleCol);
+	ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+	if (openFlag && texture)
+		fileBrowserIdle.SetStartingDir(path);
+	if (fileBrowserIdle.render(openFlag, path))
+	{
+		texture = _parent->_textureMan->GetTexture(path, &_parent->_errorMessage);
+		if (texture)
+		{
+				texture->setSmooth(_scaleFiltering);
+				sprite->LoadFromTexture(*texture, 1, 1, 1, 1);
+		}
+	}
 }
 
 void LayerManager::LayerInfo::DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth)

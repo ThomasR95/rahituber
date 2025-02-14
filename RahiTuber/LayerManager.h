@@ -203,6 +203,8 @@ public:
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
+		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, sf::Texture*& texture, std::string& path, SpriteSheet* sprite);
+
 		void DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth);
 
 		std::vector<int> _animGrid = { 1, 1 };
@@ -330,7 +332,19 @@ public:
 
 	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
+	void DrawOldLayerSetUI();
+
+	void UpdateWindowTitle();
+
+	void CopyFileAndUpdatePath(std::string& filePath, std::filesystem::path targetFolder, std::filesystem::copy_options copyOpts);
+
+	void DoMenuBarLogic();
+
+	void DrawButtonsLayerSetUI();
+
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
+
+	void DrawMenusLayerSetUI();
 
 	LayerInfo* AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false, int insertPosition = -1);
 	void RemoveLayer(int toRemove);
@@ -345,7 +359,7 @@ public:
 	void MoveLayerUp(LayerInfo* moveUp);
 	void MoveLayerDown(LayerInfo* moveDown);
 
-	bool SaveLayers(const std::string& settingsFileName);
+	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false);
 	bool LoadLayers(const std::string& settingsFileName);
 
 	bool PendingHotkey() { return _waitingForHotkey; }
@@ -416,17 +430,11 @@ public:
 		return _layers;
 	}
 	
-	std::string LastUsedLayerSet() { return _loadedXML; }
+	std::string LastUsedLayerSet() { return _loadedXMLRelPath; }
 	std::string LayerSetName() { return _layerSetName; }
-	void SetLayerSet(const std::string& xmlName) { _loadedXML = xmlName; }
+	void SetLayerSet(const std::string& xmlName) { _loadedXMLRelPath = xmlName; }
 
-	void Init(AppConfig* appConf, UIConfig* uiConf)
-	{
-		_appConfig = appConf;
-		_uiConfig = uiConf;
-		if(_appConfig)
-			_textureMan = &_appConfig->_textureMan;
-	}
+	void Init(AppConfig* appConf, UIConfig* uiConf);
 
 private:
 
@@ -458,11 +466,25 @@ private:
 	bool _statesIgnoreStick = false;
 
 	std::string _lastSavedLocation = u8"";
-	std::string _loadedXML = u8"lastLayers";
-	std::string _loadedXMLPath = u8"";
+	std::string _loadedXMLRelPath = u8"lastLayers";
+	std::string _loadedXMLRelDirectory = u8"";
+	std::string _savingXMLPath = u8"";
+	std::string _loadedXMLAbsDirectory = u8"";
 	std::string _fullLoadedXMLPath = u8"";
 	bool _loadedXMLExists = true;
 	bool _loadXMLOpen = false;
+	bool _saveXMLOpen = false;
+	bool _saveAsXMLOpen = false;
+	bool _newXMLOpen = false;
+	bool _reloadXMLOpen = false;
+	bool _makePortableOpen = false;
+	bool _saveLayersPortable = false;
+	bool _copyImagesPortable = false;
+	bool _newLayerOpen = false;
+	bool _newFolderOpen = false;
+	bool _clearLayersOpen = false;
+	bool _editStatesOpen = false;
+	bool _clearStatesOpen = false;
 	std::string _layerSetName = "lastLayers";
 
 	bool _statesMenuOpen = false;
@@ -633,16 +655,20 @@ static sf::Texture* _dnIcon = nullptr;
 static sf::Texture* _editIcon = nullptr;
 static sf::Texture* _delIcon = nullptr;
 static sf::Texture* _dupeIcon = nullptr;
+static sf::Texture* _newFileIcon = nullptr;
+static sf::Texture* _openFileIcon = nullptr;
+static sf::Texture* _saveIcon = nullptr;
+static sf::Texture* _saveAsIcon = nullptr;
+static sf::Texture* _makePortableIcon = nullptr;
+static sf::Texture* _reloadIcon = nullptr;
+static sf::Texture* _newLayerIcon = nullptr;
+static sf::Texture* _newFolderIcon = nullptr;
+static sf::Texture* _statesIcon = nullptr;
 
 
 template <typename T>
 inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
 {
-	if (_resetIcon == nullptr)
-		_resetIcon = appConfig->_textureMan.GetTexture(appConfig->_appLocation + "res/reset.png");
-
-	_resetIcon->setSmooth(true);
-
 	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
 
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);

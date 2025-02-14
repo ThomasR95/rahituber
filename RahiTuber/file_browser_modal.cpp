@@ -13,6 +13,8 @@
     #include <mntent.h>
 #endif
 
+#include "defines.h"
+
 using namespace imgui_ext;
 
 #ifdef _WIN32
@@ -151,7 +153,8 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
             fs::path drive(driveNameString);
             bool valid = true;
             try {
-              valid = fs::exists(drive);
+              std::error_code ec;
+              valid = fs::exists(drive, ec);
             }
             catch (fs::filesystem_error err) {
               valid = false;
@@ -190,7 +193,8 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
                     fs::path drive(driveNameString);
                     bool valid = true;
                     try{
-                        valid = fs::exists(drive);
+                        std::error_code ec;
+                        valid = fs::exists(drive, ec);
                     } catch (fs::filesystem_error& err){
                         valid = false;
                     }
@@ -283,7 +287,7 @@ file_browser_modal::file_browser_modal(const char* title) :
 }
 
 // Will return true if file selected.
-const bool file_browser_modal::render(const bool isVisible, std::string& outPath) {
+const bool file_browser_modal::render(const bool isVisible, std::string& outPath, bool saving) {
   bool result = false;
 
   float uiScale = ImGui::GetIO().FontGlobalScale * 2;
@@ -339,12 +343,13 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     ImGui::PushID("DirectoryBox");
     char dirBuf[MAX_PATH] = " ";
-    dir.copy(dirBuf, dir.length());
+    ANSIToUTF8(dir).copy(dirBuf, MAX_PATH);
     if (ImGui::InputText("", dirBuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
     {
-      fs::path newPath(dirBuf);
+      fs::path newPath(UTF8ToANSI(dirBuf));
       bool valid = false;
-      try { valid = fs::exists(newPath); }
+      std::error_code ec;
+      try { valid = fs::exists(newPath, ec); }
       catch (fs::filesystem_error) { valid = false; }
       if (valid)
       {
@@ -359,6 +364,17 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       }
     }
     ImGui::PopID();
+
+    int sel = 0;
+    for (file& filename : m_filesInScope)
+    {
+      if (filename.path == m_currentPath)
+      {
+        m_selection = sel;
+        break;
+      }
+      sel++;
+    }
     
     ImGui::PushID(m_currentPath.u8string().c_str());
     if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, m_filesInScope.size(), 20)) {
@@ -376,42 +392,61 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     ImGui::PopID();
     ImGui::PopItemWidth();
 
-    std::string file = "";
-    if (!fs::is_directory(m_currentPath))
-      file = m_currentPath.filename().u8string();
-    ImGui::TextWrapped(file.data());
+    std::string filepath = "";
 
-    ImGui::Spacing();
-    ImGui::SameLine(ImGui::GetWindowWidth() - 60* uiScale);
+    std::string selectBtn = "Select##select";
+    if (saving)
+    {
+      if (!fs::is_directory(m_currentPath))
+        filepath = m_currentPath.string();
+      ImGui::TextWrapped(ANSIToUTF8(filepath).data());
 
-    // Make the "Select" button look / act disabled if the current selection is a directory.
-    if (m_currentPathIsDir) {
-
-      static const ImVec4 disabledColor = { 0.3f, 0.3f, 0.3f, 1.0f };
-
-      ImGui::PushStyleColor(ImGuiCol_Button, disabledColor);
-      ImGui::PushStyleColor(ImGuiCol_ButtonActive, disabledColor);
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabledColor);
-
-      ImGui::Button("Select");
-
-      ImGui::PopStyleColor();
-      ImGui::PopStyleColor();
-      ImGui::PopStyleColor();
-
-    }
-    else {
-
-      if (ImGui::Button("Select")) {
-        ImGui::CloseCurrentPopup();
-
-        m_chosenDir = m_currentPath.parent_path();
-
-        outPath = m_currentPath.string();
-        result = true;
+      std::string editName = m_currentPath.filename().replace_extension("").string();
+      char editBuf[MAX_PATH] = " ";
+      ANSIToUTF8(editName).copy(editBuf, MAX_PATH);
+      if (ImGui::InputText("Layer Set Name", editBuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ElideLeft))
+      {
+        m_currentPath.replace_filename(UTF8ToANSI(editBuf));
+        if (m_currentPath.has_extension() == false)
+        {
+          m_currentPath = fs::path(m_currentPath.string() + ".xml");
+        }
+        else if (m_currentPath.extension().string() != ".xml")
+        {
+          m_currentPath.replace_extension(".xml");
+        }
+        
+        m_currentPathIsDir = fs::is_directory(m_currentPath);
       }
 
+      std::error_code ec;
+      if (fs::exists(m_currentPath, ec))
+        selectBtn = "Overwrite##select";
+      else
+        selectBtn = "Save##select";
     }
+    else
+    {
+      
+      if (!fs::is_directory(m_currentPath))
+        filepath = m_currentPath.filename().u8string();
+      ImGui::TextWrapped(filepath.data());
+    }
+
+    ImGui::Spacing();
+    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(selectBtn.c_str()).x);
+
+    // Make the "Select" button look / act disabled if the current selection is a directory.
+    ImGui::BeginDisabled(m_currentPathIsDir);
+    if (ImGui::Button(selectBtn.c_str())) {
+      ImGui::CloseCurrentPopup();
+
+      m_chosenDir = m_currentPath.parent_path();
+
+      outPath = m_currentPath.string();
+      result = true;
+    }
+    ImGui::EndDisabled();
 
     ImGui::EndPopup();
 

@@ -58,6 +58,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryIntAttribute("lastY", &_appConfig->_scrY);
 
 	common->QueryFloatAttribute("uiScale", &_appConfig->customScaling);
+	common->QueryIntAttribute("uiType", (int*)&_uiConfig->_layersUIType);
 
 	_appConfig->_lastMenuPopPosition = { _appConfig->_scrX,_appConfig->_scrY };
 	common->QueryBoolAttribute("menuPopped", &_appConfig->_menuPopPending);
@@ -159,6 +160,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("lastY", _appConfig->_scrY);
 
 			common->SetAttribute("uiScale", _appConfig->customScaling);
+			common->SetAttribute("uiType", (int)_uiConfig->_layersUIType);
 
 			common->SetAttribute("menuPopped", _appConfig->_menuPopped);
 			common->SetAttribute("lastMenuX", (int)_appConfig->_lastMenuPopPosition.x);

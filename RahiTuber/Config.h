@@ -178,6 +178,22 @@ struct AudioConfig
 
 struct UIConfig
 {
+	enum LayerUIType
+	{
+		LayersUI_Old,
+		LayersUI_Menus,
+		LayersUI_Buttons
+	};
+
+	std::map<LayerUIType, std::string> _layerUITypeNames = {
+		{LayersUI_Old, "Legacy"},
+		{LayersUI_Menus, "Menus"},
+		{LayersUI_Buttons, "Buttons"}
+	};
+
+	LayerUIType _layersUIType = LayersUI_Buttons;
+
+
 	sf::Image _ico;
 	sf::Texture _moveIcon;
 	sf::Sprite _moveIconSprite;
@@ -186,7 +202,6 @@ struct UIConfig
 	sf::Vector2f _helpBtnPosition = { 0,0 };
 
 	sf::Font _font;
-
 	bool _showMenuOnStart = true;
 	bool _menuShowing = true;
 	bool _advancedMenuShowing = false;

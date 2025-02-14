@@ -396,19 +396,28 @@ inline float Min(T a, T b)
 	return b;
 }
 
-static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
+static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
 	{
+		if (title != nullptr)
+		{
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), title);
+		}
 		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Separator), txt);
 		if (forSlider)
 		{
-			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), "CTRL + Click to type a value");
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), "(CTRL + Click to type a value)");
 		}
 		ImGui::EndTooltip();
 		return true;
 	}
 	return false;
+}
+
+static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
+{
+	return ToolTip(nullptr, txt, hoverTimer, forSlider);
 }
 
 struct TableFlags {
@@ -470,6 +479,15 @@ static inline void BetterUnindent(const std::string& id)
 
 		child.childOpen = false;
 	}
+}
+
+static inline void TextCentered(const std::string& text) 
+{
+	auto windowWidth = ImGui::GetWindowSize().x;
+	auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
+
+	ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+	ImGui::Text(text.c_str());
 }
 
 inline sf::Color toSFColor(const ImVec4& col)
