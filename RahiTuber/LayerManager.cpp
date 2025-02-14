@@ -285,7 +285,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					visible &= mp->_visible;
 			}
 
-			if (visible)
+			if (visible && layer._isFolder == false)
 			{
 				// Draw sprite borders
 
