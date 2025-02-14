@@ -2059,11 +2059,16 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				fs::current_path(_appConfig->_appLocation);
 
-				layer._idleImage = _textureMan->GetTexture(fs::absolute(layer._idleImagePath).string(), &_errorMessage);
-				layer._talkImage = _textureMan->GetTexture(fs::absolute(layer._talkImagePath).string(), &_errorMessage);
-				layer._blinkImage = _textureMan->GetTexture(fs::absolute(layer._blinkImagePath).string(), &_errorMessage);
-				layer._talkBlinkImage = _textureMan->GetTexture(fs::absolute(layer._talkBlinkImagePath).string(), &_errorMessage);
-				layer._screamImage = _textureMan->GetTexture(fs::absolute(layer._screamImagePath).string(), &_errorMessage);
+                if(layer._idleImagePath != "")
+                    layer._idleImage = _textureMan->GetTexture(fs::absolute(layer._idleImagePath).string(), &_errorMessage);
+                if(layer._talkImagePath != "")
+                    layer._talkImage = _textureMan->GetTexture(fs::absolute(layer._talkImagePath).string(), &_errorMessage);
+                if(layer._blinkImagePath != "")
+                    layer._blinkImage = _textureMan->GetTexture(fs::absolute(layer._blinkImagePath).string(), &_errorMessage);
+                if(layer._talkBlinkImagePath != "")
+                    layer._talkBlinkImage = _textureMan->GetTexture(fs::absolute(layer._talkBlinkImagePath).string(), &_errorMessage);
+                if(layer._screamImagePath != "")
+                    layer._screamImage = _textureMan->GetTexture(fs::absolute(layer._screamImagePath).string(), &_errorMessage);
 
 				if (layer._idleImage)
 					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
