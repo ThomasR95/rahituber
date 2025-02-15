@@ -1773,6 +1773,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("pivotX", layer._pivot.x);
 			thisLayer->SetAttribute("pivotY", layer._pivot.y);
 
+			thisLayer->SetAttribute("rotateChildren", layer._passRotationToChildLayers);
+
 			thisLayer->SetAttribute("motionParent", layer._motionParent.c_str());
 			thisLayer->SetAttribute("motionDelayTime", layer._motionDelay);
 			thisLayer->SetAttribute("hideWithParent", layer._hideWithParent);
@@ -1795,6 +1797,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 				thisLayer->SetAttribute("mouseAreaY", layer._mouseAreaSize.y);
 				thisLayer->SetAttribute("mouseLimitX", layer._mouseMoveLimits.x);
 				thisLayer->SetAttribute("mouseLimitY", layer._mouseMoveLimits.y);
+				thisLayer->SetAttribute("untrackedWhenHidden", layer._mouseUntrackedWhenHidden);
 			}
 
 			std::string bmName = "Normal";
@@ -2139,6 +2142,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					thisLayer->QueryAttribute("mouseAreaY", &layer._mouseAreaSize.y);
 					thisLayer->QueryAttribute("mouseLimitX", &layer._mouseMoveLimits.x);
 					thisLayer->QueryAttribute("mouseLimitY", &layer._mouseMoveLimits.y);
+					thisLayer->QueryBoolAttribute("untrackedWhenHidden", &layer._mouseUntrackedWhenHidden);
 				}
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
@@ -2160,6 +2164,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("inheritTint", &layer._inheritTint);
 				thisLayer->QueryAttribute("allowIndividualMotion", &layer._allowIndividualMotion);
 				thisLayer->QueryAttribute("rotationIgnorePivots", &layer._rotationIgnorePivots);
+
+				// default to true if it has no parents (v12.0 compatibility)
+				if (layer._motionParent == "")
+					layer._passRotationToChildLayers = true;
+
+				thisLayer->QueryAttribute("rotateChildren", &layer._passRotationToChildLayers);
 
 				layer._blendMode = g_blendmodes["Normal"];
 				if (const char* blend = thisLayer->Attribute("blendMode"))
