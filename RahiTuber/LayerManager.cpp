@@ -1136,6 +1136,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 			LayerInfo* child = AddLayer(origChild, false, childPosition);
 
 			// put the original back in its folder
+			origChild = GetLayer(id);
 			origChild->_inFolder = origInFolder;
 
 			// add the new copy to this new folder
@@ -2607,6 +2608,9 @@ void LayerManager::CheckHotkeys()
 				stateInfo._active = false;
 				RemoveStateFromOrder(&stateInfo);
 				stateInfo._timer.restart();
+
+				//BREAK here to force a new frame update before modifying any more states
+				break;
 			}
 			else if (!stateInfo._active && keyDown)
 			{
@@ -3845,10 +3849,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PopStyleVar();
 
 						ImGui::PushID("idleimportfile"); {
-							char idlebuf[256] = "                           ";
+							char idlebuf[MAX_PATH] = {};
 							ANSIToUTF8(_idleImagePath).copy(idlebuf, MAX_PATH);
 							ImGui::SetNextItemWidth(-1);
-							if (ImGui::InputText("", idlebuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
+							if (ImGui::InputText("", idlebuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 							{
 								_idleImagePath = UTF8ToANSI(idlebuf);
 								_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
@@ -3887,10 +3891,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PopStyleVar();
 
 							ImGui::PushID("talkimportfile"); {
-								char talkbuf[256] = "                           ";
+								char talkbuf[MAX_PATH] = {};
 								ANSIToUTF8(_talkImagePath).copy(talkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", talkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
+								if (ImGui::InputText("", talkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_talkImagePath = UTF8ToANSI(talkbuf);
 									_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
@@ -3933,10 +3937,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PopStyleVar();
 
 							ImGui::PushID("blinkimportfile"); {
-								char blinkbuf[256] = "                           ";
+								char blinkbuf[MAX_PATH] = {};
 								ANSIToUTF8(_blinkImagePath).copy(blinkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", blinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
+								if (ImGui::InputText("", blinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_blinkImagePath = UTF8ToANSI(blinkbuf);
 									_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
@@ -3979,10 +3983,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								ImGui::PopStyleVar();
 
 								ImGui::PushID("talkblinkimportfile"); {
-									char talkblinkbuf[256] = "                           ";
+									char talkblinkbuf[MAX_PATH] = {};
 									ANSIToUTF8(_talkBlinkImagePath).copy(talkblinkbuf, MAX_PATH);
 									ImGui::SetNextItemWidth(-1);
-									if (ImGui::InputText("", talkblinkbuf, 256, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
+									if (ImGui::InputText("", talkblinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 									{
 										_talkBlinkImagePath = UTF8ToANSI(talkblinkbuf);
 										_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
@@ -4094,10 +4098,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PopStyleVar();
 
 						ImGui::PushID("screamimportfile"); {
-							char screambuf[256] = "                           ";
-							_screamImagePath.copy(screambuf, 256);
+							char screambuf[MAX_PATH] = {};
 							ANSIToUTF8(_screamImagePath).copy(screambuf, MAX_PATH);
-							if (ImGui::InputText("", screambuf, 256, ImGuiInputTextFlags_AutoSelectAll))
+							if (ImGui::InputText("", screambuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
 							{
 								_screamImagePath = UTF8ToANSI(screambuf);
 								_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
