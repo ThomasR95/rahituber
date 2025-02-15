@@ -191,7 +191,7 @@ public:
 
 		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos);
 
-		void CalculateInheritedMotion(sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot, ImVec4& mpTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite);
+		void CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite);
 
 		void DoConstantMotion(sf::Time& frameTime, sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot);
 
@@ -231,6 +231,8 @@ public:
 			sf::Vector2f _physicsPos = { 0,0 };
 			ImVec4 _tint;
 			float _rot = 0.0;
+			float _parentRot = 0.0;
+			sf::Vector2f _parentPos = { 0,0 };
 		};
 		bool _hideWithParent = true;
 		bool _inheritTint = false;
@@ -260,8 +262,12 @@ public:
 		sf::Vector2f _storedConstantPos = { 0,0 };
 		float _storedConstantRot = 0;
 
+		bool _passRotationToChildLayers = false;
+
 		bool _followMouse = false;
 		bool _followElliptical = false;
+		bool _mouseUntrackedWhenHidden = true;
+
 		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
 		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };

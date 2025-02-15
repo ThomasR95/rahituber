@@ -148,6 +148,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	{
 		bool calculate = layer->_visible;
 
+		if (layer->_inFolder != "")
+		{
+			LayerInfo* folder = GetLayer(layer->_inFolder);
+			if (folder)
+				calculate &= folder->_visible;
+		}
+
 		if (!calculate)
 		{
 			for (int l = _layers.size() - 1; l >= 0; l--)
@@ -283,6 +290,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				LayerInfo* mp = GetLayer(layer._motionParent);
 				if (mp)
 					visible &= mp->_visible;
+			}
+
+			if (layer._inFolder != "")
+			{
+				LayerInfo* folder = GetLayer(layer._inFolder);
+				if (folder)
+					visible &= folder->_visible;
 			}
 
 			if (visible && layer._isFolder == false)
@@ -620,7 +634,9 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 
 	if (_saveXMLOpen)
 	{
-		SaveLayers(_savingXMLPath = _fullLoadedXMLPath);
+		if(SaveLayers(_savingXMLPath = _fullLoadedXMLPath))
+			_loadedXMLExists = true;
+
 		_saveXMLOpen = false;
 	}
 
@@ -3334,7 +3350,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 	motionPos.y -= _motionY;
 }
 
-void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite)
+void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite)
 {
 	LayerInfo* mp = _parent->GetLayer(_motionParent);
 	if (mp)
@@ -3380,21 +3396,28 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 				float fraction = framePosition / frameDuration;
 				motionScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
 				motionPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
-				motionRot = mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
+				motionRot += mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
 				motionTint = mp->_motionLinkData[prev]._tint + (mp->_motionLinkData[next]._tint - mp->_motionLinkData[prev]._tint) * fraction;
+
+				motionParentRot += mp->_motionLinkData[prev]._parentRot + fraction * (mp->_motionLinkData[next]._parentRot - mp->_motionLinkData[prev]._parentRot);
+				//motionParentPos += mp->_motionLinkData[prev]._parentPos + fraction * (mp->_motionLinkData[next]._parentPos - mp->_motionLinkData[prev]._parentPos);
+
 			}
 		}
 		else if (mp->_motionLinkData.size() > 0)
 		{
 			motionScale = mp->_motionLinkData[0]._scale;
 			motionPos = mp->_motionLinkData[0]._pos;
-			motionRot = mp->_motionLinkData[0]._rot;
+			motionRot += mp->_motionLinkData[0]._rot;
 			motionTint = mp->_motionLinkData[0]._tint;
+
+			motionParentRot += mp->_motionLinkData[0]._parentRot;
+			//motionParentPos += mp->_motionLinkData[0]._parentPos;
 		}
 
 		// transform this layer's position by the parent position
 		sf::Vector2f originalOffset = _pos - mp->_pos;
-		sf::Vector2f originalOffsetRotated = Rotate(originalOffset, Deg2Rad(motionRot));
+		sf::Vector2f originalOffsetRotated = Rotate(originalOffset, Deg2Rad(motionRot + motionParentRot));
 		sf::Vector2f offsetScaled = { originalOffsetRotated.x * motionScale.x, originalOffsetRotated.y * motionScale.y };
 		sf::Vector2f originMove = offsetScaled - originalOffset;
 
@@ -3422,7 +3445,6 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			auto lastFrame = _motionLinkData.front();
 			sf::Vector2f oldScale = lastFrame._scale;
 			sf::Vector2f oldPos = lastFrame._physicsPos;
-			float oldRot = lastFrame._rot;
 
 			sf::Vector2f idealAccel = motionPos - oldPos;
 			sf::Vector2f accel = _lastAccel + (idealAccel - _lastAccel) * (1.0f - motionSpring);
@@ -3437,13 +3459,13 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			float lenPivot = Length(pivotDiff);
 			if (_rotationIgnorePivots && dist > 0 && _rotationEffect != 0)
 			{
-				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f)) / dist;
-				motionRot += _rotationEffect * rotMult * dist;
+				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f));// / dist;
+				motionRot += _rotationEffect * rotMult;// *dist;
 			}
 			else if (lenPivot > 0 && dist > 0 && _rotationEffect != 0)
 			{
-				float rotMult = Dot(offset, pivotDiff) / (dist * lenPivot);
-				motionRot += _rotationEffect * rotMult * (dist * lenPivot);
+				float rotMult = Dot(offset, pivotDiff);// / (dist * lenPivot);
+				motionRot += _rotationEffect * rotMult;// *(dist * lenPivot);
 			}
 
 			physicsPos = newMpPos;
@@ -3535,26 +3557,27 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	_wasTalking = talking;
 
-	sf::Vector2f mpScale = { 1.0,1.0 };
-	sf::Vector2f mpPos = { 0, 0 };
-	sf::Vector2f physicsPos = mpPos;
-	float mpRot = 0;
+	sf::Vector2f motionScale = { 1.0,1.0 };
+	sf::Vector2f motionPos = { 0, 0 };
+	sf::Vector2f physicsPos = motionPos;
+	float motionRot = 0;
+	float motionParentRot = 0;
 	ImVec4 mpTint;
 	sf::Vector2f pivot = { _pivot.x * _idleSprite->Size().x, _pivot.y * _idleSprite->Size().y };
 
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 	if (hasParent)
-		CalculateInheritedMotion(mpScale, mpPos, mpRot, mpTint, physicsPos, becameVisible, lastActiveSprite);
+		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite);
 
 	if (_inheritTint)
 		activeSpriteCol = mpTint;
 
 	if (!hasParent || _allowIndividualMotion)
-		DoIndividualMotion(talking, screaming, talkAmount, mpRot, mpScale, activeSpriteCol, mpPos);
+		DoIndividualMotion(talking, screaming, talkAmount, motionRot, motionScale, activeSpriteCol, motionPos);
 
-	DoConstantMotion(frameTime, mpScale, mpPos, mpRot);
+	DoConstantMotion(frameTime, motionScale, motionPos, motionRot);
 
-	AddMouseMovement(mpPos);
+	AddMouseMovement(motionPos);
 
 	if (screaming && _screamVibrate)
 	{
@@ -3565,23 +3588,21 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		}
 
 		float motionTime = _motionTimer.getElapsedTime().asSeconds();
-		mpPos.y += sin(motionTime / 0.02 * _screamVibrateSpeed) * _screamVibrateAmount;
-		mpPos.x += sin(motionTime / 0.05 * _screamVibrateSpeed) * _screamVibrateAmount;
+		motionPos.y += sin(motionTime / 0.02 * _screamVibrateSpeed) * _screamVibrateAmount;
+		motionPos.x += sin(motionTime / 0.05 * _screamVibrateSpeed) * _screamVibrateAmount;
 	}
 	else
 	{
 		_isScreaming = false;
 	}
 
-	// To make rotation carry through to children (but DON'T do this for pos/scale!)
-	mpRot += _rot;
-
 	MotionLinkData thisFrame;
 	thisFrame._frameTime = frameTime;
-	thisFrame._pos = mpPos;
+	thisFrame._pos = motionPos;
 	thisFrame._physicsPos = physicsPos;
-	thisFrame._scale = mpScale;
-	thisFrame._rot = mpRot;
+	thisFrame._scale = motionScale;
+	thisFrame._rot = motionRot;
+	thisFrame._parentRot = motionParentRot + (_passRotationToChildLayers ? _rot : 0.0);
 	thisFrame._tint = activeSpriteCol;
 	_motionLinkData.push_front(thisFrame);
 
@@ -3595,10 +3616,14 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_motionLinkData.pop_back();
 	}
 
+	motionRot += _rot + motionParentRot;
+	motionPos += _pos;
+	motionScale = _scale * motionScale;
+
 	_activeSprite->setOrigin(pivot);
-	_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
-	_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
-	_activeSprite->setRotation(mpRot);
+	_activeSprite->setScale(motionScale);
+	_activeSprite->setPosition({ windowWidth / 2 + motionPos.x, windowHeight / 2 + motionPos.y });
+	_activeSprite->setRotation(motionRot);
 	_activeSprite->SetColor(activeSpriteCol);
 
 }
@@ -3683,7 +3708,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 {
-	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled)
+	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled && (_visible || !_mouseUntrackedWhenHidden))
 	{
 		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
 		sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
@@ -4436,6 +4461,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::Checkbox("Constrain", &_keepAspect);
 					ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
 
+					ImGui::Checkbox("Rotate Children", &_passRotationToChildLayers);
+					ToolTip("Apply this rotation value to any layers using\nthis as a Motion Parent.\n\
+(This is different from the rotation in Individual Motion.\nChildrens' position will also be rotated.)", &_parent->_appConfig->_hoverTimer);
+
 					sf::Vector2f spriteSize = _idleSprite->Size();
 
 					auto prevPivot = _pivot;
@@ -4527,6 +4556,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::Checkbox("Elliptical", &_followElliptical);
 						ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);
+
+						ImGui::Checkbox("Only When Visible", &_mouseUntrackedWhenHidden);
+						ToolTip("Stops moving the layer with the mouse if it's invisible.", &_parent->_appConfig->_hoverTimer);
 					}
 
 
