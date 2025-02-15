@@ -3573,6 +3573,9 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		_isScreaming = false;
 	}
 
+	// To make rotation carry through to children (but DON'T do this for pos/scale!)
+	mpRot += _rot;
+
 	MotionLinkData thisFrame;
 	thisFrame._frameTime = frameTime;
 	thisFrame._pos = mpPos;
@@ -3595,7 +3598,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	_activeSprite->setOrigin(pivot);
 	_activeSprite->setScale({ _scale.x * mpScale.x, _scale.y * mpScale.y });
 	_activeSprite->setPosition({ windowWidth / 2 + _pos.x + mpPos.x, windowHeight / 2 + _pos.y + mpPos.y });
-	_activeSprite->setRotation(_rot + mpRot);
+	_activeSprite->setRotation(mpRot);
 	_activeSprite->SetColor(activeSpriteCol);
 
 }
