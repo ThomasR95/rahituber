@@ -1106,8 +1106,6 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	std::string guid = "";
 	guid.resize(60, ' ');
 
-	srand(time(NULL));
-
 	sprintf(guid.data(), "%x%x-%x-%x-%x-%x%x%x",
 		rand(), rand(),                 // Generates a 64-bit Hex number
 		rand(),                         // Generates a 32-bit Hex number
