@@ -81,6 +81,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("checkForUpdates", &_appConfig->_checkForUpdates);
 
 	common->QueryBoolAttribute("listenHTTP", &_appConfig->_listenHTTP);
+	common->QueryIntAttribute("httpPort", &_appConfig->_httpPort);
 
 	int r = -1;
 	int g = -1; 
@@ -182,6 +183,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("checkForUpdates", _appConfig->_checkForUpdates);
 
 			common->SetAttribute("listenHTTP", _appConfig->_listenHTTP);
+			common->SetAttribute("httpPort", _appConfig->_httpPort);
 
 			common->SetAttribute("lastBgCol_r", _appConfig->_bgColor.r);
 			common->SetAttribute("lastBgCol_g", _appConfig->_bgColor.g);

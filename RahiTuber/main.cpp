@@ -746,14 +746,9 @@ void menuAdvanced(ImGuiStyle& style)
 
 		ImGui::SeparatorText("Integration");
 
+		std::string portString = std::to_string(appConfig->_httpPort);
 		if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
 		{
-#ifdef _WIN32
-			ImGui::TableNextColumn();
-			ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-			ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
-#endif
-
 			ImGui::TableNextColumn();
 			if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
 			{
@@ -766,7 +761,24 @@ void menuAdvanced(ImGuiStyle& style)
 					appConfig->_webSocket->Stop();
 				}
 			}
-			ToolTip("Listens for HTTP messages in the format:\nhttp://localhost:8000/state?[stateIndex,active]\nhttp://localhost:8000/state?[\"state name\",active]", &appConfig->_hoverTimer);
+			ToolTip(("Listens for HTTP messages in the format:\nhttp://localhost:"+ portString+"/state?[stateIndex,active]\nhttp://localhost:"+ portString+"/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(!appConfig->_listenHTTP);
+			ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
+			if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
+			{
+				appConfig->_webSocket->Stop();
+				appConfig->_webSocket->Start(appConfig->_httpPort);
+			}
+			ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
+			ImGui::EndDisabled();
+
+#ifdef _WIN32
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+			ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+#endif
 
 			ImGui::EndTable();
 		}
