@@ -4643,6 +4643,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_renamingString = _name;
 				_renamePopupOpen = true;
+				_renameFirstOpened = true;
 				ImGui::SetNextWindowSize({ 200 * uiScale,60 * uiScale });
 				ImGui::OpenPopup("Rename Layer");
 			}
@@ -4651,15 +4652,23 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				char inputStr[32] = " ";
 				ANSIToUTF8(_renamingString).copy(inputStr, 32);
-				ImGui::SetKeyboardFocusHere();
-				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll))
+				if (_renameFirstOpened)
+				{
+					ImGui::SetKeyboardFocusHere();
+					_renameFirstOpened = false;
+				}
+
+				bool edited = false;
+				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
 					_renamingString = UTF8ToANSI(inputStr);
+					edited = true;
 				}
-				bool deactivated = ImGui::IsItemDeactivatedAfterEdit();
 				ImGui::SameLine();
 
-				if (deactivated || ImGui::Button("Save"))
+				bool saved = ImGui::Button("Save");
+
+				if (saved || edited)
 				{
 					_renamePopupOpen = false;
 					_name = _renamingString;

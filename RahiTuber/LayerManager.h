@@ -177,6 +177,7 @@ public:
 		bool _oldSpriteTalkBlinkOpen = false;
 		bool _oldSpriteScreamOpen = false;
 		bool _renamePopupOpen = false;
+		bool _renameFirstOpened = false;
 		std::string _renamingString = "";
 
 		bool AnyPopupOpen()
