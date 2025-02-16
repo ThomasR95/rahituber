@@ -1683,6 +1683,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		thisLayer->SetAttribute("name", layer._name.c_str());
 		thisLayer->SetAttribute("visible", layer._visible);
 
+		SaveColor(thisLayer, &doc, "layerColor", layer._layerColor);
+
 		if (layer._isFolder == false)
 		{
 			thisLayer->SetAttribute("talking", layer._swapWhenTalking);
@@ -1768,7 +1770,6 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 			SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 			SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
-			SaveColor(thisLayer, &doc, "layerColor", layer._layerColor);
 
 			thisLayer->SetAttribute("smoothTalkTint", layer._smoothTalkTint);
 
