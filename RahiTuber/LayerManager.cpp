@@ -517,7 +517,9 @@ void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem:
 	{
 		fs::copy(fsFilePath, targetFolder, copyOpts, ec);
 		if (!ec)
+		{
 			filePath = targetFolder.append(fsFilePath.filename().string()).string();
+		}
 	}
 }
 
@@ -1591,6 +1593,12 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 	}
 }
 
+void LayerManager::MakePortablePath(std::string& path)
+{
+	path = fs::proximate(path, _appConfig->_appLocation).string();
+	std::replace(path.begin(), path.end(), '\\', '/');
+}
+
 bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePortable, bool copyImages)
 {
 	if (_loadingFinished == false)
@@ -1725,11 +1733,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			if (makePortable)
 			{
-				layer._idleImagePath = fs::proximate(layer._idleImagePath, _appConfig->_appLocation).string();
-				layer._talkImagePath = fs::proximate(layer._talkImagePath, _appConfig->_appLocation).string();
-				layer._blinkImagePath = fs::proximate(layer._blinkImagePath, _appConfig->_appLocation).string();
-				layer._talkBlinkImagePath = fs::proximate(layer._talkBlinkImagePath, _appConfig->_appLocation).string();
-				layer._screamImagePath = fs::proximate(layer._screamImagePath, _appConfig->_appLocation).string();
+				MakePortablePath(layer._idleImagePath);
+				MakePortablePath(layer._talkImagePath);
+				MakePortablePath(layer._blinkImagePath);
+				MakePortablePath(layer._talkBlinkImagePath);
+				MakePortablePath(layer._screamImagePath);
 			}
 
 			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());

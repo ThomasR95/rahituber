@@ -151,6 +151,12 @@ void LoadCustomFont()
 {
 	ImGuiIO& io = ImGui::GetIO();
 
+	fs::path fontpath(appConfig->_appLocation);
+	fontpath.append(uiConfig->_fontName);
+	std::error_code ec;
+	if (!fs::exists(fontpath, ec))
+		return;
+
 	io.Fonts->Clear();
 
 	io.Fonts->AddFontDefault();
@@ -163,11 +169,6 @@ void LoadCustomFont()
 	//cfg.MergeMode = true;
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
-
-	fs::path fontpath(appConfig->_appLocation + uiConfig->_fontName);
-	std::error_code ec;
-	if (!fs::exists(fontpath, ec))
-		return;
 
 	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), uiConfig->_fontSize, &cfg);
 	if (result == nullptr)

@@ -368,6 +368,8 @@ public:
 	void MoveLayerUp(LayerInfo* moveUp);
 	void MoveLayerDown(LayerInfo* moveDown);
 
+	void MakePortablePath(std::string& path);
+
 	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false);
 	bool LoadLayers(const std::string& settingsFileName);
 
