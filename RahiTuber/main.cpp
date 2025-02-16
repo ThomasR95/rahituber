@@ -1060,7 +1060,6 @@ void menu()
 	style.ScrollbarSize = 18 * appConfig->scalingFactor;
 	style.FrameBorderSize = 0;
 	style.AntiAliasedLines = true;
-	style.AntiAliasedLinesUseTex = true;
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
