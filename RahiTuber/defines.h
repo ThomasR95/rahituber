@@ -579,6 +579,24 @@ inline ImVec4 operator -(const ImVec4& left, const ImVec4& right)
 	return ImVec4(left.x - right.x, left.y - right.y, left.z - right.z, left.w - right.w);
 }
 
+////////////////////////////////////////////////////////////
+/// \relates ImVec2
+/// \brief Overload of binary operator +
+////////////////////////////////////////////////////////////
+inline ImVec2 operator +(const ImVec2& left, const ImVec2& right)
+{
+	return ImVec2(left.x + right.x, left.y + right.y);
+}
+
+////////////////////////////////////////////////////////////
+/// \relates ImVec2
+/// \brief Overload of binary operator -
+////////////////////////////////////////////////////////////
+inline ImVec2 operator -(const ImVec2& left, const ImVec2& right)
+{
+	return ImVec2(left.x - right.x, left.y - right.y);
+}
+
 inline std::string ANSIToUTF8(const std::string& input)
 {
 #ifdef _WIN32

@@ -151,21 +151,25 @@ void LoadCustomFont()
 {
 	ImGuiIO& io = ImGui::GetIO();
 
+	io.Fonts->Clear();
+
 	io.Fonts->AddFontDefault();
+
+	uiConfig->_fontReloadNeeded = false;
 
 	ImFontConfig cfg;
 	cfg.OversampleH = 1;
-	cfg.SizePixels = 26.f;
+	cfg.SizePixels = uiConfig->_fontSize;
 	//cfg.MergeMode = true;
 	io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 	io.Fonts->FontBuilderFlags = ImGuiFreeTypeBuilderFlags_Bold;
 
-	fs::path fontpath(appConfig->_appLocation + "res/monof55.ttf");
+	fs::path fontpath(appConfig->_appLocation + uiConfig->_fontName);
 	std::error_code ec;
 	if (!fs::exists(fontpath, ec))
 		return;
 
-	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), 26.f, &cfg);
+	ImFont* result = io.Fonts->AddFontFromFileTTF(fontpath.string().c_str(), uiConfig->_fontSize, &cfg);
 	if (result == nullptr)
 		return;
 
@@ -193,7 +197,7 @@ void LoadCustomFont()
 
 	io.Fonts->SetTexID((ImTextureID)uiConfig->fontTex.getNativeHandle());
 
-	uiConfig->_font.loadFromFile(appConfig->_appLocation + "res/monof55.ttf");
+	uiConfig->_font.loadFromFile(fontpath.string());
 }
 
 void getWindowSizes()
@@ -439,7 +443,7 @@ void swapFullScreen()
 
 void menuHelp(ImGuiStyle& style)
 {
-	if (ImGui::Button("Help", { -1, 20 * appConfig->scalingFactor }))
+	if (ImGui::Button("Help", { -1, ImGui::GetFrameHeight() }))
 	{
 		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
 		dotpos -= {style.ItemSpacing.x * 3, style.ItemSpacing.y * 6};
@@ -544,7 +548,7 @@ void menuHelp(ImGuiStyle& style)
 
 void menuAdvanced(ImGuiStyle& style)
 {
-	if (ImGui::Button("Advanced", { -1, 20 * appConfig->scalingFactor }))
+	if (ImGui::Button("Advanced", { -1, ImGui::GetFrameHeight() }))
 	{
 		float h = ImGui::GetWindowHeight();
 		ImGui::SetNextWindowSize({ 420 * appConfig->scalingFactor, h });
@@ -909,7 +913,7 @@ void menuAudio(ImGuiStyle& style)
 
 void menuPresets(ImGuiStyle& style)
 {
-	if (ImGui::Button("Window Presets", { -1,20 * appConfig->scalingFactor }))
+	if (ImGui::Button("Window Presets", { -1,ImGui::GetFrameHeight() }))
 	{
 		if (appConfig->_menuWindow.isOpen())
 		{
@@ -950,7 +954,7 @@ void menuPresets(ImGuiStyle& style)
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Load", { -1,20 * appConfig->scalingFactor }) && uiConfig->_presetNames.size())
+		if (ImGui::Button("Load", { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
 		{
 			//gameConfig->loadFromSettingsFile(gameConfig->m_presetNames[gameConfig->m_presetIdx]);
 			if (appConfig->_loader->loadPreset(uiConfig->_presetNames[uiConfig->_presetIdx]))
@@ -973,13 +977,13 @@ void menuPresets(ImGuiStyle& style)
 		ImGui::TextColored(style.Colors[ImGuiCol_Text], "Save Preset");
 		ImGui::InputText("Name", uiConfig->_settingsFileBoxName.data(), 30 * appConfig->scalingFactor);
 		ImGui::SameLine();
-		if (ImGui::Button("x", { 20 * appConfig->scalingFactor,20 * appConfig->scalingFactor }))
+		if (ImGui::Button("x", { ImGui::GetFrameHeight(),ImGui::GetFrameHeight() }))
 		{
 			uiConfig->_settingsFileBoxName.clear();
 			uiConfig->_settingsFileBoxName.resize(30);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Use Current", { -1,20 * appConfig->scalingFactor }) && uiConfig->_presetNames.size())
+		if (ImGui::Button("Use Current", { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
 		{
 			uiConfig->_settingsFileBoxName.clear();
 			uiConfig->_settingsFileBoxName.resize(30);
@@ -1010,7 +1014,7 @@ void menuPresets(ImGuiStyle& style)
 
 		std::string name(uiConfig->_settingsFileBoxName.data());
 
-		if ((name != "") && ImGui::Button(saveName.c_str(), { -1,20 * appConfig->scalingFactor }))
+		if ((name != "") && ImGui::Button(saveName.c_str(), { -1,ImGui::GetFrameHeight() }))
 		{
 			if (std::find(uiConfig->_presetNames.begin(), uiConfig->_presetNames.end(), name) == uiConfig->_presetNames.end())
 			{
@@ -1035,11 +1039,13 @@ void menu()
 
 	if (appConfig->_menuPopped)
 	{
+		ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
 		appConfig->scalingFactor = appConfig->menuWindowScaling * appConfig->customScaling;
 		ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
 	}
 	else
 	{
+		ImGui::SFML::SetCurrentWindow(appConfig->_window);
 		appConfig->scalingFactor = appConfig->mainWindowScaling * appConfig->customScaling;
 		ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
 	}
@@ -1049,10 +1055,11 @@ void menu()
 	style.FramePadding = { 3 * appConfig->scalingFactor, 3 * appConfig->scalingFactor };
 	style.WindowTitleAlign = style.ButtonTextAlign = { 0.5f, 0.5f };
 	style.ItemSpacing = { 3 * appConfig->scalingFactor, 3 * appConfig->scalingFactor };
-	style.GrabMinSize = 20 * appConfig->scalingFactor;
+	style.GrabMinSize = ImGui::GetFrameHeight();
 	style.ScrollbarSize = 18 * appConfig->scalingFactor;
 	style.FrameBorderSize = 0;
 	style.AntiAliasedLines = true;
+	style.AntiAliasedLinesUseTex = true;
 	style.AntiAliasedFill = true;
 	style.DisabledAlpha = 0.7;
 
@@ -1079,16 +1086,49 @@ void menu()
 	ImVec4 col_dark1a(baseColor.x * 0.32f, baseColor.y * 0.32f, baseColor.z * 0.32f, 1.f);
 	ImVec4 col_dark1(baseColor.x * 0.5f, baseColor.y * 0.5f, baseColor.z * 0.5f, 1.f);
 	ImVec4 col_dark(baseColor.x * 0.6f, baseColor.y * 0.6f, baseColor.z * 0.6f, 1.f);
+	ImVec4 col_med3(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
 	ImVec4 col_med2(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
 	ImVec4 col_med(baseColor.x, baseColor.y, baseColor.z, 1.f);
 
-	baseColor = uiConfig->_themes[uiConfig->_theme].second;
+	ImVec4 col_border = col_dark;
+	ImVec4 col_shadow = col_dark1;
 
-	ImVec4 col_light(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, 1.f);
-	ImVec4 col_light2(baseColor);
-	ImVec4 col_light2a(mean(baseColor.x, 0.6f), mean(baseColor.y, 0.6f), mean(baseColor.z, 0.6f), 1.f);
-	ImVec4 col_light3(powf(baseColor.x, .3f), powf(baseColor.y, .3f), powf(baseColor.z, .3f), 1.f);
+	ImVec4 baseColor2 = uiConfig->_themes[uiConfig->_theme].second;
+
+	ImVec4 col_light(baseColor2.x * 0.8f, baseColor2.y * 0.8f, baseColor2.z * 0.8f, 1.f);
+	ImVec4 col_light2(baseColor2);
+	ImVec4 col_light2a(mean(baseColor2.x, 0.6f), mean(baseColor2.y, 0.6f), mean(baseColor2.z, 0.6f), 1.f);
+	ImVec4 col_light3(powf(baseColor2.x, .3f), powf(baseColor2.y, .3f), powf(baseColor2.z, .3f), 1.f);
 	ImVec4 greyoutCol(0.3f, 0.3f, 0.3f, 1.0f);
+
+	sf::Color backdropCol = toSFColor(col_med);
+
+	auto oldFont = uiConfig->_fontName;
+	if (uiConfig->_theme == "Contrast")
+	{
+		col_dark2 = col_dark1a = col_med3 = ImVec4(0, 0, 0, 1.f);
+		col_dark = col_med = baseColor;
+		col_dark1 = col_med2 = ImVec4(baseColor.x*0.5, baseColor.y*0.5, baseColor.z*0.5, 1.f);
+
+		backdropCol = toSFColor(col_dark2);
+
+		col_light3 = ImVec4(1, 1, 0.8, 1);
+		col_border = ImVec4(powf(baseColor.x, .8f), powf(baseColor.y, .8f), powf(baseColor.z, .8f), 1.f);
+
+		style.FrameBorderSize = 2.f;
+		style.SeparatorTextBorderSize = 4.f;
+		style.ItemSpacing = { 3 * appConfig->scalingFactor, 5 * appConfig->scalingFactor };
+		uiConfig->_fontName = "res/verdana.ttf";
+		uiConfig->_fontSize = 30.f;
+	}
+	else
+	{
+		uiConfig->_fontName = "res/monof55.ttf";
+		uiConfig->_fontSize = 26.f;
+	}
+	uiConfig->_fontReloadNeeded = uiConfig->_fontName != oldFont;
+
+	col_shadow = { 0,0,0,0 };
 
 	if (appConfig->_menuWindow.isOpen())
 	{
@@ -1099,15 +1139,16 @@ void menu()
 	style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
 	style.Colors[ImGuiCol_FrameBgHovered] = col_med2;
 	style.Colors[ImGuiCol_ScrollbarBg] = style.Colors[ImGuiCol_FrameBg] = col_dark;
-	style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_SliderGrab] = style.Colors[ImGuiCol_Tab] = col_med;
-	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = style.Colors[ImGuiCol_TabActive] = col_light2;
-	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = style.Colors[ImGuiCol_TabHovered] = col_light;
+	style.Colors[ImGuiCol_SliderGrab] = style.Colors[ImGuiCol_ScrollbarGrab] = style.Colors[ImGuiCol_FrameBgActive] = col_med3;
+	style.Colors[ImGuiCol_Button] = style.Colors[ImGuiCol_Header] = style.Colors[ImGuiCol_Tab] = col_med;
+	style.Colors[ImGuiCol_ScrollbarGrabActive] = style.Colors[ImGuiCol_ButtonActive] = style.Colors[ImGuiCol_HeaderActive] = style.Colors[ImGuiCol_SliderGrabActive] = style.Colors[ImGuiCol_TabHovered] = col_light2;
+	style.Colors[ImGuiCol_ScrollbarGrabHovered] = style.Colors[ImGuiCol_ButtonHovered] = style.Colors[ImGuiCol_HeaderHovered] = style.Colors[ImGuiCol_TabActive] = col_light;
 	style.Colors[ImGuiCol_TitleBgActive] = style.Colors[ImGuiCol_TitleBg] = style.Colors[ImGuiCol_TitleBgCollapsed] = col_dark;
 	style.Colors[ImGuiCol_CheckMark] = style.Colors[ImGuiCol_Text] = col_light3;
 	style.Colors[ImGuiCol_TextDisabled] = greyoutCol;
 	style.Colors[ImGuiCol_Separator] = col_light2a;
-	style.Colors[ImGuiCol_BorderShadow] = col_dark1;
-	style.Colors[ImGuiCol_Border] = col_dark;
+	style.Colors[ImGuiCol_BorderShadow] = col_shadow;
+	style.Colors[ImGuiCol_Border] = col_border;
 
 	io.FontGlobalScale = appConfig->scalingFactor * 0.5;
 	
@@ -1119,7 +1160,6 @@ void menu()
 		ImGui::SetNextWindowPos(ImVec2(10, 10));
 		ImGui::SetNextWindowSize({ 480*appConfig->scalingFactor, windowHeight });
 
-		sf::Color backdropCol = { sf::Uint8(255 * col_med.x), sf::Uint8(255 * col_med.y), sf::Uint8(255 * col_med.z) };
 		sf::RectangleShape backdrop({ 474 * appConfig->scalingFactor, windowHeight - 6*appConfig->scalingFactor });
 		backdrop.setPosition(13, 13);
 		backdrop.setFillColor(backdropCol);
@@ -1153,12 +1193,12 @@ void menu()
 	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
 	ImGui::BeginTable("##menuVisibility", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame);
 	ImGui::TableNextColumn();
-	if (ImGui::Button(menuShowName.c_str(), { -1,20 * appConfig->scalingFactor }))
+	if (ImGui::Button(menuShowName.c_str(), { -1, ImGui::GetFrameHeight()}))
 	{
 		uiConfig->_menuShowing = !uiConfig->_menuShowing;
 	}
 	ImGui::TableNextColumn();
-	if (ImGui::Button(menuPopName.c_str(), { -1,20 * appConfig->scalingFactor }))
+	if (ImGui::Button(menuPopName.c_str(), { -1,ImGui::GetFrameHeight() }))
 	{
 		appConfig->_menuPopPending = !appConfig->_menuPopPending;
 	}
@@ -1166,7 +1206,7 @@ void menu()
 	ImGui::PopStyleVar();
 
 	//	FULLSCREEN
-	if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,20 * appConfig->scalingFactor }))
+	if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,ImGui::GetFrameHeight() }))
 	{
 		swapFullScreen();
 	}
@@ -1182,11 +1222,13 @@ void menu()
 	ImGui::EndTable();
 	ImGui::PopStyleVar();
 
+	float fontFrameHeight = style.FramePadding.y * 2 + uiConfig->_fontSize / 2 + style.ItemSpacing.y/2;
+
 	ImGui::Separator();
 	float separatorPos = ImGui::GetCursorPosY();
-	float nextSectionPos = windowHeight - 150 * appConfig->scalingFactor;
+	float nextSectionPos = windowHeight - fontFrameHeight *7.5;
 	if (!uiConfig->_audioExpanded)
-		nextSectionPos = windowHeight - 104 * appConfig->scalingFactor;
+		nextSectionPos = windowHeight - fontFrameHeight *5.2;
 
 	layerMan->DrawGUI(style, nextSectionPos - separatorPos);
 
@@ -1195,7 +1237,7 @@ void menu()
 	ImGui::Separator();
 	menuAudio(style);
 
-	ImGui::SetCursorPosY(windowHeight - 54 * appConfig->scalingFactor);
+	ImGui::SetCursorPosY(windowHeight - fontFrameHeight *2.7);
 	ImGui::Separator();
 	menuPresets(style);
 
@@ -1208,7 +1250,7 @@ void menu()
 	ImGui::PushStyleColor(ImGuiCol_Button, col_dark);
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
-	if (ImGui::Button("Exit RahiTuber", { -1, 20 * appConfig->scalingFactor }))
+	if (ImGui::Button("Exit RahiTuber", { -1, ImGui::GetFrameHeight() }))
 	{
 		if (appConfig->_menuWindow.isOpen())
 			appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
@@ -1376,6 +1418,17 @@ void render()
 #endif
 
 	appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
+
+	if (uiConfig->_fontReloadNeeded)
+	{
+		ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
+		logToFile(appConfig, "Loading font in menu window.");
+		LoadCustomFont();
+
+		ImGui::SFML::SetCurrentWindow(appConfig->_window);
+		logToFile(appConfig, "Loading font in main window.");
+		LoadCustomFont();
+	}
 
 	if (uiConfig->_menuShowing)
 	{

@@ -272,6 +272,8 @@ public:
 		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
 		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };
+
+		ImVec4 _layerColor = { 0,0,0,0 };
 	};
 
 	struct StatesInfo

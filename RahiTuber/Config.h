@@ -234,6 +234,9 @@ struct UIConfig
 	bool _audioExpanded = true;
 
 	std::string _theme = "Default";
+	std::string _fontName = "res/monof55.ttf";
+	float _fontSize = 26.f;
+	bool _fontReloadNeeded = false;
 
 	std::map<std::string, std::pair<ImVec4, ImVec4>> _themes = {
 		{"Default", { {0.37f, 0.1f, 0.35f, 1.0f}, {0.75f, 0.2f, 0.7f, 1.0f} }},
@@ -244,6 +247,7 @@ struct UIConfig
 		{"Volcano", { {0.35f, 0.05f, 0.1f, 1.0f},  {0.9f, 0.6f, 0.2f, 1.0f} }},
 		{"Oxide",   { {0.25f, 0.35f, 0.4f, 1.0f},  {0.7f, 0.2f, 0.05f, 1.0f} }},
 		{"Pretty",  { {0.5f, 0.25f, 0.45f, 1.0f},  {0.7f, 0.75f, 1.0f, 1.0f} }},
+		{"Contrast",  { {0.3f, 0.2f, 0.4f, 1.0f},  {0.2f, 0.5f, 0.5f, 1.f} }},
 	};
 
 	sf::Texture fontTex;

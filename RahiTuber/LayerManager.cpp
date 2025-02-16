@@ -1760,6 +1760,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 			SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 			SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
+			SaveColor(thisLayer, &doc, "layerColor", layer._layerColor);
 
 			thisLayer->SetAttribute("smoothTalkTint", layer._smoothTalkTint);
 
@@ -2115,6 +2116,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
 				LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
 				LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
+
+				LoadColor(thisLayer, &doc, "layerColor", layer._layerColor);
 
 				thisLayer->QueryAttribute("smoothTalkTint", &layer._smoothTalkTint);
 
@@ -3802,14 +3805,20 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 		}
 
+		if (_layerColor.w != 0)
+			ImGui::PushStyleColor(ImGuiCol_Header, _layerColor);
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			if (_layerColor.w != 0)
+				ImGui::PopStyleColor();
+
+			ImGui::Indent(indentSize);
+
 			if (_isFolder)
 			{
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor();
-
-				ImGui::Indent(indentSize);
+				
 				for (int l = 0; l < _folderContents.size(); l++)
 				{
 					int layerIdx = 0;
@@ -4042,7 +4051,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						_screamImage->setSmooth(_scaleFiltering);
 				}
 				ImGui::PopItemWidth();
-				ToolTip("On: Smooth pixel interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp edges at any size", &_parent->_appConfig->_hoverTimer);
+				ToolTip("On: Smooth (linear) interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp pixels at any size", &_parent->_appConfig->_hoverTimer);
 
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
 
@@ -4144,7 +4153,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				auto oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
 				ImGui::Checkbox("##Scream", &_scream);
-				ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
 				ImGui::SetCursorPos(oldCursorPos);
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
@@ -4173,7 +4181,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
 				ImGui::Checkbox("##Blink", &_useBlinkFrame);
-				ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
 				ImGui::SetCursorPos(oldCursorPos);
 
 				bool hasParent = !(_motionParent == "" || _motionParent == "-1");
@@ -4256,7 +4263,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						layer.CalculateLayerDepth();
 					}
 				}
-				ToolTip("Select a layer to copy the motion from", &_parent->_appConfig->_hoverTimer);
 				ImGui::SetCursorPos(oldCursorPos);
 				ImGui::PopItemWidth();
 
@@ -4587,6 +4593,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (ImGui::IsItemHovered() && _isFolder == false)
 				_parent->_hoveredLayers.push_back(_id);
 
+			if (_layerColor.w != 0)
+				ImGui::PopStyleColor();
+
 			if (_isFolder)
 			{
 				ImGui::PopStyleVar(2);
@@ -4644,12 +4653,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_renamingString = _name;
 				_renamePopupOpen = true;
 				_renameFirstOpened = true;
-				ImGui::SetNextWindowSize({ 200 * uiScale,60 * uiScale });
+				ImGui::SetNextWindowSize({ 200 * uiScale,80 * uiScale });
 				ImGui::OpenPopup("Rename Layer");
 			}
 
-			if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize))
+			if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar))
 			{
+				ImGui::PopStyleVar(2);
+
 				char inputStr[32] = " ";
 				ANSIToUTF8(_renamingString).copy(inputStr, 32);
 				if (_renameFirstOpened)
@@ -4668,6 +4679,59 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				bool saved = ImGui::Button("Save");
 
+				ImGui::Separator();
+
+				if (ImGui::BeginTable("colorPickerTable", 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX))
+				{
+					float fp = ImGui::GetStyle().FramePadding.y;
+					ImVec2 btnSize = { ImGui::GetFrameHeight(), ImGui::GetFrameHeight() };
+					sf::Vector2f imgBtnSize = { ImGui::GetFrameHeight() - fp*2,ImGui::GetFrameHeight() - fp*2 };
+					auto textCol = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+
+					ImGui::TableNextColumn();
+
+					ImVec2 colPos = ImGui::GetCursorPos();
+					if (ImGui::ColorButton("delbtn", ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0, 0, 0, 0 };
+
+					ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+					ImGui::Image(*_delIcon, imgBtnSize, textCol);
+
+
+					ImGui::TableNextColumn();
+					colPos = ImGui::GetCursorPos();
+					if (ImGui::ColorEdit3("##customCol", &_layerColor.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
+						_layerColor.w = 1.f;
+					
+					ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+					ImGui::Image(*_editIcon, imgBtnSize, textCol);
+
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("red", { 0.5, 0.0, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.5, 0.0, 0.1, 1 };
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("yellow", { 0.45, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.45, 0.4, 0.1, 1 };
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("green", { 0.1, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.1, 0.4, 0.1, 1 };
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("cyan", { 0.1, 0.4, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.1, 0.4, 0.4, 1 };
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("blue", { 0.1, 0.2, 0.5, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.1, 0.2, 0.5, 1 };
+					ImGui::TableNextColumn();
+					if (ImGui::ColorButton("magenta", { 0.5, 0.1, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+						_layerColor = { 0.5, 0.1, 0.4, 1 };
+
+
+					ImGui::EndTable();
+				}
+			
+
+				
+
 				if (saved || edited)
 				{
 					_renamePopupOpen = false;
@@ -4675,11 +4739,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::CloseCurrentPopup();
 				}
 
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 				ImGui::EndPopup();
 			}
 
 		}ImGui::PopID();//renamebtn
-		ToolTip("Rename the layer", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Rename or Color the layer", &_parent->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
 		ImGui::PushID("duplicateBtn"); {
