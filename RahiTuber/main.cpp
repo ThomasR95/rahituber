@@ -766,7 +766,7 @@ void menuAdvanced(ImGuiStyle& style)
 					appConfig->_webSocket->Stop();
 				}
 			}
-			ToolTip(("Listens for HTTP messages in the format:\nhttp://localhost:"+ portString+"/state?[stateIndex,active]\nhttp://localhost:"+ portString+"/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+			ToolTip(("Listens for HTTP messages in the format:\nhttp://127.0.0.1:"+ portString+"/state?[stateIndex,active]\nhttp://127.0.0.1:"+ portString+"/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
 
 			ImGui::TableNextColumn();
 			ImGui::BeginDisabled(!appConfig->_listenHTTP);

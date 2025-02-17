@@ -2514,8 +2514,49 @@ void LayerManager::CheckHotkeys()
 	for (int h = 0; h < _states.size(); h++)
 	{
 		bool keyDown = false;
+		float timeout = 0.2;
+		bool changed = false;
 
 		auto& stateInfo = _states[h];
+
+		// Check websocket
+		if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
+		{
+			WebSocket::QueueItem qItem = _appConfig->_webSocket->QueueFront();
+
+			bool match = qItem.stateId == std::to_string(h);
+			match |= qItem.stateId == stateInfo._name;
+
+			if (match)
+			{
+				if (qItem.activeState == 1)
+				{
+					keyDown = true;
+					if (stateInfo._activeType == StatesInfo::Held && stateInfo._enabled)
+					{
+						stateInfo._alternateHeld = true;
+					}
+				}
+				else
+				{
+					keyDown = false;
+					if (stateInfo._activeType == StatesInfo::Held && stateInfo._enabled)
+					{
+						stateInfo._alternateHeld = false;
+					}
+				}
+
+				if ((stateInfo._wasTriggered != keyDown) && stateInfo._enabled)
+					changed = true;
+
+				_appConfig->_webSocket->PopQueueFront();
+			}
+
+			if (stateInfo._activeType == StatesInfo::Held && stateInfo._alternateHeld)
+			{
+				keyDown = true;
+			}
+		}
 
 		bool canTrigger = stateInfo._enabled;
 		if (canTrigger && stateInfo._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
@@ -2528,9 +2569,6 @@ void LayerManager::CheckHotkeys()
 		if (!canTrigger)
 			continue;
 
-		float timeout = 0.2;
-
-		bool changed = false;
 
 		if (stateInfo._key != -1 && sf::Keyboard::isKeyPressed(stateInfo._key)
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
@@ -2558,45 +2596,6 @@ void LayerManager::CheckHotkeys()
 			{
 				if (stateInfo._wasTriggered == false)
 					changed = true;
-				keyDown = true;
-			}
-		}
-
-		// Check websocket
-		if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
-		{
-			WebSocket::QueueItem qItem = _appConfig->_webSocket->QueueFront();
-
-			bool match = qItem.stateId == std::to_string(h);
-			match |= qItem.stateId == stateInfo._name;
-
-			if (match)
-			{
-				if (qItem.activeState == 1)
-				{
-					keyDown = true;
-					if (stateInfo._activeType == StatesInfo::Held)
-					{
-						stateInfo._alternateHeld = true;
-					}
-				}
-				else
-				{
-					keyDown = false;
-					if (stateInfo._activeType == StatesInfo::Held)
-					{
-						stateInfo._alternateHeld = false;
-					}
-				}
-
-				if (stateInfo._wasTriggered != keyDown)
-					changed = true;
-
-				_appConfig->_webSocket->PopQueueFront();
-			}
-
-			if (stateInfo._activeType == StatesInfo::Held && stateInfo._alternateHeld)
-			{
 				keyDown = true;
 			}
 		}
@@ -3226,9 +3225,9 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 	{
 		std::stringstream ss;
 		if (_copyStateNames && state._name != "")
-			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[\"" << state._name << "\"," << state._webRequestActive << "]";
+			ss << "http://127.0.0.1:" << _appConfig->_httpPort << "/state?[\"" << state._name << "\"," << state._webRequestActive << "]";
 		else
-			ss << "http://localhost:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
+			ss << "http://127.0.0.1:" << _appConfig->_httpPort << "/state?[" << stateIdx << "," << state._webRequestActive << "]";
 		state._webRequest = ss.str();
 		//ImGui::SetClipboardText(state._webRequest.c_str());
 	}
