@@ -4681,9 +4681,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				bool edited = false;
 				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
 				{
-					_renamingString = UTF8ToANSI(inputStr);
 					edited = true;
 				}
+				_renamingString = UTF8ToANSI(inputStr);
 				ImGui::SameLine();
 
 				bool saved = ImGui::Button("Save");
@@ -4737,9 +4737,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::EndTable();
 				}
-			
-
-				
 
 				if (saved || edited)
 				{
