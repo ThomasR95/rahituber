@@ -290,7 +290,11 @@ file_browser_modal::file_browser_modal(const char* title) :
 const bool file_browser_modal::render(const bool isVisible, std::string& outPath, bool saving) {
   bool result = false;
 
-  float uiScale = ImGui::GetIO().FontGlobalScale * 2;
+  auto& style = ImGui::GetStyle();
+  auto& io = ImGui::GetIO();
+  float fontSize = ImGui::GetFont()->FontSize;
+  float fontFrameHeight = style.FramePadding.y * 2 + fontSize * 0.5 + style.ItemSpacing.y * 0.5;
+  float uiScale = io.FontGlobalScale * 2;
 
   if (m_oldVisibility != isVisible) {
     m_oldVisibility = isVisible;
@@ -324,9 +328,9 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       ImVec2 wPos = ImGui::GetWindowPos();
 
       m_width = 480;
-      m_height = 460;
+      //m_height = 23 * fontFrameHeight;
 
-      ImGui::SetNextWindowSize({ m_width, m_height * uiScale });
+      ImGui::SetNextWindowSize({ m_width * uiScale, -1 });
       ImGui::SetNextWindowPos({ wPos.x, wPos.y });
 
       //Make the modal visible.
@@ -339,7 +343,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
   if (ImGui::BeginPopupModal(m_title, &isOpen, modal_flags)) {
 
 
-    ImGui::SetWindowSize({ m_width * uiScale, m_height * uiScale });
+    ImGui::SetWindowSize({ m_width * uiScale, -1 });
 
     std::string dir = m_currentPath.parent_path().u8string();
     if(fs::is_directory(m_currentPath))
@@ -400,7 +404,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     std::string filepath = "";
 
-    std::string selectBtn = "Select##select";
+    std::string selectBtn = "Select";
     if (saving)
     {
       if (!fs::is_directory(m_currentPath))
@@ -427,9 +431,9 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
       std::error_code ec;
       if (fs::exists(m_currentPath, ec))
-        selectBtn = "Overwrite##select";
+        selectBtn = "Overwrite";
       else
-        selectBtn = "Save##select";
+        selectBtn = "Save";
     }
     else
     {
@@ -439,8 +443,21 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       ImGui::TextWrapped(filepath.data());
     }
 
+    float buttonsYPos = ImGui::GetCursorPosY();
+
     ImGui::Spacing();
-    ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(selectBtn.c_str()).x);
+
+    float selectBtnWidth = ImGui::CalcTextSize(selectBtn.c_str()).x + style.FramePadding.x * 2;
+    float cancelBtnWidth = ImGui::CalcTextSize("Cancel").x + style.FramePadding.x * 2;
+
+    ImGui::SetCursorPos({ ImGui::GetContentRegionAvail().x - (selectBtnWidth + cancelBtnWidth + style.ItemSpacing.x), buttonsYPos });
+
+    if (LesserButton("Cancel"))
+    {
+      ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::SetCursorPos({ ImGui::GetContentRegionAvail().x - selectBtnWidth , buttonsYPos });
 
     // Make the "Select" button look / act disabled if the current selection is a directory.
     ImGui::BeginDisabled(m_currentPathIsDir);

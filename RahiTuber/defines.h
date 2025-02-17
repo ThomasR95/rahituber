@@ -555,10 +555,14 @@ inline sf::Vector2f toSFVector(const ImVec2& vec)
 /// \relates ImVec4
 /// \brief Overload of binary operator *
 ////////////////////////////////////////////////////////////
-template <typename T>
-inline ImVec4 operator *(const ImVec4& left, const T& right)
+inline ImVec4 operator *(const ImVec4& left, const double& right)
 {
 	return ImVec4(left.x * right, left.y * right, left.z * right, left.w * right);
+}
+
+inline ImVec4 operator *(const ImVec4& left, const ImVec4& right)
+{
+	return ImVec4(left.x * right.x, left.y * right.y, left.z * right.z, left.w * right.w);
 }
 
 ////////////////////////////////////////////////////////////
@@ -595,6 +599,20 @@ inline ImVec2 operator +(const ImVec2& left, const ImVec2& right)
 inline ImVec2 operator -(const ImVec2& left, const ImVec2& right)
 {
 	return ImVec2(left.x - right.x, left.y - right.y);
+}
+
+inline bool LesserButton(const char* label, const ImVec2& size_arg = ImVec2(0,0))
+{
+	auto& style = ImGui::GetStyle();
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(0.5, 0.5, 0.5, 1.0);
+	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
+	ImGui::PushStyleColor(ImGuiCol_Button, lessCol);
+	bool res = ImGui::Button(label, size_arg);
+	ImGui::PopStyleColor(2);
+	ImGui::PopStyleVar(1);
+	return res;
+
 }
 
 inline std::string ANSIToUTF8(const std::string& input)

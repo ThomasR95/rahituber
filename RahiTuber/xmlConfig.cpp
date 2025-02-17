@@ -110,6 +110,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("compression", &_audioConfig->_compression);
 
 	common->QueryBoolAttribute("vsync", &_appConfig->_enableVSync);
+	common->QueryAttribute("fpsLimit", &_appConfig->_fpsLimit);
 
 	auto themeElmt = common->FirstChildElement("Theme");
 
@@ -204,6 +205,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("theme", _uiConfig->_theme.c_str());
 
 			common->SetAttribute("vsync", _appConfig->_enableVSync);
+			common->SetAttribute("fpsLimit", _appConfig->_fpsLimit);
 
 			auto themeElmt = common->FirstChildElement("Theme");
 

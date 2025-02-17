@@ -623,7 +623,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory. \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of RahiTuber's directory.", &_appConfig->_hoverTimer);
 
 
-		if (ImGui::Button("Cancel", { -1, ImGui::GetFrameHeight() }))
+		if (LesserButton("Cancel", { -1, ImGui::GetFrameHeight() }))
 		{
 			_saveLayersPortable = false;
 			ImGui::CloseCurrentPopup();
@@ -3254,6 +3254,31 @@ void LayerManager::LayerInfo::CalculateLayerDepth()
 	_lastCalculatedDepth = depth;
 }
 
+bool LayerManager::LayerInfo::EvaluateLayerVisibility()
+{
+	bool visible = _visible;
+	if (_hideWithParent)
+	{
+		LayerInfo* mp = _parent->GetLayer(_motionParent);
+		while (mp != nullptr)
+		{
+			visible &= mp->_visible;
+			if (mp->_hideWithParent)
+				mp = _parent->GetLayer(mp->_motionParent);
+			else
+				break;
+		}
+	}
+
+	if (_inFolder != "")
+	{
+		LayerInfo* folder = _parent->GetLayer(_inFolder);
+		if (folder)
+			visible &= folder->_visible;
+	}
+	return visible;
+}
+
 void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos)
 {
 	float newMotionY = 0;
@@ -3731,7 +3756,8 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 {
-	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled && (_visible || !_mouseUntrackedWhenHidden))
+	bool visible = EvaluateLayerVisibility();
+	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled && (visible || !_mouseUntrackedWhenHidden))
 	{
 		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
 		sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
@@ -4851,7 +4877,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		if (open)
 		{
 			ImGui::SetNextWindowPos({ _parent->_appConfig->_scrW / 2 - 200 * uiScale, _parent->_appConfig->_scrH / 2 - 120 * uiScale });
-			ImGui::SetNextWindowSize({ 400 * uiScale, 240 * uiScale });
+			ImGui::SetNextWindowSize({ 400 * uiScale, -1 });
 			ImGui::OpenPopup("Sprite Sheet Setup");
 
 			auto gridSize = anim.GridSize();
@@ -4870,7 +4896,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 	if (ImGui::BeginPopupModal("Sprite Sheet Setup", &open))
 	{
-		ImGui::SetWindowSize({ 400 * uiScale, 240 * uiScale });
+		ImGui::SetWindowSize({ 400 * uiScale, -1 });
 
 		ImGui::Columns(2, 0, false);
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });
@@ -4932,10 +4958,15 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		}
 		ToolTip("Whether to loop the animation continously", &_parent->_appConfig->_hoverTimer);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, { 0.1,0.5,0.1,1.0 });
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.2,0.8,0.2,1.0 });
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.4,0.8,0.4,1.0 });
-		ImGui::PushStyleColor(ImGuiCol_Text, { 1,1,1,1 });
+		ImGui::Separator();
+
+		if (LesserButton("Cancel"))
+		{
+			open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+
 		if (ImGui::Button("Save"))
 		{
 			anim.SetAttributes(_animFCount, _animGrid[0], _animGrid[1], _animFPS, { _animFrameSize[0], _animFrameSize[1] });
@@ -4943,7 +4974,6 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			open = false;
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::PopStyleColor(4);
 
 		ImGui::PopItemWidth();
 

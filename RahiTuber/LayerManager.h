@@ -190,6 +190,8 @@ public:
 
 		void CalculateLayerDepth();
 
+		bool EvaluateLayerVisibility();
+
 		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos);
 
 		void CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite);

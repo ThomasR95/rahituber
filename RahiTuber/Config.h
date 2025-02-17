@@ -90,6 +90,7 @@ struct AppConfig
 	sf::Vector2i _lastMenuPopPosition = { 0, 0 };
 
 	float _fps = 0;
+	int _fpsLimit = 200;
 
 	sf::Clock _timer;
 

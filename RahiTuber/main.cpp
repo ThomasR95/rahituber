@@ -379,7 +379,7 @@ void initWindow(bool firstStart = false)
 
 	appConfig->_window.setVerticalSyncEnabled(appConfig->_enableVSync);
 
-	appConfig->_window.setFramerateLimit(appConfig->_enableVSync ? 60 : 200);
+	appConfig->_window.setFramerateLimit(appConfig->_enableVSync ? 0 : appConfig->_fpsLimit);
 
 #ifdef _WIN32
 	HWND hwnd = appConfig->_window.getSystemHandle();
@@ -604,6 +604,16 @@ void menuAdvanced(ImGuiStyle& style)
 			initWindow();
 		}
 		ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		ImGui::BeginDisabled(appConfig->_enableVSync);
+		ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
+		if(ImGui::IsItemDeactivatedAfterEdit())
+		{
+			initWindow();
+		}
+		ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
+		ImGui::EndDisabled();
 
 		ImGui::TableNextColumn();
 		if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
@@ -2368,9 +2378,6 @@ void MainLoop()
 			appConfig->_window.setTitle(appConfig->windowName);
 			appConfig->_pendingNameChange = false;
 		}
-
-		//if(appConfig->_enableVSync)
-		//	sf::sleep(sf::milliseconds(8));
 	}
 }
 
