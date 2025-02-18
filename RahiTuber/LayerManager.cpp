@@ -146,6 +146,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 	for (auto layer : calculateOrder)
 	{
+		// Don't calculate if invisible
 		bool calculate = layer->_visible;
 
 		if (layer->_inFolder != "")
@@ -155,21 +156,18 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				calculate &= folder->_visible;
 		}
 
+		// if invisible, re-enable calculation if any other layer needs it as a parent
 		if (!calculate)
 		{
 			for (int l = _layers.size() - 1; l >= 0; l--)
 			{
 				LayerInfo& checkLayer = _layers[l];
 				//check if any layer relies on it as a parent
-				if (!checkLayer._visible)
-					continue;
 				if (checkLayer._motionParent != layer->_id)
-					continue;
-				if (checkLayer._hideWithParent)
-					continue;
-
-				// layer relies on this one to move
-				calculate = true;
+				{
+					calculate = true;
+					break;
+				}
 			}
 		}
 
