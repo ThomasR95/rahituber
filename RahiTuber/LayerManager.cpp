@@ -3255,16 +3255,22 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 	ImGui::PopStyleColor();
 }
 
-void LayerManager::LayerInfo::CalculateLayerDepth()
+void LayerManager::LayerInfo::CalculateLayerDepth(std::vector<LayerInfo*>* parents)
 {
 	if (_parent == nullptr)
 		return;
+
+	if (parents)
+		parents->insert(parents->begin(), this);
 
 	int depth = 0;
 	std::string& searchMotionParent = _motionParent;
 	LayerInfo* mp = _parent->GetLayer(searchMotionParent);
 	while (mp != nullptr)
 	{
+		if (parents)
+			parents->insert(parents->begin(), mp);
+
 		depth++;
 		mp = _parent->GetLayer(mp->_motionParent);
 	}
@@ -3903,10 +3909,22 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 		}
 
+		if (_scrollToHere)
+		{
+			ImGui::SetNextItemOpen(true);
+		}
+
 		if (_layerColor.w != 0)
 			ImGui::PushStyleColor(ImGuiCol_Header, _layerColor);
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
 		{
+			if (_scrollToHere)
+			{
+				_scrollToHere = false;
+				if(!_isFolder)
+					ImGui::SetScrollHereY();
+			}
+
 			if (_layerColor.w != 0)
 				ImGui::PopStyleColor();
 
@@ -4291,6 +4309,42 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (hasParent)
 					{
+
+						if (LesserButton("Inheritance Graph"))
+						{
+							ImGui::OpenPopup("Inheritance Graph##motionInheritanceGraphPopup");
+						}
+
+						if (ImGui::BeginPopup("Inheritance Graph##motionInheritanceGraphPopup"))
+						{
+							std::vector<LayerInfo*> layerParents;
+							CalculateLayerDepth(&layerParents);
+							for (int n = 0; n < layerParents.size(); n++)
+							{
+								auto& graphLayer = *layerParents[n];
+								bool vis = graphLayer.EvaluateLayerVisibility();
+								ImVec4 col = graphLayer._id == _id ? style.Colors[ImGuiCol_ButtonActive] * ImVec4(1.5, 1.5, 1.5, 1.0) : (vis ? style.Colors[ImGuiCol_Text] : style.Colors[ImGuiCol_TextDisabled]);
+								ImGui::PushStyleColor(ImGuiCol_Text, col);
+								if (ImGui::Selectable(graphLayer._name.c_str()))
+								{
+									graphLayer._scrollToHere = true;
+									if (graphLayer._inFolder != "")
+										_parent->GetLayer(graphLayer._inFolder)->_scrollToHere = true;
+								}
+								ImGui::PopStyleColor();
+								ToolTip("Open and scroll to this layer", &_parent->_appConfig->_hoverTimer);
+
+								ImGui::Indent(ImGui::GetFrameHeight());
+							}
+
+							ImGui::Unindent(ImGui::GetFrameHeight()* layerParents.size());
+
+							if (ImGui::Button("Close"))
+								ImGui::CloseCurrentPopup();
+
+							ImGui::EndPopup();
+						}
+
 						float md = _motionDelay;
 						AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
 						if (ImGui::SliderFloat("Delay", &md, 0.0, 1.0, "%.2f s"))

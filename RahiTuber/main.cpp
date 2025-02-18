@@ -1112,7 +1112,7 @@ void menu()
 	ImVec4 col_light2(baseColor2);
 	ImVec4 col_light2a(mean(baseColor2.x, 0.6f), mean(baseColor2.y, 0.6f), mean(baseColor2.z, 0.6f), 1.f);
 	ImVec4 col_light3(powf(baseColor2.x, .3f), powf(baseColor2.y, .3f), powf(baseColor2.z, .3f), 1.f);
-	ImVec4 greyoutCol(0.3f, 0.3f, 0.3f, 1.0f);
+	ImVec4 greyoutCol(col_light3 * ImVec4(1.0,1.0,1.0,0.6));
 
 	sf::Color backdropCol = toSFColor(col_med);
 

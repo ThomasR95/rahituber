@@ -195,6 +195,8 @@ public:
 		bool _renameFirstOpened = false;
 		std::string _renamingString = "";
 
+		bool _scrollToHere = false;
+
 		bool AnyPopupOpen()
 		{
 			return _importIdleOpen || _importTalkOpen || _importBlinkOpen || _importTalkBlinkOpen ||
@@ -203,7 +205,7 @@ public:
 				_renamePopupOpen;
 		}
 
-		void CalculateLayerDepth();
+		void CalculateLayerDepth(std::vector<LayerInfo*>* parents = nullptr);
 
 		bool EvaluateLayerVisibility();
 
@@ -356,6 +358,7 @@ public:
 
 		bool _webRequestActive = true;
 		std::string _webRequest = "";
+
 
 		sf::Clock _timer;
 	};
