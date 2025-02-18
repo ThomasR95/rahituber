@@ -260,7 +260,7 @@ public:
 		float _rotationEffect = 0.f;
 		sf::Vector2f _lastAccel = { 0.f, 0.f };
 		bool _allowIndividualMotion = false;
-		bool _rotationIgnorePivots = false;
+		bool _physicsIgnorePivots = false;
 		MotionStretchType _motionStretch = MS_None;
 		sf::Vector2f _motionStretchStrength = { 1.0f, 1.0f };
 		sf::Vector2f _stretchScaleMin = { 0.5f, 0.5f };

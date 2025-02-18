@@ -1794,7 +1794,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("inheritTint", layer._inheritTint);
 
 			thisLayer->SetAttribute("allowIndividualMotion", layer._allowIndividualMotion);
-			thisLayer->SetAttribute("rotationIgnorePivots", layer._rotationIgnorePivots);
+			thisLayer->SetAttribute("rotationIgnorePivots", layer._physicsIgnorePivots);
 
 			thisLayer->SetAttribute("motionStretch", (int)layer._motionStretch);
 			thisLayer->SetAttribute("stretchStrengthX", layer._motionStretchStrength.x);
@@ -2184,7 +2184,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("rotationEffect", &layer._rotationEffect);
 				thisLayer->QueryAttribute("inheritTint", &layer._inheritTint);
 				thisLayer->QueryAttribute("allowIndividualMotion", &layer._allowIndividualMotion);
-				thisLayer->QueryAttribute("rotationIgnorePivots", &layer._rotationIgnorePivots);
+				thisLayer->QueryAttribute("rotationIgnorePivots", &layer._physicsIgnorePivots);
 
 				thisLayer->QueryAttribute("motionStretch", (int*)&layer._motionStretch);
 				thisLayer->QueryAttribute("stretchStrengthX", &layer._motionStretchStrength.x);
@@ -3532,7 +3532,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
 			pivotDiff = Rotate(pivotDiff, Deg2Rad(totalRot));
 			float lenPivot = Length(pivotDiff);
-			if (_rotationIgnorePivots && movementDist > 0 && _rotationEffect != 0)
+			if (_physicsIgnorePivots && movementDist > 0 && _rotationEffect != 0)
 			{
 				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f));// / movementDist;
 				motionRot += _rotationEffect * rotMult;// *movementDist;
@@ -3549,8 +3549,10 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 
 				//use pivot direction only as a means of deciding the squash direction, not for weighting/strength
 				sf::Vector2f pivotDirLocal = (sf::Vector2f(.5f, .5f) - _pivot);
-				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 1.0 : (int)(pivotDirLocal.x > 0);
-				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 1.0 : (int)(pivotDirLocal.y > 0);
+				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 1.0 : 1.0 - 2.0*(int)(pivotDirLocal.x < 0);
+				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 1.0 : 1.0 - 2.0*(int)(pivotDirLocal.y < 0);
+				if (_physicsIgnorePivots)
+					pivotDirLocal = { 1.0, 1.0 };
 
 				sf::Vector2f pivotStrength = sf::Vector2f( _motionStretchStrength.x * pivotDirLocal.x, _motionStretchStrength.y * pivotDirLocal.y);
 				sf::Vector2f pivotDir = pivotDirLocal / Length(pivotDirLocal);
@@ -4316,9 +4318,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
 						ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer, true);
 
-						ImGui::Checkbox("Ignore pivots", &_rotationIgnorePivots);
-						ToolTip("Ignores the position of the layer's pivot point when calculating rotation.", &_parent->_appConfig->_hoverTimer);
-
 						AddResetButton("stretchReset", _motionStretch, MS_None, _parent->_appConfig, &style);
 						ImGui::Combo("Stretch", (int*)&_motionStretch, g_motionStretchNames, MotionStretch_End);
 						ToolTip("Stretch the sprite along with the motion.\nUses the pivot point as the center of stretch.", &_parent->_appConfig->_hoverTimer);
@@ -4338,6 +4337,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ToolTip("Set the maximum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
 						}
 						
+						ImGui::Checkbox("Ignore pivots", &_physicsIgnorePivots);
+						ToolTip("Ignores the position of the layer's pivot point when calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
 
 						ImGui::Checkbox("Hide with Parent", &_hideWithParent);
 						ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
