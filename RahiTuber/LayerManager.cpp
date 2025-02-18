@@ -1796,6 +1796,14 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("allowIndividualMotion", layer._allowIndividualMotion);
 			thisLayer->SetAttribute("rotationIgnorePivots", layer._rotationIgnorePivots);
 
+			thisLayer->SetAttribute("motionStretch", (int)layer._motionStretch);
+			thisLayer->SetAttribute("stretchStrengthX", layer._motionStretchStrength.x);
+			thisLayer->SetAttribute("stretchStrengthY", layer._motionStretchStrength.y);
+			thisLayer->SetAttribute("stretchMinX", layer._stretchScaleMin.x);
+			thisLayer->SetAttribute("stretchMinY", layer._stretchScaleMin.y);
+			thisLayer->SetAttribute("stretchMaxX", layer._stretchScaleMax.x);
+			thisLayer->SetAttribute("stretchMaxY", layer._stretchScaleMax.y);
+
 			thisLayer->SetAttribute("followMouse", layer._followMouse);
 			if (layer._followMouse)
 			{
@@ -1846,6 +1854,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 	root->SetAttribute("statesPassThrough", _statesPassThrough);
 	root->SetAttribute("statesHideUnaffected", _statesHideUnaffected);
 	root->SetAttribute("statesIgnoreAxis", _statesIgnoreStick);
+
+	root->SetAttribute("DisableRotationEffectFix", _appConfig->_undoRotationEffectFix);
 
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
@@ -2176,6 +2186,14 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("allowIndividualMotion", &layer._allowIndividualMotion);
 				thisLayer->QueryAttribute("rotationIgnorePivots", &layer._rotationIgnorePivots);
 
+				thisLayer->QueryAttribute("motionStretch", (int*)&layer._motionStretch);
+				thisLayer->QueryAttribute("stretchStrengthX", &layer._motionStretchStrength.x);
+				thisLayer->QueryAttribute("stretchStrengthY", &layer._motionStretchStrength.y);
+				thisLayer->QueryAttribute("stretchMinX", &layer._stretchScaleMin.x);
+				thisLayer->QueryAttribute("stretchMinY", &layer._stretchScaleMin.y);
+				thisLayer->QueryAttribute("stretchMaxX", &layer._stretchScaleMax.x);
+				thisLayer->QueryAttribute("stretchMaxY", &layer._stretchScaleMax.y);
+
 				// default to true if it has no parents (v12.0 compatibility)
 				if (layer._motionParent == "")
 					layer._passRotationToChildLayers = true;
@@ -2230,6 +2248,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			root->QueryAttribute("statesPassThrough", &_statesPassThrough);
 			root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
 			root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
+
+			root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
 
 			auto hotkeys = root->FirstChildElement("hotkeys");
 			if (!hotkeys)
@@ -3496,39 +3516,85 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 
 			sf::Vector2f idealAccel = motionPos - oldPos;
 			sf::Vector2f accel = _lastAccel + (idealAccel - _lastAccel) * (1.0f - motionSpring);
-			sf::Vector2f newMpPos = oldPos + (1.0f - motionDrag) * accel;
+			sf::Vector2f newPhysicsPos = oldPos + (1.0f - motionDrag) * accel;
 			_lastAccel = accel;
 
-			sf::Vector2f offset = motionPos - newMpPos;
-			float dist = Length(offset);
+			sf::Vector2f offset = motionPos - newPhysicsPos;
+			float movementDist = Length(offset);
+			
+
+			sf::Vector2f rotOffset = offset;
+			if (!_parent->_appConfig->_undoRotationEffectFix)
+				rotOffset.x *= -1;
+
+			float totalRot = _rot + motionRot + motionParentRot;
 
 			sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
-			pivotDiff = Rotate(pivotDiff, Deg2Rad(motionRot));
+			pivotDiff = Rotate(pivotDiff, Deg2Rad(totalRot));
 			float lenPivot = Length(pivotDiff);
-			if (_rotationIgnorePivots && dist > 0 && _rotationEffect != 0)
+			if (_rotationIgnorePivots && movementDist > 0 && _rotationEffect != 0)
 			{
-				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f));// / dist;
-				motionRot += _rotationEffect * rotMult;// *dist;
+				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f));// / movementDist;
+				motionRot += _rotationEffect * rotMult;// *movementDist;
 			}
-			else if (lenPivot > 0 && dist > 0 && _rotationEffect != 0)
+			else if (lenPivot > 0 && movementDist > 0 && _rotationEffect != 0)
 			{
-				float rotMult = Dot(offset, pivotDiff);// / (dist * lenPivot);
-				motionRot += _rotationEffect * rotMult;// *(dist * lenPivot);
+				float rotMult = Dot(rotOffset, pivotDiff);// / (movementDist * lenPivot);
+				motionRot += _rotationEffect * rotMult;// *(movementDist * lenPivot);
 			}
 
-			physicsPos = newMpPos;
+			if (_idleSprite)
+			{
+				totalRot = _rot + motionRot + motionParentRot;
+
+				//use pivot direction only as a means of deciding the squash direction, not for weighting/strength
+				sf::Vector2f pivotDirLocal = (sf::Vector2f(.5f, .5f) - _pivot);
+				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 1.0 : (int)(pivotDirLocal.x > 0);
+				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 1.0 : (int)(pivotDirLocal.y > 0);
+
+				sf::Vector2f pivotStrength = sf::Vector2f( _motionStretchStrength.x * pivotDirLocal.x, _motionStretchStrength.y * pivotDirLocal.y);
+				sf::Vector2f pivotDir = pivotDirLocal / Length(pivotDirLocal);
+				float angle = atan2(pivotDir.y, pivotDir.x);
+
+				//rotate all to match the sprite
+				sf::Vector2f rotatedOffset = Rotate(offset, Deg2Rad(-totalRot));
+				sf::Vector2f rotatedOffsetDir = rotatedOffset / movementDist;
+
+				sf::Vector2f stretchFactor = pivotStrength * (movementDist / EllipseRadius(angle, _idleSprite->Size()));
+
+				float xStretch = -rotatedOffsetDir.x * stretchFactor.x;
+				float yStretch = -rotatedOffsetDir.y * stretchFactor.y;
+					switch (_motionStretch)
+					{
+					case MS_PreserveVolume:
+					{
+						motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch - yStretch, 1.0 + yStretch - xStretch), _stretchScaleMin, _stretchScaleMax);
+						break;
+					}
+					case MS_Linear:
+						motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch, 1.0 + yStretch), _stretchScaleMin, _stretchScaleMax);
+						break;
+					//case MS_Circular:
+					//	break;
+					case MS_None:
+					default:
+						break;
+					}
+			}
+
+			physicsPos = newPhysicsPos;
 
 			if (_distanceLimit == 0.f)
 			{
-				newMpPos = motionPos;
+				newPhysicsPos = motionPos;
 			}
-			else if (_distanceLimit > 0.f && dist > _distanceLimit)
+			else if (_distanceLimit > 0.f && movementDist >= _distanceLimit)
 			{
-				sf::Vector2f offsetNorm = offset / dist;
-				newMpPos = motionPos + offsetNorm * _distanceLimit;
+				sf::Vector2f offsetDir = offset / movementDist;
+				newPhysicsPos = motionPos - offsetDir * _distanceLimit;
 			}
 
-			motionPos = newMpPos;
+			motionPos = newPhysicsPos;
 		}
 	}
 }
@@ -3767,9 +3833,7 @@ void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 			float moveLength = Length(mouseMove);
 			sf::Vector2f mouseDir = mouseMove / moveLength;
 			float angle = atan2(mouseDir.y, -mouseDir.x);
-			// calculate radius of ellipse from x and y radius components
-			float maxLength = (_mouseAreaSize.x * _mouseAreaSize.y) /
-				pow((pow(_mouseAreaSize.x, 2) * pow(sin(angle), 2) + pow(_mouseAreaSize.y, 2) * pow(cos(angle), 2)), 0.5);
+			float maxLength = EllipseRadius(angle, _mouseAreaSize);
 
 			if (moveLength > maxLength)
 			{
@@ -4245,7 +4309,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Distance limit", &_distanceLimit, -1.0, 500.f, "%.1f");
+						ImGui::SliderFloat("Distance limit", &_distanceLimit, 0.0, 100.f, "%.1f");
 						ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
@@ -4254,6 +4318,26 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::Checkbox("Ignore pivots", &_rotationIgnorePivots);
 						ToolTip("Ignores the position of the layer's pivot point when calculating rotation.", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("stretchReset", _motionStretch, MS_None, _parent->_appConfig, &style);
+						ImGui::Combo("Stretch", (int*)&_motionStretch, g_motionStretchNames, MotionStretch_End);
+						ToolTip("Stretch the sprite along with the motion.\nUses the pivot point as the center of stretch.", &_parent->_appConfig->_hoverTimer);
+
+						if (_motionStretch != MS_None)
+						{
+							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _parent->_appConfig, & style);
+							ImGui::SliderFloat2("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f");
+							ToolTip("Set the strength of the stretch effect.", &_parent->_appConfig->_hoverTimer);
+
+							AddResetButton("minStretchReset", _stretchScaleMin, sf::Vector2f(0.5f, 0.5f), _parent->_appConfig, &style);
+							ImGui::SliderFloat2("Min Scale", &_stretchScaleMin.x, -2.0f, 2.0f, "%.1f");
+							ToolTip("Set the minimum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
+
+							AddResetButton("maxStretchReset", _stretchScaleMax, sf::Vector2f(2.0f, 2.0f), _parent->_appConfig, &style);
+							ImGui::SliderFloat2("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f");
+							ToolTip("Set the maximum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
+						}
+						
 
 						ImGui::Checkbox("Hide with Parent", &_hideWithParent);
 						ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);

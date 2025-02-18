@@ -757,6 +757,9 @@ void menuAdvanced(ImGuiStyle& style)
 
 
 			ImGui::EndTable();
+
+			ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
+			ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
 		}
 
 		ImGui::SeparatorText("Integration");

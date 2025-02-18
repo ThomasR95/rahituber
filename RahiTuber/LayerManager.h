@@ -43,6 +43,19 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 };
 
+
+enum MotionStretchType {
+	MS_None,
+	MS_Linear,
+	MS_PreserveVolume,
+	//MS_Circular,
+	MotionStretch_End
+};
+
+static const char* const g_motionStretchNames[MotionStretch_End] = {
+	"None", "Linear", "Preserve Volume"//, "Circular"
+};
+
 class LayerManager
 {
 public:
@@ -50,6 +63,8 @@ public:
 	LayerManager() {}
 
 	~LayerManager();
+
+	
 
 	struct LayerInfo 
 	{
@@ -246,6 +261,10 @@ public:
 		sf::Vector2f _lastAccel = { 0.f, 0.f };
 		bool _allowIndividualMotion = false;
 		bool _rotationIgnorePivots = false;
+		MotionStretchType _motionStretch = MS_None;
+		sf::Vector2f _motionStretchStrength = { 1.0f, 1.0f };
+		sf::Vector2f _stretchScaleMin = { 0.5f, 0.5f };
+		sf::Vector2f _stretchScaleMax = { 2.0f, 2.0f };
 
 		std::deque<MotionLinkData> _motionLinkData;
 

@@ -341,7 +341,7 @@ inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const T2& right)
 }
 
 
-inline float Clamp(float in, float min, float max)
+inline float Clamp(float in, float min = 0.0, float max = 1.0)
 {
 	if (in < min)
 		return min;
@@ -366,6 +366,24 @@ inline sf::Vector2<T> Clamp(sf::Vector2<T> in, T min, T max)
 
 	if (in.y > max)
 		in.y = max;
+
+	return in;
+}
+
+template <typename T>
+inline sf::Vector2<T> Clamp(sf::Vector2<T> in, sf::Vector2<T> min, sf::Vector2<T> max)
+{
+	if (in.x < min.x)
+		in.x = min.x;
+
+	if (in.x > max.x)
+		in.x = max.x;
+
+	if (in.y < min.y)
+		in.y = min.y;
+
+	if (in.y > max.y)
+		in.y = max.y;
 
 	return in;
 }
@@ -697,6 +715,15 @@ inline sf::Vector2f Rotate(const sf::Vector2f& point, float angle, sf::Vector2f 
 	p.x = xnew + pivot.x;
 	p.y = ynew + pivot.y;
 	return p;
+}
+
+inline float EllipseRadius(float angle, const sf::Vector2f& axes)
+{
+	// calculate radius of ellipse from x and y radius components
+	float radius = (axes.x * axes.y) /
+		pow((pow(axes.x, 2) * pow(sin(angle), 2) + pow(axes.y, 2) * pow(cos(angle), 2)), 0.5);
+
+	return radius;
 }
 
 static std::map<wchar_t, sf::Keyboard::Key> g_specialkey_codes = {

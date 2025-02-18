@@ -114,6 +114,7 @@ struct AppConfig
 	bool _spoutNeedsCPU = false;
 
 	bool _createMinimalLayers = false;
+	bool _undoRotationEffectFix = false;
 
 	bool _mouseTrackingEnabled = true;
 
