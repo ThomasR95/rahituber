@@ -196,13 +196,16 @@ public:
 		std::string _renamingString = "";
 
 		bool _scrollToHere = false;
+		bool _inheritanceGraphOpen = false;
+		bool _inheritanceGraphWasOpen = false;
+		ImVec2 _inheritanceGraphStartPos;
 
 		bool AnyPopupOpen()
 		{
 			return _importIdleOpen || _importTalkOpen || _importBlinkOpen || _importTalkBlinkOpen ||
 				_importScreamOpen ||
 				_spriteIdleOpen || _spriteTalkOpen || _spriteBlinkOpen || _spriteTalkBlinkOpen || _spriteScreamOpen ||
-				_renamePopupOpen;
+				_renamePopupOpen || _inheritanceGraphOpen;
 		}
 
 		void CalculateLayerDepth(std::vector<LayerInfo*>* parents = nullptr);
@@ -552,6 +555,7 @@ private:
 
 	std::string _errorMessage = u8"";
 
+	bool _outOfFocus = false;
 	bool _lastDragMouseDown = false;
 	int _draggedLayer = -1;
 	sf::Vector2f _layerDragPos = { 0,0 };

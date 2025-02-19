@@ -861,6 +861,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 			ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
+			bool outOfFocus = !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow | ImGuiFocusedFlags_NoPopupHierarchy);
+
 			ImVec2 resetPos = ImGui::GetCursorPos();
 
 			int hoveredLayer = GetLayerUnderCursor(_layerDragPos.x, _layerDragPos.y);
@@ -1413,7 +1415,12 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed)
 {
-	if (_statesMenuOpen || _loadXMLOpen || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+	bool anyLayerPopupOpen = false;
+	for (auto& l : _layers)
+		if (l.AnyPopupOpen())
+			anyLayerPopupOpen = true;
+
+	if (_statesMenuOpen || _loadXMLOpen || _outOfFocus || anyLayerPopupOpen || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
 	{
 		_draggedLayer = -1;
 		_dragActive = false;
@@ -3547,7 +3554,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 				motionRot += _rotationEffect * rotMult;// *(movementDist * lenPivot);
 			}
 
-			if (_idleSprite)
+			if (_idleSprite && movementDist > 0)
 			{
 				totalRot = _rot + motionRot + motionParentRot;
 
@@ -4309,40 +4316,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (hasParent)
 					{
-
-						if (LesserButton("Inheritance Graph"))
+						if (LesserButton("View Inheritance Graph"))
 						{
-							ImGui::OpenPopup("Inheritance Graph##motionInheritanceGraphPopup");
-						}
-
-						if (ImGui::BeginPopup("Inheritance Graph##motionInheritanceGraphPopup"))
-						{
-							std::vector<LayerInfo*> layerParents;
-							CalculateLayerDepth(&layerParents);
-							for (int n = 0; n < layerParents.size(); n++)
-							{
-								auto& graphLayer = *layerParents[n];
-								bool vis = graphLayer.EvaluateLayerVisibility();
-								ImVec4 col = graphLayer._id == _id ? style.Colors[ImGuiCol_ButtonActive] * ImVec4(1.5, 1.5, 1.5, 1.0) : (vis ? style.Colors[ImGuiCol_Text] : style.Colors[ImGuiCol_TextDisabled]);
-								ImGui::PushStyleColor(ImGuiCol_Text, col);
-								if (ImGui::Selectable(graphLayer._name.c_str()))
-								{
-									graphLayer._scrollToHere = true;
-									if (graphLayer._inFolder != "")
-										_parent->GetLayer(graphLayer._inFolder)->_scrollToHere = true;
-								}
-								ImGui::PopStyleColor();
-								ToolTip("Open and scroll to this layer", &_parent->_appConfig->_hoverTimer);
-
-								ImGui::Indent(ImGui::GetFrameHeight());
-							}
-
-							ImGui::Unindent(ImGui::GetFrameHeight()* layerParents.size());
-
-							if (ImGui::Button("Close"))
-								ImGui::CloseCurrentPopup();
-
-							ImGui::EndPopup();
+							//ImGui::OpenPopup("Inheritance Graph##motionInheritanceGraphPopup");
+							_inheritanceGraphOpen = true;
+							_inheritanceGraphWasOpen = false;
+							_inheritanceGraphStartPos = ImGui::GetCursorScreenPos();
 						}
 
 						float md = _motionDelay;
@@ -4943,9 +4922,65 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PopStyleColor(4);
 		ImGui::PopStyleVar(2);
 
-
-
 		ImGui::SetCursorPos(oldCursorPos);
+
+		if (_inheritanceGraphOpen)
+		{
+			std::string graphName = "Inheritance Graph (" + _name + ")";
+			if (!_inheritanceGraphWasOpen)
+			{
+				ImGui::SetNextWindowPos(_inheritanceGraphStartPos, 0, {0,1});
+				ImGui::SetNextWindowFocus();
+			}
+			ImGui::SetNextWindowSizeConstraints({ ImGui::CalcTextSize(graphName.c_str()).x + ImGui::GetFrameHeight() * 2, 0 }, ImGui::GetWindowSize());
+
+			if (ImGui::Begin(graphName.c_str(), 0, ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				_inheritanceGraphWasOpen = true;
+
+				float treeIndent = ImGui::GetFrameHeight() * 0.8;
+				std::vector<LayerInfo*> layerParents;
+				CalculateLayerDepth(&layerParents);
+				for (int n = 0; n < layerParents.size(); n++)
+				{
+					ImGui::Indent(treeIndent);
+
+					auto& graphLayer = *layerParents[n];
+					bool vis = graphLayer.EvaluateLayerVisibility();
+					ImVec4 col = graphLayer._id == _id ? style.Colors[ImGuiCol_ButtonActive] * ImVec4(2, 2, 2, 0.8) : (vis ? style.Colors[ImGuiCol_Text] : style.Colors[ImGuiCol_TextDisabled]);
+					ImGui::PushStyleColor(ImGuiCol_Text, col);
+					auto cursPos = ImGui::GetCursorScreenPos();
+					if (ImGui::Selectable(graphLayer._name.c_str(), false, ImGuiSelectableFlags_NoAutoClosePopups))
+					{
+						graphLayer._scrollToHere = true;
+						if (graphLayer._inFolder != "")
+							_parent->GetLayer(graphLayer._inFolder)->_scrollToHere = true;
+					}
+					ImGui::PopStyleColor();
+					ToolTip("Open and scroll to this layer", &_parent->_appConfig->_hoverTimer);
+
+					if (n > 0)
+					{
+						auto* drawList = ImGui::GetWindowDrawList();
+						cursPos.y += treeIndent / 2;
+						cursPos.x -= treeIndent * 0.3f;
+						ImVec2 linePos1 = { cursPos.x - treeIndent * 1.3f, cursPos.y };
+						ImVec2 linePos2 = { linePos1.x, linePos1.y - treeIndent };
+						ImVec2 points[3] = { linePos2, linePos1, cursPos };
+						drawList->AddPolyline(points, 3, ImGui::ColorConvertFloat4ToU32(col), ImDrawFlags_None, 2.0);
+					}
+				}
+
+				ImGui::Unindent(treeIndent * layerParents.size());
+
+				if (ImGui::Button("Close"))
+				{
+					_inheritanceGraphOpen = false;
+					_inheritanceGraphWasOpen = false;
+				}
+			}
+			ImGui::End();
+		}
 
 	}ImGui::PopID();
 
