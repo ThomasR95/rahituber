@@ -147,14 +147,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (auto layer : calculateOrder)
 	{
 		// Don't calculate if invisible
-		bool calculate = layer->_visible;
-
-		if (layer->_inFolder != "")
-		{
-			LayerInfo* folder = GetLayer(layer->_inFolder);
-			if (folder)
-				calculate &= folder->_visible;
-		}
+		bool calculate = layer->EvaluateLayerVisibility();
 
 		// if invisible, re-enable calculation if any other layer needs it as a parent
 		if (!calculate)
@@ -180,26 +173,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	{
 		LayerInfo& layer = _layers[l];
 
-		bool visible = layer._visible;
-		if (layer._hideWithParent)
-		{
-			LayerInfo* mp = GetLayer(layer._motionParent);
-			while (mp != nullptr)
-			{
-				visible &= mp->_visible;
-				if (mp->_hideWithParent)
-					mp = GetLayer(mp->_motionParent);
-				else
-					break;
-			}
-		}
-
-		if (layer._inFolder != "")
-		{
-			LayerInfo* folder = GetLayer(layer._inFolder);
-			if (folder)
-				visible &= folder->_visible;
-		}
+		bool visible = layer.EvaluateLayerVisibility();
 
 		if (visible)
 		{
@@ -237,8 +211,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					sf::RenderStates tmpState = sf::RenderStates::Default;
 					tmpState.blendMode = g_blendmodes["Normal"];
 
-					layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
 					layer._activeSprite->setOrigin({ size.x / 2, size.y / 2 });
+					layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
 					layer._activeSprite->setRotation(0);
 
 					layer._idleSprite->Draw(&_blendingRT, tmpState);

@@ -6,6 +6,7 @@
 #include <deque>
 #include <thread>
 #include <chrono>
+#include <string>
 
 inline void ev_handler(struct mg_connection* c, int ev, void* ev_data);
 

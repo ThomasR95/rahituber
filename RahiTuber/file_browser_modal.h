@@ -38,6 +38,8 @@ namespace imgui_ext {
     float m_width = 400;
     float m_height = 400;
 
+    std::string m_savingName = "";
+
   public:
 
     file_browser_modal(const char* title);

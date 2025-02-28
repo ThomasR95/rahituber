@@ -311,15 +311,22 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
       m_currentPathIsDir = fs::is_directory(m_currentPath);
 
+      m_savingName = "";
+
       fs::path initDirectory = m_currentPath;
       if (!m_currentPathIsDir)
-        initDirectory = m_currentPath.parent_path();
+      {
+          m_savingName = m_currentPath.filename().replace_extension("").string();
+          initDirectory = m_currentPath.parent_path();
+      }
 
       if (initDirectory.empty() || initDirectory == "")
       {
         m_currentPath = fs::current_path();
         m_currentPathIsDir = true;
       }
+
+      
 
       //Update paths based on current path
       get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
@@ -394,9 +401,23 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       m_currentPathIsDir = fs::is_directory(m_currentPath);
 
       //If the selection is a directory, repopulate the list with the contents of that directory.
-      if (m_currentPathIsDir) {
+      if (m_currentPathIsDir) 
+      {
         get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
         m_selection = 0;
+      }
+      else
+      {
+        bool accepted = false;
+        for (auto& str : _acceptedExt)
+            if (str == m_currentPath.extension())
+            {
+                accepted = true;
+                break;
+            }
+
+        if(accepted)
+            m_savingName = m_currentPath.filename().replace_extension("").string();
       }
     }
     ImGui::PopID();
@@ -407,16 +428,22 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     std::string selectBtn = "Select";
     if (saving)
     {
-      if (!fs::is_directory(m_currentPath))
-        filepath = m_currentPath.string();
+        if (!fs::is_directory(m_currentPath))
+            filepath = m_currentPath.string();
+        else if (m_savingName != "")
+            filepath = fs::path(m_currentPath).append(m_savingName).replace_extension(".xml").string();
       ImGui::TextWrapped(ANSIToUTF8(filepath).data());
 
-      std::string editName = m_currentPath.filename().replace_extension("").string();
+      std::string editName = m_savingName;
+      if (!fs::is_directory(m_currentPath))
+          editName = m_currentPath.filename().replace_extension("").string();
+
       char editBuf[MAX_PATH] = " ";
       ANSIToUTF8(editName).copy(editBuf, MAX_PATH);
       if (ImGui::InputText("Layer Set Name", editBuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ElideLeft))
       {
-        m_currentPath.replace_filename(UTF8ToANSI(editBuf));
+        m_savingName = UTF8ToANSI(editBuf);
+        m_currentPath.replace_filename(m_savingName);
         if (m_currentPath.has_extension() == false)
         {
           m_currentPath = fs::path(m_currentPath.string() + ".xml");
