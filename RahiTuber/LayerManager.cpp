@@ -330,11 +330,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				target->draw(box, state);
 				target->draw(circle, state);
 
+				float targetSize = 10 * _appConfig->mainWindowScaling;
+				float targetLineW = 2 * _appConfig->mainWindowScaling;
+
+				// Draw Crosshair for mouse tracking
 				if (layerHovered && layer._followMouse)
 				{
 					auto targetColor = toSFColor(theme.second * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
-					float targetSize = 10 * _appConfig->mainWindowScaling;
-					float targetLineW = 2 * _appConfig->mainWindowScaling;
 					auto circle2 = sf::CircleShape(targetSize, 16);
 					auto targetPos = layer._mouseNeutralPos - (sf::Vector2f)_appConfig->_window.getPosition();
 					circle2.setPosition(targetPos);
@@ -356,7 +358,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					target->draw(lineV, sf::RenderStates::Default);
 					target->draw(circle2, sf::RenderStates::Default);
 				}
-
 			}
 		}
 	}
@@ -1783,6 +1784,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("stretchMaxX", layer._stretchScaleMax.x);
 			thisLayer->SetAttribute("stretchMaxY", layer._stretchScaleMax.y);
 
+			thisLayer->SetAttribute("weightPosX", layer._weightDirection.x);
+			thisLayer->SetAttribute("weightPosY", layer._weightDirection.y);
+
 			thisLayer->SetAttribute("followMouse", layer._followMouse);
 			if (layer._followMouse)
 			{
@@ -2172,6 +2176,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("stretchMinY", &layer._stretchScaleMin.y);
 				thisLayer->QueryAttribute("stretchMaxX", &layer._stretchScaleMax.x);
 				thisLayer->QueryAttribute("stretchMaxY", &layer._stretchScaleMax.y);
+
+				thisLayer->QueryAttribute("weightPosX", &layer._weightDirection.x);
+				thisLayer->QueryAttribute("weightPosY", &layer._weightDirection.y);
 
 				// default to true if it has no parents (v12.0 compatibility)
 				if (layer._motionParent == "")
@@ -3507,7 +3514,6 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			sf::Vector2f offset = motionPos - newPhysicsPos;
 			float movementDist = Length(offset);
 			
-
 			sf::Vector2f rotOffset = offset;
 			if (!_parent->_appConfig->_undoRotationEffectFix)
 				rotOffset.x *= -1;
@@ -3515,14 +3521,15 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			float totalRot = _rot + motionRot + motionParentRot;
 
 			sf::Vector2f pivotDiff = _pivot - sf::Vector2f(.5f, .5f);
-			pivotDiff = Rotate(pivotDiff, Deg2Rad(totalRot));
-			float lenPivot = Length(pivotDiff);
-			if (_physicsIgnorePivots && movementDist > 0 && _rotationEffect != 0)
+			if (_physicsIgnorePivots)
 			{
-				float rotMult = Dot(offset, sf::Vector2f(0.f, 1.f));// / movementDist;
-				motionRot += _rotationEffect * rotMult;// *movementDist;
+				pivotDiff = -_weightDirection;
 			}
-			else if (lenPivot > 0 && movementDist > 0 && _rotationEffect != 0)
+			pivotDiff = Rotate(pivotDiff, Deg2Rad(totalRot));
+			
+			float lenPivot = Length(pivotDiff);
+
+			if (lenPivot > 0 && movementDist > 0 && _rotationEffect != 0)
 			{
 				float rotMult = Dot(rotOffset, pivotDiff);// / (movementDist * lenPivot);
 				motionRot += _rotationEffect * rotMult;// *(movementDist * lenPivot);
@@ -3534,14 +3541,23 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 
 				//use pivot direction only as a means of deciding the squash direction, not for weighting/strength
 				sf::Vector2f pivotDirLocal = (sf::Vector2f(.5f, .5f) - _pivot);
-				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 1.0 : 1.0 - 2.0*(int)(pivotDirLocal.x < 0);
-				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 1.0 : 1.0 - 2.0*(int)(pivotDirLocal.y < 0);
 				if (_physicsIgnorePivots)
-					pivotDirLocal = { 1.0, 1.0 };
+					pivotDirLocal = _weightDirection;
 
-				sf::Vector2f pivotStrength = sf::Vector2f( _motionStretchStrength.x * pivotDirLocal.x, _motionStretchStrength.y * pivotDirLocal.y);
-				sf::Vector2f pivotDir = pivotDirLocal / Length(pivotDirLocal);
-				float angle = atan2(pivotDir.y, pivotDir.x);
+				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 0.0 : 1.0 - 2.0*(int)(pivotDirLocal.x < 0);
+				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 0.0 : 1.0 - 2.0*(int)(pivotDirLocal.y < 0);
+				
+				sf::Vector2f pivotStrength = sf::Vector2f( _motionStretchStrength.x * (pivotDirLocal.x == 0 ? 1 : pivotDirLocal.x), _motionStretchStrength.y * (pivotDirLocal.y == 0 ? 1 : pivotDirLocal.y));
+				float pivotLen = Length(pivotDirLocal);
+				sf::Vector2f pivotDir = pivotDirLocal / (pivotLen == 0 ? 1 : pivotLen);
+				float angle = pivotLen == 0 ? 0 : atan2(pivotDir.y, pivotDir.x);
+
+				// make the offset symmetrical if the corresponding pivot axis is 0
+				if (pivotDirLocal.x == 0)
+					offset.x = -Abs(offset.x);
+
+				if (pivotDirLocal.y == 0)
+					offset.y = -Abs(offset.y);
 
 				//rotate all to match the sprite
 				sf::Vector2f rotatedOffset = Rotate(offset, Deg2Rad(-totalRot));
@@ -4343,8 +4359,48 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 						
 						ImGui::Checkbox("Ignore pivots", &_physicsIgnorePivots);
-						ToolTip("Ignores the position of the layer's pivot point when calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Ignores the position of the layer's pivot point\nwhen calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
 
+						if (_physicsIgnorePivots)
+						{
+							float spacing = style.ItemSpacing.x;
+							float spacingY = style.ItemSpacing.y;
+							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+
+							if (ImGui::RadioButton("##topleft", _weightDirection == sf::Vector2f(-1.0, -1.0))) { _weightDirection = {-1.0, -1.0}; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine(); 
+							if (ImGui::RadioButton("##top", _weightDirection == sf::Vector2f(0.0, -1.0))) { _weightDirection = { 0.0, -1.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine(); 
+							if (ImGui::RadioButton("##topRight", _weightDirection == sf::Vector2f(1.0, -1.0))) { _weightDirection = { 1.0, -1.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+
+							if (ImGui::RadioButton("##left", _weightDirection == sf::Vector2f(-1.0, 0.0))) { _weightDirection = { -1.0, 0.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine();
+							if (ImGui::RadioButton("##middle", _weightDirection == sf::Vector2f(0.0, 0.0))) { _weightDirection = { 0.0, 0.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine();
+							if (ImGui::RadioButton("##right", _weightDirection == sf::Vector2f(1.0, 0.0))) { _weightDirection = { 1.0, 0.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine(0, spacing*2);
+							ImGui::Text("Weight Direction");
+
+							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,spacingY*2 });
+
+							if (ImGui::RadioButton("##bottomleft", _weightDirection == sf::Vector2f(-1.0, 1.0))) { _weightDirection = { -1.0, 1.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine();
+							if (ImGui::RadioButton("##bottom", _weightDirection == sf::Vector2f(0.0, 1.0))) { _weightDirection = { 0.0, 1.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ImGui::SameLine();
+							if (ImGui::RadioButton("##bottomright", _weightDirection == sf::Vector2f(1.0, 1.0))) { _weightDirection = { 1.0, 1.0 }; }
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+						
+							ImGui::PopStyleVar(2);
+						}
+						
 						ImGui::Checkbox("Hide with Parent", &_hideWithParent);
 						ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
 
@@ -4390,7 +4446,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SetCursorPos(oldCursorPos);
 				ImGui::PopItemWidth();
 
-				if (!hasParent || _allowIndividualMotion)
+				bool indivDisabled = !hasParent || _allowIndividualMotion;
+
+				ImGui::BeginDisabled(indivDisabled);
 				{
 					if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowItemOverlap))
 					{
@@ -4558,6 +4616,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						BetterUnindent("indivMotion" + _id);
 					}
 				}
+				ImGui::EndDisabled();
+				if (indivDisabled)
+				{
+					auto curpos = ImGui::GetCursorPos();
+					ImGui::SetCursorScreenPos(ImGui::GetItemRectMin());
+					ImGui::InvisibleButton("indivMotionDisabledTooltip", ImGui::GetItemRectSize());
+					ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
+					ImGui::SetCursorPos(curpos);
+				}
 
 				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
 				{
@@ -4704,6 +4771,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 
 					BetterUnindent("transforms" + _id);
+				}
+				else
+				{
+					ToolTip("Set the Position, Scale and Rotation of the layer\n(also Pivot Point and Mouse Tracking)", &_parent->_appConfig->_hoverTimer);
 				}
 				ImGui::Separator();
 

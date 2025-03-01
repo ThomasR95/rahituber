@@ -270,6 +270,7 @@ public:
 		sf::Vector2f _motionStretchStrength = { 1.0f, 1.0f };
 		sf::Vector2f _stretchScaleMin = { 0.5f, 0.5f };
 		sf::Vector2f _stretchScaleMax = { 2.0f, 2.0f };
+		sf::Vector2f _weightDirection = { 0.f, 1.f };
 
 		std::deque<MotionLinkData> _motionLinkData;
 

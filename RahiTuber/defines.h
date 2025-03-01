@@ -693,7 +693,11 @@ inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)
 
 inline double Deg2Rad(const float& a)
 {
-	return a / 180.0 * PI;
+	return (a / 180.0) * PI;
+}
+inline double Rad2Deg(const float& a)
+{
+	return (a / PI) * 180.0;
 }
 
 inline sf::Vector2f Rotate(const sf::Vector2f& point, float angle, sf::Vector2f pivot = { 0.f, 0.f })
