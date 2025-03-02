@@ -27,7 +27,7 @@ private:
 
   HHOOK _mouseHookHandle = NULL;
 
-	std::map<sf::Keyboard::Key, bool> _keysPressed;
+	std::map<sf::Keyboard::Scan::Scancode, bool> _keysPressed;
 
   wchar_t GetCharFromKey(int vkCode)
   {

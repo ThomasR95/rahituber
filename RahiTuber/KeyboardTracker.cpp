@@ -138,7 +138,7 @@ void KeyboardTracker::SetHook(bool enable)
 
 void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
 {
-  sf::Keyboard::Key keycode = sf::Keyboard::Unknown;
+  sf::Keyboard::Scan::Scancode keycode = sf::Keyboard::Scan::Scancode::Unknown;
 
   int vkCode = kbdStruct->vkCode;
   if (g_key_codes.count(vkCode) != 0)
@@ -159,9 +159,9 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
 
   _keysPressed[keycode] = keyDown;
 
-  bool isCtrl = (keycode == sf::Keyboard::LControl) || (keycode == sf::Keyboard::RControl);
-  bool isShift = (keycode == sf::Keyboard::LShift) || (keycode == sf::Keyboard::RShift);
-  bool isAlt = (keycode == sf::Keyboard::LAlt) || (keycode == sf::Keyboard::RAlt);
+  bool isCtrl = (keycode == sf::Keyboard::Scan::LControl) || (keycode == sf::Keyboard::Scan::RControl);
+  bool isShift = (keycode == sf::Keyboard::Scan::LShift) || (keycode == sf::Keyboard::Scan::RShift);
+  bool isAlt = (keycode == sf::Keyboard::Scan::LAlt) || (keycode == sf::Keyboard::Scan::RAlt);
 
   bool isModifier = isCtrl || isShift || isAlt;
 
@@ -170,11 +170,11 @@ void KeyboardTracker::HandleKeystroke(PKBDLLHOOKSTRUCT kbdStruct, bool keyDown)
 
   sf::Event evt;
 
-  evt.key.control = _keysPressed[sf::Keyboard::LControl] || _keysPressed[sf::Keyboard::RControl];
-  evt.key.shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
-  evt.key.alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
+  evt.key.control = _keysPressed[sf::Keyboard::Scan::LControl] || _keysPressed[sf::Keyboard::Scan::RControl];
+  evt.key.shift = _keysPressed[sf::Keyboard::Scan::LShift] || _keysPressed[sf::Keyboard::Scan::RShift];
+  evt.key.alt = _keysPressed[sf::Keyboard::Scan::LAlt] || _keysPressed[sf::Keyboard::Scan::RAlt];
 
-  evt.key.code = keycode;
+  evt.key.scancode = keycode;
 
   if(keyDown)
     evt.type = sf::Event::KeyPressed;
@@ -199,9 +199,9 @@ void KeyboardTracker::HandleMousePress(int button, bool keyDown)
 {
   sf::Event evt;
 
-  evt.key.control = _keysPressed[sf::Keyboard::LControl] || _keysPressed[sf::Keyboard::RControl];
-  evt.key.shift = _keysPressed[sf::Keyboard::LShift] || _keysPressed[sf::Keyboard::RShift];
-  evt.key.alt = _keysPressed[sf::Keyboard::LAlt] || _keysPressed[sf::Keyboard::RAlt];
+  evt.key.control = _keysPressed[sf::Keyboard::Scan::LControl] || _keysPressed[sf::Keyboard::Scan::RControl];
+  evt.key.shift = _keysPressed[sf::Keyboard::Scan::LShift] || _keysPressed[sf::Keyboard::Scan::RShift];
+  evt.key.alt = _keysPressed[sf::Keyboard::Scan::LAlt] || _keysPressed[sf::Keyboard::Scan::RAlt];
 
   if (keyDown)
     evt.type = sf::Event::MouseButtonPressed;

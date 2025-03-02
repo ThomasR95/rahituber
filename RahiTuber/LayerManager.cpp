@@ -1862,7 +1862,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 		thisHotkey->SetAttribute("name", stateInfo._name.c_str());
 
-		thisHotkey->SetAttribute("key", (int)stateInfo._key);
+		if(stateInfo._key != sf::Keyboard::Unknown)
+			thisHotkey->SetAttribute("key", (int)stateInfo._key);
+		if(stateInfo._scancode != sf::Keyboard::Scan::Unknown)
+			thisHotkey->SetAttribute("scancode", (int)stateInfo._scancode);
+
 		thisHotkey->SetAttribute("ctrl", stateInfo._ctrl);
 		thisHotkey->SetAttribute("shift", stateInfo._shift);
 		thisHotkey->SetAttribute("alt", stateInfo._alt);
@@ -2261,6 +2265,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				int key = -1;
 				thisHotkey->QueryAttribute("key", &key);
 				hkey._key = (sf::Keyboard::Key)key;
+
+				key = -1;
+				thisHotkey->QueryAttribute("scancode", &key);
+				hkey._scancode = (sf::Keyboard::Scan::Scancode)key;
+
 				thisHotkey->QueryAttribute("ctrl", &hkey._ctrl);
 				thisHotkey->QueryAttribute("shift", &hkey._shift);
 				thisHotkey->QueryAttribute("alt", &hkey._alt);
@@ -2354,6 +2363,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			return;
 
 	sf::Keyboard::Key key = evt.key.code;
+	sf::Keyboard::Scan::Scancode scancode = evt.key.scancode;
 	bool ctrl = evt.key.control;
 	bool shift = evt.key.shift;
 	bool alt = evt.key.alt;
@@ -2394,8 +2404,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 		bool match = false;
 		if ((evt.type == sf::Event::KeyPressed || evt.type == sf::Event::KeyReleased)
-			&& key != sf::Keyboard::Unknown
-			&& stateInfo._key == key
+			&& (key != sf::Keyboard::Unknown && stateInfo._key == key) || (scancode != sf::Keyboard::Scan::Unknown && stateInfo._scancode == scancode)
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 			match = true;
 		else if (evt.type == sf::Event::JoystickButtonPressed && stateInfo._jButton == jButton && stateInfo._jPadID == jPadID)
@@ -2575,8 +2584,10 @@ void LayerManager::CheckHotkeys()
 		if (!canTrigger)
 			continue;
 
+		bool codePressed = stateInfo._key != -1 && sf::Keyboard::isKeyPressed(stateInfo._key);
+		bool scanPressed = stateInfo._scancode != -1 && sf::Keyboard::isKeyPressed(stateInfo._scancode);
 
-		if (stateInfo._key != -1 && sf::Keyboard::isKeyPressed(stateInfo._key)
+		if ((codePressed || scanPressed)
 			&& stateInfo._ctrl == ctrl && stateInfo._shift == shift && stateInfo._alt == alt)
 		{
 			if (stateInfo._wasTriggered == false)
@@ -2781,8 +2792,20 @@ void LayerManager::DrawStatesGUI()
 		{
 			auto& state = _states[stateIdx];
 
-			std::string keyName = g_key_names[state._key];
-			if (state._key == sf::Keyboard::Unknown)
+			std::string keyName = "";
+			if (state._scancode != sf::Keyboard::Scan::Unknown)
+			{
+				if (g_scancode_names.count(state._scancode))
+					keyName = g_scancode_names[state._scancode];
+				else
+					keyName = sf::Keyboard::getDescription(state._scancode);
+			}
+			else if (state._key != sf::Keyboard::Unknown)
+				keyName = g_key_names[state._key];
+
+			bool noKey = state._key == sf::Keyboard::Unknown && state._scancode == sf::Keyboard::Scan::Unknown;
+
+			if (noKey)
 			{
 				if (state._awaitingHotkey)
 					keyName = "---";
@@ -2862,7 +2885,7 @@ void LayerManager::DrawStatesGUI()
 					ImGui::SetColumnWidth(1, style.ItemSpacing.x * 33);
 					ImGui::SetColumnWidth(2, style.ItemSpacing.x * 100);
 					std::string btnName = keyName;
-					if (state._key == sf::Keyboard::Unknown && state._jButton == -1 && state._jPadID == -1 && state._mouseButton == -1)
+					if (noKey && state._jButton == -1 && state._jPadID == -1 && state._mouseButton == -1)
 						btnName = " Click to\nrecord key";
 					if (state._awaitingHotkey)
 						btnName = "(press a key)";
@@ -2870,6 +2893,7 @@ void LayerManager::DrawStatesGUI()
 						if (ImGui::Button(btnName.c_str(), { style.ItemSpacing.x * 43,style.ItemSpacing.x * 12 }) && !_waitingForHotkey)
 						{
 							_pendingKey = sf::Keyboard::Unknown;
+							_pendingKeyScan = sf::Keyboard::Scan::Unknown;
 							_pendingCtrl = false;
 							_pendingShift = false;
 							_pendingAlt = false;
@@ -2916,6 +2940,7 @@ void LayerManager::DrawStatesGUI()
 						state._jDir = 0.f;
 						state._jButton = -1;
 						state._key = sf::Keyboard::Unknown;
+						state._scancode = sf::Keyboard::Scan::Unknown;
 						state._jAxis = -1;
 						state._jPadID = -1;
 
@@ -2925,7 +2950,12 @@ void LayerManager::DrawStatesGUI()
 							state._mouseButton = _pendingMouseButton;
 							set = true;
 						}
-						if (_pendingKey != sf::Keyboard::Unknown)
+						if (_pendingKeyScan != sf::Keyboard::Scan::Unknown)
+						{
+							state._scancode = _pendingKeyScan;
+							set = true;
+						}
+						else if (_pendingKey != sf::Keyboard::Unknown)
 						{
 							state._key = _pendingKey;
 							set = true;

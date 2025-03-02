@@ -93,11 +93,14 @@ public:
 		// Compare the name with the list of known names and decide 
 
 		// Note: For this to work, the executable name must be "mididump.exe"
+#ifdef PROGRAM_NAME
 		if (_wcsicmp(szFileName, PROGRAM_NAME) == 0)
 		{
 			return true;
 		}
-		else if (_wcsicmp(szFileName, L"ntdll") == 0)
+		else 
+#endif
+			if (_wcsicmp(szFileName, L"ntdll") == 0)
 		{
 			return true;
 		}

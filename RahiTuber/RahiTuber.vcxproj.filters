@@ -227,6 +227,9 @@
     <ClInclude Include="mongoose-7.16\mongoose.h">
       <Filter>Source Files\mongoose</Filter>
     </ClInclude>
+    <ClInclude Include="MainEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RahiTuber.rc">

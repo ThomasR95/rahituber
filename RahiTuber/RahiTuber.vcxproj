@@ -312,6 +312,7 @@
     <ClInclude Include="imgui\misc\single_file\imgui_single_file.h" />
     <ClInclude Include="KeyboardTracker.h" />
     <ClInclude Include="LayerManager.h" />
+    <ClInclude Include="MainEngine.h" />
     <ClInclude Include="mongoose-7.16\mongoose.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="spout2\Spout.h" />

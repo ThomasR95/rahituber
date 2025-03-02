@@ -200,12 +200,21 @@ public:
 		bool _inheritanceGraphWasOpen = false;
 		ImVec2 _inheritanceGraphStartPos;
 
-		bool AnyPopupOpen()
+		bool AnyPopupOpen() const
 		{
 			return _importIdleOpen || _importTalkOpen || _importBlinkOpen || _importTalkBlinkOpen ||
 				_importScreamOpen ||
 				_spriteIdleOpen || _spriteTalkOpen || _spriteBlinkOpen || _spriteTalkBlinkOpen || _spriteScreamOpen ||
 				_renamePopupOpen || _inheritanceGraphOpen;
+		}
+
+		void CloseAllPopups()
+		{
+			_importIdleOpen = _importTalkOpen = _importBlinkOpen = _importTalkBlinkOpen =
+			_importScreamOpen =
+			_spriteIdleOpen = _spriteTalkOpen = _spriteBlinkOpen = _spriteTalkBlinkOpen = _spriteScreamOpen =
+			_renamePopupOpen = _inheritanceGraphOpen =
+			false;
 		}
 
 		void CalculateLayerDepth(std::vector<LayerInfo*>* parents = nullptr);
@@ -310,6 +319,7 @@ public:
 		bool _alternateHeld = false;
 
 		sf::Keyboard::Key _key = sf::Keyboard::Unknown;
+		sf::Keyboard::Scan::Scancode _scancode = sf::Keyboard::Scan::Unknown;
 		bool _ctrl = false;
 		bool _shift = false;
 		bool _alt = false;
@@ -411,6 +421,7 @@ public:
 		if (evt.type == sf::Event::KeyPressed)
 		{
 			_pendingKey = evt.key.code;
+			_pendingKeyScan = evt.key.scancode;
 			_pendingCtrl = evt.key.control;
 			_pendingShift = evt.key.shift;
 			_pendingAlt = evt.key.alt;
@@ -448,6 +459,19 @@ public:
 	void CheckHotkeys();
 
 	void ResetStates();
+
+	void CloseAllPopups()
+	{
+		_statesMenuOpen = false;
+		_oldStatesMenuOpen = false;
+		_saveAsXMLOpen = false;
+		_saveXMLOpen = false;
+		_loadXMLOpen = false;
+		_reloadXMLOpen = false;
+
+		for (auto& l : _layers)
+			l.CloseAllPopups();
+	}
 
 	LayerInfo* GetLayer(std::string id, int* idx = nullptr)
 	{
@@ -530,6 +554,7 @@ private:
 	bool _oldStatesMenuOpen = false;
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
+	sf::Keyboard::Scan::Scancode _pendingKeyScan = sf::Keyboard::Scan::Unknown;
 	bool _pendingCtrl = false;
 	bool _pendingShift = false;
 	bool _pendingAlt = false;
