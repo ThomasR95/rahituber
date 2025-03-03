@@ -2600,11 +2600,14 @@ void LayerManager::CheckHotkeys()
 				changed = true;
 			keyDown = true;
 		}
-		else if (stateInfo._jPadID != -1 && ImGui::IsAnyItemHovered() == false && stateInfo._mouseButton != -1 && sf::Mouse::isButtonPressed((sf::Mouse::Button)stateInfo._mouseButton))
+		else if (stateInfo._mouseButton != -1 && sf::Mouse::isButtonPressed((sf::Mouse::Button)stateInfo._mouseButton))
 		{
-			if (stateInfo._wasTriggered == false)
-				changed = true;
-			keyDown = true;
+			if (ImGui::IsAnyItemHovered() == false)
+			{
+				if (stateInfo._wasTriggered == false)
+					changed = true;
+				keyDown = true;
+			}
 		}
 		else if (stateInfo._jPadID != -1 && _statesIgnoreStick == false && stateInfo._jAxis != -1)
 		{
@@ -4476,9 +4479,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SetCursorPos(oldCursorPos);
 				ImGui::PopItemWidth();
 
-				bool indivDisabled = !hasParent || _allowIndividualMotion;
+				bool indivEnabled = !hasParent || _allowIndividualMotion;
 
-				ImGui::BeginDisabled(indivDisabled);
+				ImGui::BeginDisabled(!indivEnabled);
 				{
 					if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowItemOverlap))
 					{
@@ -4647,7 +4650,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 				}
 				ImGui::EndDisabled();
-				if (indivDisabled)
+				if (!indivEnabled)
 				{
 					auto curpos = ImGui::GetCursorPos();
 					ImGui::SetCursorScreenPos(ImGui::GetItemRectMin());
