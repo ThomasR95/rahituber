@@ -1887,8 +1887,7 @@ public:
 		if (audioConfig->_frameHi != 0.0)
 		{
 			//update audio data for this frame
-			if (audioConfig->_frameHi < 0) audioConfig->_frameHi *= -1.0;
-			audioConfig->_frame = audioConfig->_frameHi;
+			audioConfig->_frame = Abs(audioConfig->_frameHi);
 
 			audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
 			audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;

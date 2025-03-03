@@ -284,6 +284,9 @@ public:
 		std::deque<MotionLinkData> _motionLinkData;
 
 		float _lastTalkFactor = 0.0;
+		bool _smoothTalkFactor = false;
+		float _smoothTalkFactorSize = 5;
+		float _talkRunningAverage = 0.0;
 
 		sf::Clock _frameTimer;
 		sf::Clock _physicsTimer;

@@ -1669,6 +1669,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		{
 			thisLayer->SetAttribute("talking", layer._swapWhenTalking);
 			thisLayer->SetAttribute("talkThreshold", layer._talkThreshold);
+			thisLayer->SetAttribute("smoothInput", layer._smoothTalkFactor);
+			thisLayer->SetAttribute("smoothAmount", layer._smoothTalkFactorSize);
 			thisLayer->SetAttribute("restartOnSwap", layer._restartTalkAnim);
 
 			thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
@@ -2020,6 +2022,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
 				thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
+				thisLayer->QueryAttribute("smoothInput", &layer._smoothTalkFactor);
+				thisLayer->QueryAttribute("smoothAmount", &layer._smoothTalkFactorSize);
 				thisLayer->QueryAttribute("restartOnSwap", &layer._restartTalkAnim);
 
 				thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
@@ -3669,6 +3673,15 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	{
 		talkFactor = talkLevel / talkMax;
 		talkFactor = pow(talkFactor, 0.5);
+
+		if (_smoothTalkFactor)
+		{
+			_talkRunningAverage -= _talkRunningAverage / _smoothTalkFactorSize;
+			_talkRunningAverage += talkFactor / _smoothTalkFactorSize;
+
+			talkFactor = _talkRunningAverage;
+		}
+
 		_lastTalkFactor = talkFactor;
 	}
 
@@ -4211,8 +4224,26 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				float barWidth = ImGui::CalcItemWidth() - style.GrabMinSize;
 				ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
 				ImGui::NewLine();
-
+				
 				DrawThresholdBar(_lastTalkFactor, _talkThreshold, barPos, uiScale, barWidth);
+
+				if (ImGui::BeginTable("smoothinputtable", 2, ImGuiTableFlags_SizingFixedFit))
+				{
+					ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+					ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Smooth Input", &_smoothTalkFactor);
+					ToolTip("Smooth the audio input coming into this layer", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					if (_smoothTalkFactor)
+					{	
+						ImGui::SliderFloat("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f");
+						ToolTip("Set how much smoothing to apply.", &_parent->_appConfig->_hoverTimer, true);
+					}
+					ImGui::EndTable();
+				}
+				
 
 				ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
 				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
@@ -4657,6 +4688,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::InvisibleButton("indivMotionDisabledTooltip", ImGui::GetItemRectSize());
 					ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
 					ImGui::SetCursorPos(curpos);
+				}
+				else
+				{
+					ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_parent->_appConfig->_hoverTimer);
 				}
 
 				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
