@@ -3674,7 +3674,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		talkFactor = talkLevel / talkMax;
 		talkFactor = pow(talkFactor, 0.5);
 
-		if (_smoothTalkFactor)
+		if (_smoothTalkFactor && _smoothTalkFactorSize > 0)
 		{
 			_talkRunningAverage -= _talkRunningAverage / _smoothTalkFactorSize;
 			_talkRunningAverage += talkFactor / _smoothTalkFactorSize;
