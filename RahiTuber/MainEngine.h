@@ -579,6 +579,8 @@ public:
 		bool p_open = true;
 		if (ImGui::BeginPopupModal("Advanced Settings", &p_open, ImGuiWindowFlags_NoResize))
 		{
+			ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,2 });
+
 			uiConfig->_advancedMenuShowing = true;
 
 			ImGui::SeparatorText("Window Options");
@@ -811,6 +813,8 @@ public:
 			{
 				ImGui::CloseCurrentPopup();
 			}
+
+			ImGui::PopStyleVar();
 			ImGui::EndPopup();
 		}
 	}
