@@ -2287,6 +2287,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisHotkey->QueryAttribute("mouseButton", &hkey._mouseButton);
 
+				if (hkey._scancode != -1 || hkey._key != -1 || (hkey._jPadID != -1 && (hkey._jButton != -1 || hkey._jAxis != -1)))
+					hkey._mouseButton = -1;
+
 				hkey._activeType = StatesInfo::ActiveType::Toggle;
 				bool toggle = true;
 				thisHotkey->QueryAttribute("toggle", &toggle);
@@ -2950,6 +2953,7 @@ void LayerManager::DrawStatesGUI()
 						state._scancode = sf::Keyboard::Scan::Unknown;
 						state._jAxis = -1;
 						state._jPadID = -1;
+						state._mouseButton = -1;
 
 						bool set = false;
 						if (_pendingMouseButton != -1)
