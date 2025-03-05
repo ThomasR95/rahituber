@@ -498,6 +498,10 @@ void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem:
 
 void LayerManager::DoMenuBarLogic()
 {
+
+	if (!_loadingFinished)
+		return;
+
 	//////////////////////////////// NEW ///////////////////////////////////
 
 	fs::path appFolder = fs::absolute(_appConfig->_appLocation);
@@ -1927,6 +1931,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 bool LayerManager::LoadLayers(const std::string& settingsFileName)
 {
+	if (!_loadingFinished)
+		return false;
+
+	_loadingFinished = false;
+
 	_errorMessage = "";
 	_loadingProgress = "";
 

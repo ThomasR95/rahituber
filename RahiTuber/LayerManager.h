@@ -504,7 +504,7 @@ public:
 
 private:
 
-	bool _loadingFinished = false;
+	bool _loadingFinished = true;
 	std::thread* _loadingThread = nullptr;
 	std::string _loadingPath = u8"";
 	std::string _loadingProgress = u8"";
