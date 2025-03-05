@@ -11,6 +11,9 @@
 #include <map>
 #include <deque>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 #define PI 3.14159265359
 
 #ifdef _WIN32
@@ -248,6 +251,17 @@ static inline void setWindowProperties(Display* display, Window window) {
     }
 }
 #endif
+
+
+static fs::path TryAbsolutePath(const fs::path& orig)
+{
+	std::error_code ec;
+	auto out = fs::absolute(orig, ec);
+	if (ec.value() != 0)
+		return orig;
+	else
+		return out;
+};
 
 static bool runProcess(const std::string& cmd) {
 #ifdef _WIN32

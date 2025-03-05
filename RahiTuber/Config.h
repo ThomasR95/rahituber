@@ -265,6 +265,21 @@ static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = fa
 		if(appCfg->_logFileLocation == "")
 			appCfg->_logFileLocation = appCfg->_appLocation + "RahiTuber_Log.txt";
 
+		if (clear)
+		{
+			if (appCfg->_logStream.is_open())
+			{
+				appCfg->_logStream.close();
+			}
+
+			std::error_code ec;
+			fs::remove(appCfg->_logFileLocation, ec);
+
+			std::ofstream outfile(appCfg->_logFileLocation);
+			outfile << "" << std::endl;
+			outfile.close();
+		}
+
 		if (appCfg->_logStream.is_open() == false)
 		{
 			appCfg->_logStream.open(appCfg->_logFileLocation);

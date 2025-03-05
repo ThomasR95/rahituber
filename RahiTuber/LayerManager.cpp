@@ -1955,7 +1955,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				if (doc.Error())
 				{
-					if (settingsFileName != "lastLayers.xml")
+					if (fs::path(_loadingPath).filename() != "lastLayers.xml")
 						_errorMessage = "Could not read document: " + _loadingPath;
 
 					_loadingPath = "";
@@ -2089,15 +2089,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				fs::current_path(_appConfig->_appLocation);
 
                 if(layer._idleImagePath != "")
-                    layer._idleImage = _textureMan->GetTexture(fs::absolute(layer._idleImagePath).string(), &_errorMessage);
+                    layer._idleImage = _textureMan->GetTexture(TryAbsolutePath(layer._idleImagePath).string(), &_errorMessage);
                 if(layer._talkImagePath != "")
-                    layer._talkImage = _textureMan->GetTexture(fs::absolute(layer._talkImagePath).string(), &_errorMessage);
+                    layer._talkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkImagePath).string(), &_errorMessage);
                 if(layer._blinkImagePath != "")
-                    layer._blinkImage = _textureMan->GetTexture(fs::absolute(layer._blinkImagePath).string(), &_errorMessage);
+                    layer._blinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._blinkImagePath).string(), &_errorMessage);
                 if(layer._talkBlinkImagePath != "")
-                    layer._talkBlinkImage = _textureMan->GetTexture(fs::absolute(layer._talkBlinkImagePath).string(), &_errorMessage);
+                    layer._talkBlinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkBlinkImagePath).string(), &_errorMessage);
                 if(layer._screamImagePath != "")
-                    layer._screamImage = _textureMan->GetTexture(fs::absolute(layer._screamImagePath).string(), &_errorMessage);
+                    layer._screamImage = _textureMan->GetTexture(TryAbsolutePath(layer._screamImagePath).string(), &_errorMessage);
 
 				if (layer._idleImage)
 					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -2330,11 +2330,21 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
 			
-			_fullLoadedXMLPath = fs::absolute(_loadingPath).string();
+			std::error_code ec = {};
+			_fullLoadedXMLPath = fs::absolute(_loadingPath, ec).string();
+			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path for " + _loadingPath);
 			_lastSavedLocation = _fullLoadedXMLPath;
-			_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation).string();
+			ec = {};
+			_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation, ec).string();
+			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path: " + _fullLoadedXMLPath);
+			ec = {};
 			_loadedXMLAbsDirectory = fs::absolute(_loadingPath).parent_path().string();
+			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path directory for  " + _loadingPath);
+
+			ec = {};
 			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
+			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path directory: " + _loadedXMLAbsDirectory);
+
 			_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
 
 			if (_appConfig->_nameWindowWithSet)
@@ -2518,6 +2528,9 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 void LayerManager::CheckHotkeys()
 {
+	if (_loadingFinished == false)
+		return;
+
 	for (auto& l : _layers)
 		if (l._renamePopupOpen)
 			return;
@@ -2539,7 +2552,7 @@ void LayerManager::CheckHotkeys()
 		float timeout = 0.2;
 		bool changed = false;
 
-		auto& stateInfo = _states[h];
+		StatesInfo& stateInfo = _states[h];
 
 		// Check websocket
 		if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
