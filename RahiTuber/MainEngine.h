@@ -744,6 +744,13 @@ public:
 				ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
 				ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
 
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(appConfig->_transparent);
+				ImGui::Checkbox("Composite onto Background", &appConfig->_compositeOntoBackground);
+				ToolTip("Composite the layers onto the application background color.", &appConfig->_hoverTimer);
+				ImGui::EndDisabled();
+
 				ImGui::EndTable();
 			}
 
@@ -1186,7 +1193,7 @@ public:
 			sf::RectangleShape backdrop({ 474 * appConfig->scalingFactor, windowHeight - 6 * appConfig->scalingFactor });
 			backdrop.setPosition(13, 13);
 			backdrop.setFillColor(backdropCol);
-			appConfig->_layersRT.draw(backdrop);
+			appConfig->_menuRT.draw(backdrop);
 
 			ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
 		}
@@ -1369,12 +1376,16 @@ public:
 			glClearColor(0.0, 0.0, 0.0, 0.0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
+			appConfig->_layersRT.clear(sf::Color(128, 128, 128, 0));
 		}
 		else
 		{
 			appConfig->_window.clear(appConfig->_bgColor);
-			appConfig->_layersRT.clear(appConfig->_bgColor);
+			if(appConfig->_compositeOntoBackground)
+				appConfig->_layersRT.clear(appConfig->_bgColor);
+			else
+				appConfig->_layersRT.clear(sf::Color(128, 128, 128, 0));
+
 		}
 
 		appConfig->_menuRT.clear(sf::Color(0, 0, 0, 0));
@@ -1390,56 +1401,6 @@ public:
 		}
 
 		layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
-
-#ifdef _WIN32
-		if (appConfig->_useSpout2Sender)
-		{
-			appConfig->_nameLock.lock();
-			if (spout == nullptr)
-			{
-				spout = new Spout();
-				spout->SetSenderName(appConfig->windowName.c_str());
-				spout->SetAutoShare(true);
-				spout->OpenSpout();
-
-				if (spout->IsGLDXready() == false)
-				{
-					logToFile(appConfig, "Spout2: graphics hardware is not compatible with NVIDIA NV_DX_interop2 extension");
-					spout->ReleaseSender();
-					spout->SetSenderName(appConfig->windowName.c_str());
-					spout->SetCPUshare(true);
-					appConfig->_spoutNeedsCPU = true;
-					spout->OpenSpout();
-
-					if (spout->GetCPU() == false && spout->GetGLDX() == false)
-					{
-						logToFile(appConfig, "Spout2: couldn't find a method to share the texture");
-						appConfig->_useSpout2Sender = false;
-						spout->ReleaseSender();
-						delete spout;
-					}
-				}
-			}
-			else if (appConfig->_pendingSpoutNameChange)
-			{
-				spout->ReleaseSender();
-				spout->SetSenderName(appConfig->windowName.c_str());
-				spout->SetAutoShare(true);
-				if (appConfig->_spoutNeedsCPU)
-					spout->SetCPUshare(true);
-
-				spout->OpenSpout();
-				appConfig->_pendingSpoutNameChange = false;
-			}
-			appConfig->_nameLock.unlock();
-
-			bool result = spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
-			if (result == false)
-			{
-				logToFile(appConfig, "Spout2: Failed sending FBO");
-			}
-		}
-#endif
 
 		appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
@@ -1526,6 +1487,56 @@ public:
 		states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 			sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
 		appConfig->_window.draw(appConfig->_RTPlane);
+
+#ifdef _WIN32
+		if (appConfig->_useSpout2Sender)
+		{
+			appConfig->_nameLock.lock();
+			if (spout == nullptr)
+			{
+				spout = new Spout();
+				spout->SetSenderName(appConfig->windowName.c_str());
+				spout->SetAutoShare(true);
+				spout->OpenSpout();
+
+				if (spout->IsGLDXready() == false)
+				{
+					logToFile(appConfig, "Spout2: graphics hardware is not compatible with NVIDIA NV_DX_interop2 extension");
+					spout->ReleaseSender();
+					spout->SetSenderName(appConfig->windowName.c_str());
+					spout->SetCPUshare(true);
+					appConfig->_spoutNeedsCPU = true;
+					spout->OpenSpout();
+
+					if (spout->GetCPU() == false && spout->GetGLDX() == false)
+					{
+						logToFile(appConfig, "Spout2: couldn't find a method to share the texture");
+						appConfig->_useSpout2Sender = false;
+						spout->ReleaseSender();
+						delete spout;
+					}
+				}
+			}
+			else if (appConfig->_pendingSpoutNameChange)
+			{
+				spout->ReleaseSender();
+				spout->SetSenderName(appConfig->windowName.c_str());
+				spout->SetAutoShare(true);
+				if (appConfig->_spoutNeedsCPU)
+					spout->SetCPUshare(true);
+
+				spout->OpenSpout();
+				appConfig->_pendingSpoutNameChange = false;
+			}
+			appConfig->_nameLock.unlock();
+
+			bool result = spout->SendFbo(0, appConfig->_scrW, appConfig->_scrH, true);
+			if (result == false)
+			{
+				logToFile(appConfig, "Spout2: Failed sending FBO");
+			}
+		}
+#endif
 
 		appConfig->_menuRT.display();
 		appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);

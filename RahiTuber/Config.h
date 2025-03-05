@@ -122,6 +122,8 @@ struct AppConfig
 	bool _checkForUpdates = true;
 	bool _updateAvailable = false;
 	std::thread* _checkUpdateThread = nullptr;
+
+	bool _compositeOntoBackground = true;
 };
 
 typedef struct
