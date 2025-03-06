@@ -315,6 +315,7 @@
     <ClInclude Include="MainEngine.h" />
     <ClInclude Include="mongoose-7.16\mongoose.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="Shaders.h" />
     <ClInclude Include="spout2\Spout.h" />
     <ClInclude Include="spout2\SpoutCommon.h" />
     <ClInclude Include="spout2\SpoutCopy.h" />

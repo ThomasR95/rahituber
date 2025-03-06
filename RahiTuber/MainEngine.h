@@ -1380,7 +1380,7 @@ public:
 			glClearColor(0.0, 0.0, 0.0, 0.0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			appConfig->_layersRT.clear(sf::Color(128, 128, 128, 0));
+			appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
 		}
 		else
 		{
@@ -1388,7 +1388,7 @@ public:
 			if(appConfig->_compositeOntoBackground)
 				appConfig->_layersRT.clear(appConfig->_bgColor);
 			else
-				appConfig->_layersRT.clear(sf::Color(128, 128, 128, 0));
+				appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
 
 		}
 
@@ -1721,6 +1721,20 @@ public:
 				appConfig->_menuWindow.close();
 				break;
 			}
+			else if ((evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::Escape) || (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Right)))
+			{
+				//toggle the menu visibility
+				uiConfig->_menuShowing = !uiConfig->_menuShowing;
+				if (uiConfig->_menuShowing)
+					uiConfig->_firstMenu = true;
+
+				appConfig->_timer.restart();
+
+				appConfig->_window.requestFocus();
+				ImGui::SFML::SetCurrentWindow(appConfig->_window);
+
+				break;
+			}
 			else if (evt.type == evt.MouseButtonPressed)
 			{
 				//check if user clicked in the corners for window resize
@@ -1746,20 +1760,6 @@ public:
 				{
 					uiConfig->_middleClickGrabbed = true;
 				}
-			}
-			else if ((evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::Escape) || (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Right)))
-			{
-				//toggle the menu visibility
-				uiConfig->_menuShowing = !uiConfig->_menuShowing;
-				if (uiConfig->_menuShowing)
-					uiConfig->_firstMenu = true;
-
-				appConfig->_timer.restart();
-
-				appConfig->_window.requestFocus();
-				ImGui::SFML::SetCurrentWindow(appConfig->_window);
-
-				break;
 			}
 			else if (evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::F11 && evt.key.control == false)
 			{

@@ -27,14 +27,14 @@ namespace fs = std::filesystem;
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Normal", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
-	{"Lighten", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Max,
-												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
-	{"Darken", sf::BlendMode(sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::One, sf::BlendMode::Min,
-												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
-    {"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
+	{"Lighten", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Max,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add)},
+	{"Darken", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Min,
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add)},
+	{"Add", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Multiply", sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-												     sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
+												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Subtract", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::ReverseSubtract,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::ReverseSubtract)},
 	{"Overwrite", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
@@ -44,7 +44,6 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Clip to Backdrop", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::DstAlpha, sf::BlendMode::One, sf::BlendMode::Add)},
 };
-
 
 enum MotionStretchType {
 	MS_None,
@@ -65,8 +64,6 @@ public:
 	LayerManager() {}
 
 	~LayerManager();
-
-	
 
 	struct LayerInfo 
 	{
@@ -524,6 +521,8 @@ private:
 	std::deque<LayerInfo> _layers;
 
 	sf::RenderTexture _blendingRT;
+	sf::Shader _blendingShader;
+	bool _blendingShaderLoaded = false;
 
 	ChatReader _chatReader;
 

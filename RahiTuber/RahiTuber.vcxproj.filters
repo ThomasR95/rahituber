@@ -230,6 +230,9 @@
     <ClInclude Include="MainEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RahiTuber.rc">

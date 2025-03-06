@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "defines.h"
+#include "Shaders.h"
 
 #include <iostream>
 
@@ -185,60 +186,22 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.scale(_globalScale * _appConfig->mainWindowScaling);
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
-
-			if (layer._blendMode == g_blendmodes["Multiply"] ||
-				layer._blendMode == g_blendmodes["Lighten"] ||
-				layer._blendMode == g_blendmodes["Darken"])
 			{
-
-				auto size = layer._activeSprite->Size();
-				auto rtSize = size;
-				auto scale = layer._activeSprite->getScale();
-				rtSize = { rtSize.x * scale.x, rtSize.y * scale.y };
-				if (rtSize.x > 0 && rtSize.y > 0)
+				if (layer._blendMode == g_blendmodes["Multiply"]
+					|| layer._blendMode == g_blendmodes["Lighten"]
+					|| layer._blendMode == g_blendmodes["Darken"]
+					)
 				{
-					_blendingRT.create(rtSize.x, rtSize.y);
+					if (_blendingShaderLoaded == false)
+						_blendingShader.loadFromMemory(SFML_DefaultVert, SFML_PremultFrag);
 
-					if (layer._blendMode == g_blendmodes["Lighten"])
-						_blendingRT.clear(sf::Color{ 0,0,0,255 });
-					else
-						_blendingRT.clear(sf::Color{ 255,255,255,255 });
+					if (layer._blendMode == g_blendmodes["Darken"])
+						_blendingShader.setUniform("invert", true);
 
-					auto pos = layer._activeSprite->getPosition();
-					auto rot = layer._activeSprite->getRotation();
-					auto origin = layer._activeSprite->getOrigin();
-
-					sf::RenderStates tmpState = sf::RenderStates::Default;
-					tmpState.blendMode = g_blendmodes["Normal"];
-
-					layer._activeSprite->setOrigin({ size.x / 2, size.y / 2 });
-					layer._activeSprite->setPosition({ rtSize.x / 2, rtSize.y / 2 });
-					layer._activeSprite->setRotation(0);
-
-					layer._idleSprite->Draw(&_blendingRT, tmpState);
-					layer._talkSprite->Draw(&_blendingRT, tmpState);
-					layer._blinkSprite->Draw(&_blendingRT, tmpState);
-					layer._talkBlinkSprite->Draw(&_blendingRT, tmpState);
-					layer._screamSprite->Draw(&_blendingRT, tmpState);
-
-					_blendingRT.display();
-
-					auto rtPlane = sf::RectangleShape(rtSize);
-					rtPlane.setTexture(&_blendingRT.getTexture(), true);
-
-					rtPlane.setOrigin({ origin.x * scale.x, origin.y * scale.y });
-					rtPlane.setPosition(pos);
-					rtPlane.setRotation(rot);
-
-					target->draw(rtPlane, state);
-
-					layer._activeSprite->setPosition(pos);
-					layer._activeSprite->setRotation(rot);
-					layer._activeSprite->setOrigin(origin);
+					state.shader = &_blendingShader; 
 				}
-			}
-			else
-			{
+				
+
 				layer._idleSprite->Draw(target, state);
 				layer._talkSprite->Draw(target, state);
 				layer._blinkSprite->Draw(target, state);
