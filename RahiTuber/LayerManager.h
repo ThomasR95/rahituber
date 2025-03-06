@@ -99,6 +99,7 @@ public:
 			BounceNone = 0,
 			BounceLoudness = 1,
 			BounceRegular = 2,
+			BounceOnce = 3
 		};
 
 		BounceType _bounceType = BounceNone;
@@ -108,6 +109,7 @@ public:
 		bool _bounceScaleConstrain = true;
 		float _bounceFrequency = 0.333;
 		bool _isBouncing = false;
+		int _prevNumBounces = 0;
 
 		bool _doBreathing = false;
 		float _breathFrequency = 4.0;
@@ -125,6 +127,7 @@ public:
 		float _motionX = 0;
 		float _motionY = 0;
 		sf::Clock _motionTimer;
+		sf::Clock _bounceTimer;
 
 		bool _scream = false;
 		float _screamThreshold = 0.85;
@@ -222,7 +225,7 @@ public:
 
 		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos);
 
-		void CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite);
+		void CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite, float timeMult);
 
 		void DoConstantMotion(sf::Time& frameTime, sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot);
 

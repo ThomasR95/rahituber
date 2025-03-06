@@ -3322,6 +3322,8 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 	float newMotionY = 0;
 	float newMotionX = 0;
 
+	int maxBounces = INT_MAX;
+
 	switch (_bounceType)
 	{
 	case LayerManager::LayerInfo::BounceNone:
@@ -3338,28 +3340,54 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 			motionScale += _bounceScale * talkAmount;
 		}
 		break;
+	case LayerManager::LayerInfo::BounceOnce:
+		maxBounces = 1;
 	case LayerManager::LayerInfo::BounceRegular:
+	{
+		bool canStopBouncing = true;
 		if ((talking || screaming) && _bounceFrequency > 0)
 		{
+			canStopBouncing = false;
+
 			if (!_isBouncing)
 			{
 				_isBouncing = true;
-				_motionTimer.restart();
+				_bounceTimer.restart();
 			}
-
-			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			motionTime -= floor(motionTime / _bounceFrequency) * _bounceFrequency;
-			float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
-			float bounceAmount = (-0.5 * cos(phase) + 0.5);
-			newMotionX += _bounceMove.x * bounceAmount;
-			newMotionY += _bounceMove.y * bounceAmount;
-			rot += _bounceRotation * bounceAmount;
-			motionScale += _bounceScale * bounceAmount;
 		}
-		else
+
+		if(_isBouncing)
+		{
+			float motionTime = _bounceTimer.getElapsedTime().asSeconds();
+			int bounces = floor(motionTime / _bounceFrequency);
+
+			// if can stop bouncing but we're still finishing a bounce, keep going
+			if (bounces == _prevNumBounces && canStopBouncing)
+				canStopBouncing = false;
+
+			_prevNumBounces = bounces;
+
+			if (bounces < maxBounces)
+			{
+				motionTime -= bounces * _bounceFrequency;
+				float phase = (motionTime / _bounceFrequency) * 2.0 * PI;
+
+				float bounceAmount = (-0.5 * cos(phase) + 0.5);
+				newMotionX += _bounceMove.x * bounceAmount;
+				newMotionY += _bounceMove.y * bounceAmount;
+				rot += _bounceRotation * bounceAmount;
+				motionScale += _bounceScale * bounceAmount;
+			}
+		}
+
+		if (canStopBouncing)
+		{
+			_prevNumBounces = 0;
 			_isBouncing = false;
+		}
 
 		break;
+	}
 	default:
 		break;
 	}
@@ -3436,7 +3464,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 	motionPos.y -= _motionY;
 }
 
-void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite)
+void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite, float timeMult)
 {
 	LayerInfo* mp = _parent->GetLayer(_motionParent);
 	if (mp)
@@ -3532,9 +3560,9 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 			sf::Vector2f oldScale = lastFrame._scale;
 			sf::Vector2f oldPos = lastFrame._physicsPos;
 
-			sf::Vector2f idealAccel = motionPos - oldPos;
+			sf::Vector2f idealAccel = (motionPos - oldPos);
 			sf::Vector2f accel = _lastAccel + (idealAccel - _lastAccel) * (1.0f - motionSpring);
-			sf::Vector2f newPhysicsPos = oldPos + (1.0f - motionDrag) * accel;
+			sf::Vector2f newPhysicsPos = oldPos + (1.0f - motionDrag) * accel * timeMult;
 			_lastAccel = accel;
 
 			sf::Vector2f offset = motionPos - newPhysicsPos;
@@ -3640,6 +3668,12 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	sf::Time frameTime = _frameTimer.restart();
 	float fps = 1.0 / frameTime.asSeconds();
 
+	float timeMult = 1.0;
+	if (fps > 60)
+	{
+		timeMult = 60.0 / fps;
+	}
+
 	SpriteSheet* lastActiveSprite = _activeSprite;
 
 	_activeSprite = nullptr;
@@ -3719,7 +3753,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 	if (hasParent)
-		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite);
+		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
 
 	if (_inheritTint)
 		activeSpriteCol = mpTint;
@@ -4511,7 +4545,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						{
 							if (ImGui::BeginTabItem("Talking"))
 							{
-								std::vector<const char*> bobOptions = { "None", "Loudness", "Regular" };
+								std::vector<const char*> bobOptions = { "None", "Loudness", "Regular", "Once"};
 								ImGui::PushItemWidth(headerBtnSize.x * 7);
 								if (ImGui::BeginCombo("Motion Type", bobOptions[_bounceType]))
 								{
@@ -4524,6 +4558,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
 										_bounceType = BounceRegular;
 									ToolTip("Fixed motion, on a regular time interval", &_parent->_appConfig->_hoverTimer);
+									if (ImGui::Selectable("Once", _bounceType == BounceOnce))
+										_bounceType = BounceOnce;
+									ToolTip("One bounce, when you start talking", &_parent->_appConfig->_hoverTimer);
 									ImGui::EndCombo();
 								}
 								ToolTip("Select the talking motion type", &_parent->_appConfig->_hoverTimer);
@@ -4569,7 +4606,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									}ImGui::PopID(); //bouncescaleconstrain
 
 
-									if (_bounceType == BounceRegular)
+									if (_bounceType == BounceRegular || _bounceType == BounceOnce)
 									{
 										AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
 										ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
