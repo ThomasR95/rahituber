@@ -224,6 +224,7 @@ struct UIConfig
 	std::pair<bool, bool> _cornerGrabbed = { false, false };
 	bool _moveGrabbed = false;
 	sf::Vector2i _lastMiddleClickPosition = { -1, -1 };
+	bool _middleClickGrabbed = false;
 
 	std::string _settingsFile;
 	std::vector<std::string> _presetNames;

@@ -207,7 +207,7 @@ public:
 		io.FontGlobalScale = 0.5;
 	}
 
-	void getWindowSizes()
+	void GetWindowSizes()
 	{
 #ifdef _WIN32
 		RECT desktop;
@@ -242,7 +242,7 @@ public:
 		appConfig->_ratio = appConfig->_scrW / appConfig->_scrH;
 	}
 
-	void ensurePositionOnMonitor(int& x, int& y)
+	bool EnsurePositionOnMonitor(int& x, int& y)
 	{
 #ifdef _WIN32
 		POINT windPos;
@@ -251,9 +251,6 @@ public:
 		HMONITOR monitor = MonitorFromPoint(windPos, MONITOR_DEFAULTTONULL);
 		if (monitor == NULL)
 		{
-			x = 0;
-			y = 0;
-
 			HMONITOR monitor = MonitorFromPoint(windPos, MONITOR_DEFAULTTONEAREST);
 			MONITORINFO mInfo;
 			mInfo.cbSize = sizeof(MONITORINFO);
@@ -261,9 +258,11 @@ public:
 			{
 				x = mInfo.rcWork.left;
 				y = mInfo.rcWork.top;
+				return true;
 			}
 		}
 #endif
+		return false;
 	}
 
 	float CheckMonitorScaleFactor(const sf::Vector2i& windowPos, const sf::Vector2u windowSize)
@@ -288,10 +287,8 @@ public:
 		return scaleFactor;
 	}
 
-	void initWindow(bool firstStart = false)
+	void initWindow(bool firstStart = false, bool ignoreScaleForResize = false)
 	{
-		ensurePositionOnMonitor(appConfig->_scrX, appConfig->_scrY);
-
 		if (appConfig->_isFullScreen)
 		{
 			if (appConfig->_window.isOpen())
@@ -329,13 +326,18 @@ public:
 		}
 		else
 		{
-			if (firstStart)
+			bool movedOntoMonitor = EnsurePositionOnMonitor(appConfig->_scrX, appConfig->_scrY);
+			if (firstStart || movedOntoMonitor)
 			{
 				appConfig->mainWindowScaling = CheckMonitorScaleFactor({ appConfig->_scrX, appConfig->_scrY }, { (sf::Uint16)appConfig->_minScrW, (sf::Uint16)appConfig->_minScrH });
 			}
 
-			appConfig->_scrW = appConfig->_minScrW * appConfig->mainWindowScaling;
-			appConfig->_scrH = appConfig->_minScrH * appConfig->mainWindowScaling;
+			float resizeScale = appConfig->mainWindowScaling;
+			if (ignoreScaleForResize)
+				resizeScale = 1.0f;
+
+			appConfig->_scrW = appConfig->_minScrW * resizeScale;
+			appConfig->_scrH = appConfig->_minScrH * resizeScale;
 			if (appConfig->_wasFullScreen || firstStart)
 			{
 				appConfig->_nameLock.lock();
@@ -367,11 +369,13 @@ public:
 		appConfig->_menuRT.create(appConfig->_scrW, appConfig->_scrH);
 		appConfig->_layersRT.create(appConfig->_scrW, appConfig->_scrH);
 
+		float cornerGrabSize = 20 * appConfig->mainWindowScaling;
+
 		uiConfig->_topLeftBox.setPosition(0, 0);
-		uiConfig->_topLeftBox.setSize({ 20,20 });
+		uiConfig->_topLeftBox.setSize({ cornerGrabSize,cornerGrabSize });
 		uiConfig->_topLeftBox.setFillColor({ 255,255,255,100 });
 		uiConfig->_bottomRightBox = uiConfig->_topLeftBox;
-		uiConfig->_bottomRightBox.setPosition({ appConfig->_scrW - 20, appConfig->_scrH - 20 });
+		uiConfig->_bottomRightBox.setPosition({ appConfig->_scrW - cornerGrabSize, appConfig->_scrH - cornerGrabSize });
 		uiConfig->_resizeBox.setSize({ appConfig->_scrW, appConfig->_scrH });
 		uiConfig->_resizeBox.setOutlineThickness(1);
 		uiConfig->_resizeBox.setFillColor({ 0,0,0,0 });
@@ -1717,23 +1721,30 @@ public:
 				appConfig->_menuWindow.close();
 				break;
 			}
-			else if (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Left))
+			else if (evt.type == evt.MouseButtonPressed)
 			{
 				//check if user clicked in the corners for window resize
 				if (sf::Mouse::isButtonPressed(sf::Mouse::Left) && !appConfig->_isFullScreen)
 				{
+					float cornerGrabSize = 20 * appConfig->mainWindowScaling;
+
 					auto pos = sf::Mouse::getPosition(appConfig->_window);
-					if (pos.x < 20 && pos.y < 20)
+					if (pos.x < cornerGrabSize && pos.y < cornerGrabSize)
 						uiConfig->_cornerGrabbed = { true, false };
 
-					if (pos.x > appConfig->_scrW - 20 && pos.y > appConfig->_scrH - 20)
+					if (pos.x > appConfig->_scrW - cornerGrabSize && pos.y > appConfig->_scrH - cornerGrabSize)
 						uiConfig->_cornerGrabbed = { false, true };
+
 
 					if (pos.x > (appConfig->_scrW / 2 - uiConfig->_moveTabSize.x / 2) && pos.x < (appConfig->_scrW / 2 + uiConfig->_moveTabSize.x / 2)
 						&& pos.y < uiConfig->_moveTabSize.y)
 					{
 						uiConfig->_moveGrabbed = true;
 					}
+				}
+				else if (evt.mouseButton.button == sf::Mouse::Middle)
+				{
+					uiConfig->_middleClickGrabbed = true;
 				}
 			}
 			else if ((evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::Escape) || (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Right)))
@@ -1757,10 +1768,11 @@ public:
 			}
 			else if (evt.type == evt.MouseButtonReleased)
 			{
+				auto windowPos = appConfig->_window.getPosition();
+
 				//set the window if it was being resized
 				if (uiConfig->_cornerGrabbed.first || uiConfig->_cornerGrabbed.second)
 				{
-					auto windowPos = appConfig->_window.getPosition();
 					windowPos += sf::Vector2i(uiConfig->_resizeBox.getPosition());
 					appConfig->_scrX = windowPos.x;
 					appConfig->_scrY = windowPos.y;
@@ -1771,8 +1783,25 @@ public:
 
 					initWindow();
 				}
+
+				if (uiConfig->_moveGrabbed || uiConfig->_middleClickGrabbed)
+				{
+#ifdef _WIN32
+					float scaleFactor = CheckMonitorScaleFactor(windowPos, appConfig->_window.getSize());
+
+					if (scaleFactor != appConfig->mainWindowScaling)
+					{
+						appConfig->mainWindowScaling = scaleFactor;
+						initWindow();
+
+						ImGui::SFML::Init(appConfig->_window);
+					}
+#endif
+				}
+
 				uiConfig->_lastMiddleClickPosition = sf::Vector2i(-1, -1);
 				uiConfig->_moveGrabbed = false;
+				uiConfig->_middleClickGrabbed = false;
 			}
 			else if (evt.type == evt.MouseMoved)
 			{
@@ -1789,35 +1818,24 @@ public:
 					uiConfig->_resizeBox.setPosition(0, 0);
 					uiConfig->_resizeBox.setSize({ pos.x, pos.y });
 				}
-				else if (uiConfig->_moveGrabbed)
+				else if (!appConfig->_isFullScreen && (uiConfig->_moveGrabbed || uiConfig->_middleClickGrabbed))
 				{
 					auto mousePos = sf::Mouse::getPosition();
-					auto windowPos = mousePos - sf::Vector2i(appConfig->_scrW / 2.f, uiConfig->_moveTabSize.y / 2.f);
-					appConfig->_scrX = windowPos.x;
-					appConfig->_scrY = windowPos.y;
-					appConfig->_window.setPosition(windowPos);
-				}
-				else if (sf::Mouse::isButtonPressed(sf::Mouse::Middle) && !appConfig->_isFullScreen)
-				{
-					if (uiConfig->_lastMiddleClickPosition == sf::Vector2i(-1, -1))
-						uiConfig->_lastMiddleClickPosition = sf::Mouse::getPosition(appConfig->_window);
-					auto mousePos = sf::Mouse::getPosition();
-					auto windowPos = mousePos - uiConfig->_lastMiddleClickPosition;
-					appConfig->_scrX = windowPos.x;
-					appConfig->_scrY = windowPos.y;
-					appConfig->_window.setPosition(windowPos);
-
-#ifdef _WIN32
-					float scaleFactor = CheckMonitorScaleFactor(windowPos, appConfig->_window.getSize());
-
-					if (scaleFactor != appConfig->mainWindowScaling)
+					sf::Vector2i windowPos;
+					if (uiConfig->_moveGrabbed)
 					{
-						appConfig->mainWindowScaling = scaleFactor;
-						initWindow();
-
-						ImGui::SFML::Init(appConfig->_window);
+						windowPos = mousePos - sf::Vector2i(appConfig->_scrW / 2.f, uiConfig->_moveTabSize.y / 2.f);
 					}
-#endif
+					else if (uiConfig->_middleClickGrabbed)
+					{
+						if (uiConfig->_lastMiddleClickPosition == sf::Vector2i(-1, -1))
+							uiConfig->_lastMiddleClickPosition = sf::Mouse::getPosition(appConfig->_window);
+
+						windowPos = mousePos - uiConfig->_lastMiddleClickPosition;
+					}
+					appConfig->_scrX = windowPos.x;
+					appConfig->_scrY = windowPos.y;
+					appConfig->_window.setPosition(windowPos);
 				}
 			}
 
@@ -2093,7 +2111,7 @@ public:
 		//kbdTrack = new KeyboardTracker();
 		//kbdTrack->_layerMan = layerMan;
 
-		getWindowSizes();
+		GetWindowSizes();
 
 		logToFile(appConfig, "Creating XML loader");
 		appConfig->_loader = new xmlConfigLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
