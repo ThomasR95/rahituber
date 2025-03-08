@@ -1,0 +1,13 @@
+[[prereqs]]
+name = "vcredist-2015-x86"
+
+[[prereqs]]
+name = "vcredist-2015-x64"
+
+[[actions]]
+name = "Launch (64-Bit)"
+path = "RahiTuber_64.exe"
+
+[[actions]]
+name = "Launch (32-Bit)"
+path = "RahiTuber.exe"
