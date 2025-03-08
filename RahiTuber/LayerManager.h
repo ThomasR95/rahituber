@@ -529,7 +529,7 @@ private:
 
 	ChatReader _chatReader;
 
-	TextureManager* _textureMan;
+	TextureManager* _textureMan = nullptr;
 
 	bool _statesPassThrough = false;
 	bool _statesHideUnaffected = false;

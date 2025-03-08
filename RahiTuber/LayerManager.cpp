@@ -246,7 +246,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 						break;
 					}
 
-				auto theme = _uiConfig->_themes[_uiConfig->_theme];
+				const auto& theme = _uiConfig->_themes[_uiConfig->_theme];
 
 				sf::Vector2f origin = layer._activeSprite->getOrigin();
 				sf::Vector2f pos = layer._activeSprite->getPosition();
@@ -3556,7 +3556,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 				motionSpring = _motionSpring * fadeIn;
 			}
 
-			auto lastFrame = _motionLinkData.front();
+			const MotionLinkData& lastFrame = _motionLinkData.front();
 			sf::Vector2f oldScale = lastFrame._scale;
 			sf::Vector2f oldPos = lastFrame._physicsPos;
 

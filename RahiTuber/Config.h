@@ -161,11 +161,11 @@ struct AudioConfig
 	float _smoothFactor = 24.0f;
 
 	SAMPLE _frameHi = 0.0f;
-	PaStreamParameters _params;
+	PaStreamParameters _params = {};
 	PaDeviceIndex _devIdx = -1;
 	int _nDevices = 0;
 	std::vector<std::pair<std::string, int>> _deviceList;
-	paTestData* _streamData;
+	paTestData* _streamData = nullptr;
 	PaStream* _audioStr = nullptr;
 	bool _leftChannel = true;
 	int _numChannels = 2;

@@ -1065,27 +1065,8 @@ public:
 		}
 	}
 
-	void menu()
+	void RefreshStyle(ImGuiStyle& style, ImGuiIO& io, sf::Color& backdropCol)
 	{
-		bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopPending == false;
-		bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopPending == true;
-
-		appConfig->_menuPopped = appConfig->_menuPopPending;
-
-		if (appConfig->_menuPopped)
-		{
-			ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
-			appConfig->scalingFactor = appConfig->menuWindowScaling * appConfig->customScaling;
-			ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
-		}
-		else
-		{
-			ImGui::SFML::SetCurrentWindow(appConfig->_window);
-			appConfig->scalingFactor = appConfig->mainWindowScaling * appConfig->customScaling;
-			ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
-		}
-
-		auto& style = ImGui::GetStyle();
 		style.FrameRounding = 4 * appConfig->scalingFactor;
 		style.FramePadding = { 3 * appConfig->scalingFactor, 3 * appConfig->scalingFactor };
 		style.WindowTitleAlign = style.ButtonTextAlign = { 0.5f, 0.5f };
@@ -1097,7 +1078,6 @@ public:
 		style.AntiAliasedFill = true;
 		style.DisabledAlpha = 0.7;
 
-		ImGuiIO& io = ImGui::GetIO();
 #ifdef _DEBUG
 		io.ConfigDebugHighlightIdConflicts = true;
 		io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent();
@@ -1110,9 +1090,6 @@ public:
 		io.ConfigErrorRecoveryEnableTooltip = false;
 		io.ConfigErrorRecovery = false;
 #endif
-
-		if (ImGui::IsAnyItemHovered() == false)
-			appConfig->_hoverTimer.restart();
 
 		ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
 
@@ -1135,7 +1112,7 @@ public:
 		ImVec4 col_light3(powf(baseColor2.x, .3f), powf(baseColor2.y, .3f), powf(baseColor2.z, .3f), 1.f);
 		ImVec4 greyoutCol(col_light3 * ImVec4(1.0, 1.0, 1.0, 0.6));
 
-		sf::Color backdropCol = toSFColor(col_med);
+		backdropCol = toSFColor(col_med);
 
 		auto oldFont = uiConfig->_fontName;
 		if (uiConfig->_theme == "Contrast")
@@ -1164,11 +1141,6 @@ public:
 
 		col_shadow = { 0,0,0,0 };
 
-		if (appConfig->_menuWindow.isOpen())
-		{
-			appConfig->_menuWindow.clear(toSFColor(col_dark));
-		}
-
 		style.Colors[ImGuiCol_WindowBg] = col_dark2;
 		style.Colors[ImGuiCol_ChildBg] = style.Colors[ImGuiCol_PopupBg] = col_dark1a;
 		style.Colors[ImGuiCol_FrameBgHovered] = col_med2;
@@ -1183,8 +1155,46 @@ public:
 		style.Colors[ImGuiCol_Separator] = col_light2a;
 		style.Colors[ImGuiCol_BorderShadow] = col_shadow;
 		style.Colors[ImGuiCol_Border] = col_border;
+	}
+
+	void menu()
+	{
+		bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopPending == false;
+		bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopPending == true;
+
+		appConfig->_menuPopped = appConfig->_menuPopPending;
+
+		if (appConfig->_menuPopped)
+		{
+			ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
+			appConfig->scalingFactor = appConfig->menuWindowScaling * appConfig->customScaling;
+			ImGui::SFML::Update(appConfig->_menuWindow, appConfig->_timer.getElapsedTime());
+		}
+		else
+		{
+			ImGui::SFML::SetCurrentWindow(appConfig->_window);
+			appConfig->scalingFactor = appConfig->mainWindowScaling * appConfig->customScaling;
+			ImGui::SFML::Update(appConfig->_window, appConfig->_timer.getElapsedTime());
+		}
+
+		if (ImGui::IsAnyItemHovered() == false)
+			appConfig->_hoverTimer.restart();
+
+		sf::Color backdropCol;
+
+		ImGuiIO& io = ImGui::GetIO();
+
+		auto& style = ImGui::GetStyle();
+
+
+		RefreshStyle(style, io, backdropCol);
 
 		io.FontGlobalScale = appConfig->scalingFactor * 0.5;
+
+		if (appConfig->_menuWindow.isOpen())
+		{
+			appConfig->_menuWindow.clear(toSFColor(style.Colors[ImGuiCol_FrameBg]));
+		}
 
 		// Main menu window
 
@@ -1282,7 +1292,7 @@ public:
 		float pulse = sin(milliseconds / 300.f);
 
 		//	EXIT
-		ImGui::PushStyleColor(ImGuiCol_Button, col_dark);
+		ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_FrameBg]);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
 		if (ImGui::Button("Exit RahiTuber", { -1, ImGui::GetFrameHeight() }))
@@ -1314,7 +1324,7 @@ public:
 
 			ImGui::Begin("move_tab", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
 			ImGui::SetCursorPos({ uiConfig->_moveTabSize.x / 2 - 12 * appConfig->mainWindowScaling,4 * appConfig->mainWindowScaling });
-			ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24 * appConfig->mainWindowScaling, 24 * appConfig->mainWindowScaling), sf::Color(255 * col_light3.x, 255 * col_light3.y, 255 * col_light3.z));
+			ImGui::Image(uiConfig->_moveIconSprite, sf::Vector2f(24 * appConfig->mainWindowScaling, 24 * appConfig->mainWindowScaling), toSFColor(style.Colors[ImGuiCol_Text]));
 			ImGui::End();
 		}
 
@@ -1325,9 +1335,9 @@ public:
 		{
 			sf::Color pulseColor(255u, 255u, 255u, 128u + 127u * pulse);
 			sf::CircleShape dotShape(style.FrameRounding, 12);
-			dotShape.setFillColor(toSFColor(col_light2) * pulseColor);
+			dotShape.setFillColor(toSFColor(style.Colors[ImGuiCol_ButtonActive]) * pulseColor);
 			dotShape.setOutlineThickness(0.5);
-			dotShape.setOutlineColor(toSFColor(col_light) * pulseColor);
+			dotShape.setOutlineColor(toSFColor(style.Colors[ImGuiCol_ButtonHovered]) * pulseColor);
 
 			if (appConfig->_menuPopped)
 			{
@@ -2057,6 +2067,105 @@ public:
 			});
 	}
 
+	void showFirstStartupWindow(bool& cancelStart)
+	{
+		bool startWindowOpen = true;
+		sf::RenderWindow tmpStartWindow;
+		tmpStartWindow.create(sf::VideoMode(1024, 720, 32), "RahiTuber Startup", sf::Style::Titlebar);
+		ImGui::SFML::Init(tmpStartWindow);
+		ImGui::SFML::SetCurrentWindow(tmpStartWindow);
+		ImGui::StyleColorsClassic();
+		tmpStartWindow.setActive();
+		tmpStartWindow.setVisible(true);
+		sf::Clock dt;
+
+		auto& style = ImGui::GetStyle();
+		auto& io = ImGui::GetIO();
+
+		auto oldFnt = uiConfig->_fontName;
+		uiConfig->_fontName = "res/verdana.ttf";
+		
+		LoadCustomFont();
+		sf::Color backCol;
+
+		RefreshStyle(style, io, backCol);
+		
+		style.ScaleAllSizes(2);
+		io.FontGlobalScale = 0.8;
+		style.WindowPadding = { 100, 40 };
+		io.FontDefault->Descent = 30;
+
+		while (startWindowOpen)
+		{
+			ImGui::SFML::Update(tmpStartWindow, dt.restart());
+
+			ImGui::SetNextWindowSize({ 1024, 800 }, ImGuiCond_Appearing);
+			ImGui::SetNextWindowPos({ 0, 0 }, ImGuiCond_Appearing);
+			ImGui::Begin("RahiTuber Startup##internal", 0, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
+			ImGui::TextWrapped(R"intro(Welcome to RahiTuber!
+
+Please read and accept the license below.)intro");
+
+			ImGui::PushStyleVarX(ImGuiStyleVar_WindowPadding, 20);
+			ImGui::BeginChild("LicenseScroll", { 824, 400 }, ImGuiChildFlags_Border, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+			ImGui::TextWrapped(R"intro(--- BSD License ---
+Copyright (c) 2025, Rahisaurus (Tom Rule). All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+-    Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+-    Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+-    All advertising materials mentioning features or use of this software must display the following acknowledgement: This product includes software developed by Rahisaurus.
+-    Neither the name of Rahisaurus / Tom Rule nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY RAHISAURUS (TOM RULE) AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL RAHISAURUS (TOM RULE) BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+---
+
+You are free to use this software for any streams or video content on any platform.
+There is no obligation to credit me, but I would appreciate if you could use #RahiTuber when talking about it on social media, or add a link to https://rahisaurus.itch.io/rahituber and/or credit me (Tom Rule / Rahisaurus) in your content description, if you want.
+
+As the user, you take responsibility for the content you display using this software.
+
+This software is pay-what-you-want and the only official download site is itch.io. The developer accepts no responsibity for any other download source, or any payments made to any other site. Please report any other sites hosting it to me.
+			)intro");
+
+			ImGui::EndChild();
+			ImGui::PopStyleVar();
+
+
+			ImGui::TextWrapped(R"intro(
+By continuing to use this software, you accept these terms.
+If you accept, please click the Accept button.
+			)intro");
+
+			if (LesserButton("Cancel"))
+			{
+				cancelStart = true;
+				startWindowOpen = false;
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Accept"))
+			{
+				startWindowOpen = false;
+			}
+			ImGui::End();
+
+			tmpStartWindow.clear();
+			ImGui::SFML::Render(tmpStartWindow);
+			tmpStartWindow.display();
+
+			sf::Event ev;
+			while (tmpStartWindow.pollEvent(ev))
+			{
+				ImGui::SFML::ProcessEvent(ev);
+			}
+		}
+
+		ImGui::SFML::Shutdown();
+	}
+
 	void Init()
 	{
 		PaError err = paNoError;
@@ -2092,12 +2201,25 @@ public:
 		appConfig->_appLocation = getAppLocation();
 #endif
 
+		logToFile(appConfig, "Creating UIConfig");
+		uiConfig = new UIConfig();
+
+		bool cancelStart = false;
+		std::error_code ec = {};
+		if (!fs::exists(appConfig->_appLocation + "config.xml", ec ))
+		{
+			showFirstStartupWindow(cancelStart);
+		}
+
+		if (cancelStart)
+		{
+			logToFile(appConfig, "RahiTuber init cancelled " + time_string, true);
+			return;
+		}
+
 		logToFile(appConfig, "RahiTuber started " + time_string, true);
 
 		appConfig->lastLayerSettingsFile = appConfig->_appLocation + "lastLayers.xml";
-
-		logToFile(appConfig, "Creating UIConfig");
-		uiConfig = new UIConfig();
 
 		logToFile(appConfig, "Creating AudioConfig");
 		audioConfig = new AudioConfig();
@@ -2427,9 +2549,13 @@ public:
 	{
 		//kbdTrack->SetHook(false);
 
-		Pa_StopStream(audioConfig->_audioStr);
-		Pa_CloseStream(audioConfig->_audioStr);
-		Pa_Terminate();
+		if (audioConfig)
+		{
+			Pa_StopStream(audioConfig->_audioStr);
+			Pa_CloseStream(audioConfig->_audioStr);
+			Pa_Terminate();
+		}
+		
 
 		if (appConfig->_checkUpdateThread != nullptr)
 		{
@@ -2440,13 +2566,17 @@ public:
 			appConfig->_checkUpdateThread = nullptr;
 		}
 
-		appConfig->_lastLayerSet = layerMan->LastUsedLayerSet();
+		if (layerMan)
+		{
+			appConfig->_lastLayerSet = layerMan->LastUsedLayerSet();
 
-		appConfig->_loader->saveCommon();
+			appConfig->_loader->saveCommon();
 
-		layerMan->SaveLayers(appConfig->lastLayerSettingsFile);
+			layerMan->SaveLayers(appConfig->lastLayerSettingsFile);
 
-		delete layerMan;
+			delete layerMan;
+		}
+		
 
 		ImGui::SFML::Shutdown();
 

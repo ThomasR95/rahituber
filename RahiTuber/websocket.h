@@ -96,7 +96,7 @@ public:
 
 private:
 
-	struct mg_mgr _eventManager;
+	struct mg_mgr _eventManager = {};
 
 	std::thread* _pollThread = nullptr;
 	bool _active = false;

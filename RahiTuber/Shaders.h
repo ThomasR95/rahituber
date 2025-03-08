@@ -1,4 +1,6 @@
 const char* SFML_DefaultVert = R"GLSL(
+#version 130
+
 void main()
 {
     // transform the vertex position
@@ -13,6 +15,8 @@ void main()
 )GLSL";
 
 const char* SFML_DefaultFrag = R"GLSL(
+#version 130
+
 uniform sampler2D texture;
 
 void main()
@@ -26,6 +30,8 @@ void main()
 )GLSL";
 
 const char* SFML_PremultFrag = R"GLSL(
+#version 130
+
 uniform sampler2D texture;
 
 uniform bool invert = false;
