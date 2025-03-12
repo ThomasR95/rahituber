@@ -174,10 +174,13 @@ struct AudioConfig
 	bool _softMaximum = false;
 
 	sf::Clock _quietTimer;
+	sf::Clock _recordTimer;
 
 	bool _doFiltering = false;
 
 	bool _compression = false;
+
+	bool _processedNew = false;
 };
 
 struct UIConfig

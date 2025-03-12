@@ -136,6 +136,8 @@ static int recordCallback(const void* inputBuffer, void* outputBuffer,
 		s++;
 	}
 
+	g_audioConfig->_processedNew = true;
+
 	return paContinue;
 }
 
@@ -1881,108 +1883,126 @@ public:
 
 	void doAudioAnalysis()
 	{
-		//Do fourier transform
-		{ //lock for frequency data
-			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
-			if (audioConfig->_frames.size() >= (FRAMES_PER_BUFFER * 2))
-				audioConfig->_fftData = std::vector<SAMPLE>(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
-		} //end lock
-
-		auto halfSize = audioConfig->_fftData.size() / 2;
-
-		four1(audioConfig->_fftData.data(), halfSize);
-		float factor = 50;
-		audioConfig->_frequencyData.clear();
-
-		for (unsigned int it = 0; it < halfSize; it++)
+		if (audioConfig->_processedNew)
 		{
-			auto re = audioConfig->_fftData[it];
-			auto im = audioConfig->_fftData[it + 1];
-			auto magnitude = std::sqrt(re * re + im * im);
+			audioConfig->_recordTimer.restart();
+			audioConfig->_processedNew = false;
 
-			//Compensations for the fact my FFT implementation is probably wrong
-			float point = it / factor + 0.3f;
-			magnitude = magnitude * atan(point);
-			if (it == 0) magnitude *= 0.7f;
+			audioConfig->_bassHi = 0;
+			audioConfig->_midHi = 0;
+			audioConfig->_trebleHi = 0;
+			audioConfig->_frameHi = 0;
 
-			//Store the magnitude
-			audioConfig->_frequencyData.push_back(magnitude);
+			//Do fourier transform
+			{ //lock for frequency data
+				std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
+				if (audioConfig->_frames.size() >= (FRAMES_PER_BUFFER * 2))
+					audioConfig->_fftData = std::vector<SAMPLE>(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
+			} //end lock
 
-			//store data for bass and treble
-			if (it < FRAMES_PER_BUFFER / 12 && magnitude > audioConfig->_bassHi)
-				audioConfig->_bassHi = magnitude;
+			auto halfSize = audioConfig->_fftData.size() / 2;
 
-			if (it > FRAMES_PER_BUFFER / 12 && it < FRAMES_PER_BUFFER / 3 && magnitude > audioConfig->_midHi)
-				audioConfig->_midHi = magnitude;
+			four1(audioConfig->_fftData.data(), halfSize);
+			float factor = 50;
+			audioConfig->_frequencyData.clear();
 
-			if (it > FRAMES_PER_BUFFER / 3 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
-				audioConfig->_trebleHi = magnitude;
+			for (unsigned int it = 0; it < halfSize; it++)
+			{
+				auto re = audioConfig->_fftData[it];
+				auto im = audioConfig->_fftData[it + 1];
+				auto magnitude = std::sqrt(re * re + im * im);
 
-			if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
-				audioConfig->_frameHi = magnitude;
+				//Compensations for the fact my FFT implementation is probably wrong
+				float point = it / factor + 0.3f;
+				magnitude = magnitude * atan(point);
+				if (it == 0) magnitude *= 0.7f;
+
+				//Store the magnitude
+				audioConfig->_frequencyData.push_back(magnitude);
+
+				//store data for bass and treble
+				if (it < FRAMES_PER_BUFFER / 12 && magnitude > audioConfig->_bassHi)
+					audioConfig->_bassHi = magnitude;
+
+				if (it > FRAMES_PER_BUFFER / 12 && it < FRAMES_PER_BUFFER / 3 && magnitude > audioConfig->_midHi)
+					audioConfig->_midHi = magnitude;
+
+				if (it > FRAMES_PER_BUFFER / 3 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
+					audioConfig->_trebleHi = magnitude;
+
+				if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
+					audioConfig->_frameHi = magnitude;
+			}
 		}
+		else if (audioConfig->_recordTimer.getElapsedTime().asSeconds() > (0.1))
+		{
+			// 0.1s without any audio input, clear the data
+			audioConfig->_bassHi = 0;
+			audioConfig->_midHi = 0;
+			audioConfig->_trebleHi = 0;
+			audioConfig->_frameHi = 0;
+		}
+
 
 		if (appConfig->_fps != 0)
 			audioConfig->_smoothAmount = appConfig->_fps / audioConfig->_smoothFactor;
 		else
 			audioConfig->_smoothAmount = 1.0;
 
-		if (audioConfig->_frameHi != 0.0)
-		{
-			//update audio data for this frame
-			audioConfig->_frame = Abs(audioConfig->_frameHi);
+	
+		//update audio data for this frame
+		audioConfig->_frame = Abs(audioConfig->_frameHi);
 
-			audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
-			audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
-			if (audioConfig->_frame > audioConfig->_runningAverage)
-				audioConfig->_runningAverage = audioConfig->_frame;
+		audioConfig->_runningAverage -= audioConfig->_runningAverage / audioConfig->_smoothAmount;
+		audioConfig->_runningAverage += audioConfig->_frame / audioConfig->_smoothAmount;
+		if (audioConfig->_frame > audioConfig->_runningAverage)
+			audioConfig->_runningAverage = audioConfig->_frame;
 
-			if (audioConfig->_frame > audioConfig->_fixedMax && audioConfig->_softMaximum)
-				audioConfig->_frameMax = audioConfig->_frame;
-			else
-				audioConfig->_frameMax = audioConfig->_fixedMax;
+		if (audioConfig->_frame > audioConfig->_fixedMax && audioConfig->_softMaximum)
+			audioConfig->_frameMax = audioConfig->_frame;
+		else
+			audioConfig->_frameMax = audioConfig->_fixedMax;
 
-			if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
+		if (audioConfig->_bassHi < 0) audioConfig->_bassHi *= -1.0;
 
-			audioConfig->_bassAverage -= audioConfig->_bassAverage / audioConfig->_smoothAmount;
-			audioConfig->_bassAverage += audioConfig->_bassHi / audioConfig->_smoothAmount;
-			if (audioConfig->_bassHi > audioConfig->_bassAverage)
-				audioConfig->_bassAverage = audioConfig->_bassHi;
+		audioConfig->_bassAverage -= audioConfig->_bassAverage / audioConfig->_smoothAmount;
+		audioConfig->_bassAverage += audioConfig->_bassHi / audioConfig->_smoothAmount;
+		if (audioConfig->_bassHi > audioConfig->_bassAverage)
+			audioConfig->_bassAverage = audioConfig->_bassHi;
 
-			if (audioConfig->_bassHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
-				audioConfig->_bassMax = audioConfig->_bassHi;
-			else
-				audioConfig->_bassMax = audioConfig->_fixedMax;
+		if (audioConfig->_bassHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
+			audioConfig->_bassMax = audioConfig->_bassHi;
+		else
+			audioConfig->_bassMax = audioConfig->_fixedMax;
 
-			if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
+		if (audioConfig->_midHi < 0) audioConfig->_midHi *= -1.0;
 
-			float midHi = audioConfig->_midHi;
-			if (audioConfig->_doFiltering)
-				midHi = Max(0.f, midHi - (audioConfig->_trebleHi + 0.2f * audioConfig->_bassHi));
+		float midHi = audioConfig->_midHi;
+		if (audioConfig->_doFiltering)
+			midHi = Max(0.f, midHi - (audioConfig->_trebleHi + 0.2f * audioConfig->_bassHi));
 
-			audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
-			audioConfig->_midAverage += midHi / audioConfig->_smoothAmount;
-			if (midHi > audioConfig->_midAverage)
-				audioConfig->_midAverage = midHi;
+		audioConfig->_midAverage -= audioConfig->_midAverage / audioConfig->_smoothAmount;
+		audioConfig->_midAverage += midHi / audioConfig->_smoothAmount;
+		if (midHi > audioConfig->_midAverage)
+			audioConfig->_midAverage = midHi;
 
-			if (midHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
-				audioConfig->_midMax = midHi;
-			else
-				audioConfig->_midMax = audioConfig->_fixedMax;
+		if (midHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
+			audioConfig->_midMax = midHi;
+		else
+			audioConfig->_midMax = audioConfig->_fixedMax;
 
-			if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
+		if (audioConfig->_trebleHi < 0) audioConfig->_trebleHi *= -1.0;
 
-			audioConfig->_trebleAverage -= audioConfig->_trebleAverage / audioConfig->_smoothAmount;
-			audioConfig->_trebleAverage += audioConfig->_trebleHi / audioConfig->_smoothAmount;
-			if (audioConfig->_trebleHi > audioConfig->_trebleAverage)
-				audioConfig->_trebleAverage = audioConfig->_trebleHi;
+		audioConfig->_trebleAverage -= audioConfig->_trebleAverage / audioConfig->_smoothAmount;
+		audioConfig->_trebleAverage += audioConfig->_trebleHi / audioConfig->_smoothAmount;
+		if (audioConfig->_trebleHi > audioConfig->_trebleAverage)
+			audioConfig->_trebleAverage = audioConfig->_trebleHi;
 
-			if (audioConfig->_trebleHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
-				audioConfig->_trebleMax = audioConfig->_trebleHi;
-			else
-				audioConfig->_trebleMax = audioConfig->_fixedMax;
+		if (audioConfig->_trebleHi > audioConfig->_fixedMax && audioConfig->_softMaximum)
+			audioConfig->_trebleMax = audioConfig->_trebleHi;
+		else
+			audioConfig->_trebleMax = audioConfig->_fixedMax;
 
-		}
 
 		//As long as the music is loud enough the current max is good
 		if (audioConfig->_frame > audioConfig->_cutoff * 2)
@@ -2013,6 +2033,8 @@ public:
 				audioConfig->_trebleMax = audioConfig->_fixedMax;
 
 		}
+
+		
 	}
 
 	void CheckUpdates()
@@ -2531,11 +2553,6 @@ If you accept, please click the Accept button.
 				break;
 
 			render();
-
-			audioConfig->_frameHi = 0;
-			audioConfig->_bassHi = 0;
-			audioConfig->_midHi = 0;
-			audioConfig->_trebleHi = 0;
 
 			if (appConfig->_pendingNameChange)
 			{
