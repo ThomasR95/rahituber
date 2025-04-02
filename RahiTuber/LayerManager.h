@@ -396,6 +396,8 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
+	void DrawCanvasPresetGUI();
+
 	void DrawMenusLayerSetUI();
 
 	LayerInfo* AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false, int insertPosition = -1);
@@ -571,8 +573,21 @@ private:
 	int _pendingJPadID = -1;
 	int _pendingMouseButton = -1;
 
+	struct GlobalPreset
+	{
+		std::string _name = "New Preset";
+		sf::Vector2f _scale = { 1.f, 1.f };
+		sf::Vector2f _pos = { 0.f,0.f };
+		float _rot = 0.0;
+	};
+
+	std::vector<GlobalPreset> _globalPresets;
+	int _currentGlobalPreset = -1;
+	bool _canvasPresetMenuOpen = false;
+	bool _canvasPresetMenuFirstOpen = true;
+
 	sf::Vector2f _globalScale = { 1.f, 1.f };
-	sf::Vector2f _globalPos;
+	sf::Vector2f _globalPos = { 0.f,0.f };
 	float _globalRot = 0.0;
 	bool _globalKeepAspect = true;
 
@@ -583,6 +598,10 @@ private:
 	sf::Clock _statesTimer;
 	bool _statesDirty = false;
 	void DrawStatesGUI();
+
+	void PopDeleteStyle();
+
+	ImVec4 PushDeleteStyle();
 
 	void DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& disabledCol, int stateIdx);
 
@@ -736,6 +755,7 @@ static sf::Texture* _reloadIcon = nullptr;
 static sf::Texture* _newLayerIcon = nullptr;
 static sf::Texture* _newFolderIcon = nullptr;
 static sf::Texture* _statesIcon = nullptr;
+static sf::Texture* _plusIcon = nullptr;
 
 
 template <typename T>

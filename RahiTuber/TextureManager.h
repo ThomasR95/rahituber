@@ -45,6 +45,7 @@ public:
 		ICON_NEWFOLDER,
 		ICON_STATES,
 		ICON_RESET,
+		ICON_PLUS,
 	};
 
 	void LoadIcons(const std::string& appLocation);

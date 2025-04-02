@@ -39,6 +39,8 @@ void TextureManager::LoadIcons(const std::string& appLocation)
 		LoadTexture(appLocation + "res/states.png", _icons[ICON_STATES]);
 	if (_icons.count(ICON_RESET) == 0)
 		LoadTexture(appLocation + "res/reset.png", _icons[ICON_RESET]);
+	if (_icons.count(ICON_PLUS) == 0)
+		LoadTexture(appLocation + "res/plus.png", _icons[ICON_PLUS]);
 
 	for (auto& ic : _icons)
 		ic.second->setSmooth(true);

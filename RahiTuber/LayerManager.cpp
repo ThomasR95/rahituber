@@ -741,9 +741,15 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::Separator();
 
 
-		if (ImGui::CollapsingHeader("Global Settings"))
+		if (ImGui::CollapsingHeader("Canvas Settings"))
 		{
 			ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
+
+			DrawCanvasPresetGUI();
+
+			ImGui::PushStyleColor(ImGuiCol_Separator, style.Colors[ImGuiCol_TextDisabled]);
+			ImGui::Separator();
+			ImGui::PopStyleColor();
 
 			AddResetButton("pos", _globalPos, sf::Vector2f(0.0, 0.0), _appConfig, &style);
 			float pos[2] = { _globalPos.x, _globalPos.y };
@@ -902,6 +908,136 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::EndTooltip();
 	}
 
+}
+
+void LayerManager::DrawCanvasPresetGUI()
+{
+	ImGuiID presetPopupID = ImGui::GetID("Edit Canvas Preset");
+
+	if (ImGui::BeginTable("PresetsTable", 5, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadInnerX))
+	{
+		sf::Color btnColor = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+		float btnSize = ImGui::GetFrameHeight() - 2;
+		ImGui::TableNextColumn();
+
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1, 1 });
+
+		if (ImGui::ImageButton("##NewPreset", *_plusIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
+		{
+			_globalPresets.push_back(GlobalPreset());
+			_currentGlobalPreset = _globalPresets.size() - 1;
+			if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+			{
+				_canvasPresetMenuOpen = true;
+				ImGui::OpenPopup(presetPopupID);
+			}
+		}
+		ToolTip("New", "Make a new preset", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		//ImGui::SameLine(btnSize*0.6);
+
+		if (ImGui::ImageButton("##RenamePreset", *_editIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
+		{
+			if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+			{
+				_canvasPresetMenuOpen = true;
+				ImGui::OpenPopup(presetPopupID);
+			}
+		}
+		ToolTip("Rename", "Rename the current preset", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		//ImGui::SameLine(btnSize * 0.6);
+
+		if (ImGui::ImageButton("##SavePreset", *_saveIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
+		{
+			if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+			{
+				GlobalPreset& thisPreset = _globalPresets[_currentGlobalPreset];
+				thisPreset._scale = _globalScale;
+				thisPreset._pos = _globalPos;
+				thisPreset._rot = _globalRot;
+			}
+		}
+		ToolTip("Save", "Save the current preset", &_appConfig->_hoverTimer);
+
+		ImGui::TableNextColumn();
+		//ImGui::SameLine(btnSize * 0.6);
+
+		ImVec4 delCol = PushDeleteStyle();
+		if (ImGui::ImageButton("##DeletePreset", *_delIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, toSFColor(delCol)))
+		{
+			if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+				_globalPresets.erase(_globalPresets.begin() + _currentGlobalPreset);
+		}
+		PopDeleteStyle();
+		ToolTip("Delete", "Delete the current preset", &_appConfig->_hoverTimer);
+
+		ImGui::PopStyleVar();
+
+		ImGui::TableNextColumn();
+		//ImGui::SameLine(btnSize * 0.6);
+
+		std::string presetName = "None";
+		if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+		{
+			presetName = _globalPresets[_currentGlobalPreset]._name;
+		}
+		if (ImGui::BeginCombo("Preset", presetName.c_str()))
+		{
+			for (int gp = 0; gp < _globalPresets.size(); gp++)
+			{
+				GlobalPreset& thisPreset = _globalPresets[gp];
+				if (ImGui::Selectable(thisPreset._name.c_str(), gp == _currentGlobalPreset))
+				{
+					_currentGlobalPreset = gp;
+					_globalScale = thisPreset._scale;
+					_globalPos = thisPreset._pos;
+					_globalRot = thisPreset._rot;
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::SetNextWindowSize({ ImGui::GetFrameHeight() * 10, ImGui::GetFrameHeight() * 4 }, ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Edit Canvas Preset", &_canvasPresetMenuOpen))
+	{
+		if (_currentGlobalPreset != -1 && _currentGlobalPreset < _globalPresets.size())
+		{
+			GlobalPreset& thisPreset = _globalPresets[_currentGlobalPreset];
+
+			char inputStr[32] = " ";
+			ANSIToUTF8(thisPreset._name).copy(inputStr, 32);
+
+			if (_canvasPresetMenuFirstOpen)
+				ImGui::SetKeyboardFocusHere();
+
+			_canvasPresetMenuFirstOpen = false;
+
+			bool edited = false;
+			if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				edited = true;
+			}
+			thisPreset._name = UTF8ToANSI(inputStr);
+			ImGui::SameLine();
+
+			bool saved = ImGui::Button("Save");
+			if (saved || edited)
+			{
+				_canvasPresetMenuOpen = false;
+				ImGui::CloseCurrentPopup();
+				_canvasPresetMenuFirstOpen = true;
+			}
+		}
+
+		ImGui::EndPopup();
+	}
 }
 
 void LayerManager::DrawMenusLayerSetUI()
@@ -1809,6 +1945,34 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 	root->SetAttribute("DisableRotationEffectFix", _appConfig->_undoRotationEffectFix);
 
+	auto canvasPresets = root->FirstChildElement("CanvasPresets");
+	if (!canvasPresets)
+		canvasPresets = root->InsertFirstChild(doc.NewElement("CanvasPresets"))->ToElement();
+
+	if (!canvasPresets)
+	{
+		_errorMessage = "Could not save CanvasPresets element: " + settingsFileName;
+		logToFile(_appConfig, "Save Failed: " + _errorMessage);
+		return false;
+	}
+
+	canvasPresets->DeleteChildren();
+
+	canvasPresets->SetAttribute("currentPreset", _currentGlobalPreset);
+
+	for (int gp = 0; gp < _globalPresets.size(); gp++)
+	{
+		auto thisPresetElmt = canvasPresets->InsertEndChild(doc.NewElement("Preset"))->ToElement();
+		const auto& thisPreset = _globalPresets[gp];
+
+		thisPresetElmt->SetAttribute("name", thisPreset._name.c_str());
+		thisPresetElmt->SetAttribute("scaleX", thisPreset._scale.x);
+		thisPresetElmt->SetAttribute("scaleY", thisPreset._scale.y);
+		thisPresetElmt->SetAttribute("posX", thisPreset._pos.x);
+		thisPresetElmt->SetAttribute("posY", thisPreset._pos.y);
+		thisPresetElmt->SetAttribute("rot", thisPreset._rot);
+	}
+
 	auto hotkeys = root->FirstChildElement("hotkeys");
 	if (!hotkeys)
 		hotkeys = root->InsertFirstChild(doc.NewElement("hotkeys"))->ToElement();
@@ -2216,6 +2380,31 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
 
 			root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
+
+			auto canvasPresets = root->FirstChildElement("CanvasPresets");
+			if (canvasPresets)
+			{
+				canvasPresets->QueryAttribute("currentPreset", &_currentGlobalPreset);
+
+				_globalPresets.clear();
+				auto thisPresetElmt = canvasPresets->FirstChildElement("Preset");
+				while (thisPresetElmt)
+				{
+					GlobalPreset thisPreset;
+					if (const char* storedName = thisPresetElmt->Attribute("name"))
+						thisPreset._name = storedName;
+
+					thisPresetElmt->QueryAttribute("scaleX", &thisPreset._scale.x);
+					thisPresetElmt->QueryAttribute("scaleY", &thisPreset._scale.y);
+					thisPresetElmt->QueryAttribute("posX", &thisPreset._pos.x);
+					thisPresetElmt->QueryAttribute("posY", &thisPreset._pos.y);
+					thisPresetElmt->QueryAttribute("rot", &thisPreset._rot);
+
+					_globalPresets.push_back(thisPreset);
+
+					thisPresetElmt = thisPresetElmt->NextSiblingElement("Preset");
+				}
+			}
 
 			auto hotkeys = root->FirstChildElement("hotkeys");
 			if (!hotkeys)
@@ -2724,6 +2913,7 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_newLayerIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWLAYER);
 		_newFolderIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWFOLDER);
 		_statesIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_STATES);
+		_plusIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PLUS);
 	}
 }
 
@@ -3163,16 +3353,13 @@ void LayerManager::DrawStatesGUI()
 
 				ImGui::SetCursorPos(delButtonPos);
 				ImGuiStyle& style = ImGui::GetStyle();
-				ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
-				ImGui::PushStyleColor(ImGuiCol_Text, { 255.f / 255,200.f / 255,170.f / 255, 1.f });
+				PushDeleteStyle();
 				if (ImGui::Button("Delete"))
 				{
 					RemoveStateFromOrder(&state);
 					_states.erase(_states.begin() + stateIdx);
 				}
-				ImGui::PopStyleColor(4);
+				PopDeleteStyle();
 				ToolTip("Delete this state", &_appConfig->_hoverTimer);
 
 
@@ -3200,6 +3387,21 @@ void LayerManager::DrawStatesGUI()
 
 		ImGui::EndPopup();
 	}
+}
+
+void LayerManager::PopDeleteStyle()
+{
+	ImGui::PopStyleColor(4);
+}
+
+ImVec4 LayerManager::PushDeleteStyle()
+{
+	ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.8,0.2,0.2,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
+	ImGui::PushStyleColor(ImGuiCol_Text, { 255.f / 255,200.f / 255,170.f / 255, 1.f });
+
+	return ImVec4( 255.f / 255,200.f / 255,170.f / 255, 1.f );
 }
 
 void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& disabledCol, int stateIdx)
