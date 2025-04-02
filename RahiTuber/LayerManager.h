@@ -67,9 +67,23 @@ public:
 
 	struct LayerInfo 
 	{
+		~LayerInfo()
+		{
+			if (_clipRT != nullptr)
+				delete _clipRT;
+
+			if (_soloLayerRT != nullptr)
+				delete _soloLayerRT;
+		}
+
 		std::string _id = "";
 
 		LayerManager* _parent = nullptr;
+
+		std::string _clipID = "";
+		sf::RenderTexture* _soloLayerRT = nullptr;
+		sf::RenderTexture* _clipRT = nullptr;
+		sf::RectangleShape _clipRect;
 
 		bool _isFolder = false;
 		std::string _inFolder = "";

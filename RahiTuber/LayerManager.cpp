@@ -179,34 +179,99 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (visible)
 		{
 			sf::RenderStates state = sf::RenderStates::Default;
-			state.blendMode = layer._blendMode;
-
+			
 			state.transform.translate(_globalPos);
 			state.transform.translate(0.5 * target->getSize().x, 0.5 * target->getSize().y);
 			state.transform.scale(_globalScale * _appConfig->mainWindowScaling);
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
+			
+			if (layer._blendMode == g_blendmodes["Multiply"]
+				|| layer._blendMode == g_blendmodes["Lighten"]
+				|| layer._blendMode == g_blendmodes["Darken"]
+				)
 			{
-				if (layer._blendMode == g_blendmodes["Multiply"]
-					|| layer._blendMode == g_blendmodes["Lighten"]
-					|| layer._blendMode == g_blendmodes["Darken"]
-					)
-				{
-					if (_blendingShaderLoaded == false)
-						_blendingShader.loadFromMemory(SFML_DefaultVert, SFML_PremultFrag);
+				if (_blendingShaderLoaded == false)
+					_blendingShader.loadFromMemory(SFML_DefaultVert, SFML_PremultFrag);
 
-					if (layer._blendMode == g_blendmodes["Darken"])
-						_blendingShader.setUniform("invert", true);
-
-					state.shader = &_blendingShader; 
-				}
-				
+				if (layer._blendMode == g_blendmodes["Darken"])
+					_blendingShader.setUniform("invert", true);
+			}
+			
+			if (layer._clipID == "")
+			{
+				state.blendMode = layer._blendMode;
+				state.shader = &_blendingShader;
 
 				layer._idleSprite->Draw(target, state);
 				layer._talkSprite->Draw(target, state);
 				layer._blinkSprite->Draw(target, state);
 				layer._talkBlinkSprite->Draw(target, state);
 				layer._screamSprite->Draw(target, state);
+			}
+			else
+			{
+				if (layer._clipRT == nullptr || target->getSize() != layer._clipRT->getSize())
+				{
+					if (layer._clipRT == nullptr)
+						layer._clipRT = new sf::RenderTexture();
+
+					layer._clipRT->create(target->getSize().x, target->getSize().y);
+				}
+				layer._clipRT->clear({0,0,0,0});
+
+				if (layer._soloLayerRT == nullptr || target->getSize() != layer._soloLayerRT->getSize())
+				{
+					if (layer._soloLayerRT == nullptr)
+						layer._soloLayerRT = new sf::RenderTexture();
+
+					layer._soloLayerRT->create(target->getSize().x, target->getSize().y);
+				}
+				layer._soloLayerRT->clear({ 0,0,0,0 });
+
+				LayerInfo* clipLayer = GetLayer(layer._clipID);
+				sf::RenderStates clipState = sf::RenderStates::Default;
+
+				// Draw clip layer onto empty canvas
+				clipState.transform.translate(_globalPos);
+				clipState.transform.translate(0.5 * target->getSize().x, 0.5 * target->getSize().y);
+				clipState.transform.scale(_globalScale* _appConfig->mainWindowScaling);
+				clipState.transform.rotate(_globalRot);
+				clipState.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
+				clipLayer->_idleSprite->Draw(layer._clipRT, clipState);
+				clipLayer->_talkSprite->Draw(layer._clipRT, clipState);
+				clipLayer->_blinkSprite->Draw(layer._clipRT, clipState);
+				clipLayer->_talkBlinkSprite->Draw(layer._clipRT, clipState);
+				clipLayer->_screamSprite->Draw(layer._clipRT, clipState);
+
+				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
+				layer._clipRect.setPosition({ 0,0 });
+
+				// Draw layer to be clipped onto an empty canvas
+				layer._idleSprite->Draw(layer._soloLayerRT, state);
+				layer._talkSprite->Draw(layer._soloLayerRT, state);
+				layer._blinkSprite->Draw(layer._soloLayerRT, state);
+				layer._talkBlinkSprite->Draw(layer._soloLayerRT, state);
+				layer._screamSprite->Draw(layer._soloLayerRT, state);
+
+				layer._soloLayerRT->display();
+				layer._clipRect.setTexture(&layer._soloLayerRT->getTexture(), true);
+
+				sf::RenderStates clipState2 = sf::RenderStates::Default;
+				// Draw the layer RT onto the clip RT using the fancy new blend mode
+				clipState2.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
+					sf::BlendMode::Zero, sf::BlendMode::SrcAlpha, sf::BlendMode::Add);
+
+				layer._clipRT->draw(layer._clipRect, clipState2);
+				layer._clipRT->display();
+				
+				// Draw the clip rect onto the actual window
+				layer._clipRect.setTexture(&layer._clipRT->getTexture(), true);
+
+				sf::RenderStates RTState = sf::RenderStates::Default;
+				RTState.blendMode = layer._blendMode;
+				RTState.shader = &_blendingShader;
+				target->draw(layer._clipRect, RTState);
 			}
 		}
 
@@ -1913,6 +1978,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("blendMode", bmName.c_str());
 
 			thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
+
+			thisLayer->SetAttribute("clipID", layer._clipID.c_str());
 		}
 
 		thisLayer->SetAttribute("isFolder", layer._isFolder);
@@ -2338,6 +2405,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				}
 
 				thisLayer->QueryAttribute("scaleFilter", &layer._scaleFiltering);
+
+				const char* clipGuid = thisLayer->Attribute("clipID");
+				if (clipGuid)
+					layer._clipID = clipGuid;
 
 				if (layer._idleImage)
 					layer._idleImage->setSmooth(layer._scaleFiltering);
@@ -4436,6 +4507,23 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				}
 				ImGui::PopItemWidth();
 				ToolTip("On: Smooth (linear) interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp pixels at any size", &_parent->_appConfig->_hoverTimer);
+
+				LayerInfo* oldClip = _parent->GetLayer(_clipID);
+				std::string clipName = oldClip ? oldClip->_name : "Off";
+				if (ImGui::BeginCombo("Clip Layer", ANSIToUTF8(clipName).c_str()))
+				{
+					if (ImGui::Selectable("Off", (_clipID == "")))
+						_clipID = "";
+					for (auto& layer : _parent->GetLayers())
+					{
+						if (layer._id != _id && layer._clipID != _id && layer._isFolder == false)
+							if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _clipID == layer._id))
+							{
+								_clipID = layer._id;
+							}
+					}
+					ImGui::EndCombo();
+				}
 
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
 
