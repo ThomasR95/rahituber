@@ -670,7 +670,6 @@ public:
 
 			if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
 			{
-#ifdef _WIN32
 				ImGui::TableNextColumn();
 				float transChkBoxPos = ImGui::GetCursorPosY();
 				if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
@@ -717,8 +716,6 @@ public:
 					// #endif
 				}
 				ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
-
-#endif
 
 				ImVec4 imCol = toImVec4(appConfig->_bgColor);
 				ImGui::TableNextColumn();
