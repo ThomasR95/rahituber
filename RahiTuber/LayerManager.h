@@ -189,7 +189,7 @@ public:
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
-		bool _scaleFiltering = false;
+		int _scaleFiltering = 0;
 
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;
@@ -389,7 +389,7 @@ public:
 
 		bool _keyIsHeld = false;
 
-		bool _webRequestActive = true;
+		int _webRequestActive = 1;
 		std::string _webRequest = "";
 
 
@@ -527,7 +527,7 @@ private:
 	std::string _loadingPath = u8"";
 	std::string _loadingProgress = u8"";
 
-	bool _copyStateNames = true;
+	int _copyStateNames = 1;
 
 	float _lastTalkLevel = 0.0;
 	float _lastTalkMax = 1.0;

@@ -3481,41 +3481,39 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 
 	bool optionChanged = false;
 	ImGui::PushID(&state); {
-		if (ImGui::BeginTable("##urlCopy", 5, ImGuiTableFlags_SizingStretchSame))
+		if (ImGui::BeginTable("##urlCopy", 3, ImGuiTableFlags_SizingStretchSame))
 		{
-			ImGui::TableSetupColumn("");
-			ImGui::TableSetupColumn("");
 			ImGui::TableSetupColumn("");
 			ImGui::TableSetupColumn("");
 			ImGui::TableSetupColumn("copybtn", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("Copy request").x + ImGui::GetStyle().ItemSpacing.x * 2);
 
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable("Activate", state._webRequestActive, ImGuiSelectableFlags_DontClosePopups))
-			{
-				state._webRequestActive = true;
-				optionChanged = true;
-			}
+			optionChanged = SwapButtons("", {
+							{
+								"Activate",
+								"Activate the state when this request is called",
+								1
+							},
+							{
+								"Deactivate",
+								"Deactivate the state when this request is called",
+								0
+							},
+				}, state._webRequestActive, &_appConfig->_hoverTimer, false);
 
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable("Dectivate", !state._webRequestActive, ImGuiSelectableFlags_DontClosePopups))
-			{
-				state._webRequestActive = false;
-				optionChanged = true;
-			}
-
-			ImGui::TableNextColumn();
-			if (ImGui::Selectable("Name", _copyStateNames && state._name != "", ImGuiSelectableFlags_DontClosePopups))
-			{
-				_copyStateNames = true;
-				optionChanged = true;
-			}
-
-			ImGui::TableNextColumn();
-			if (ImGui::Selectable("ID", !_copyStateNames || state._name == "", ImGuiSelectableFlags_DontClosePopups))
-			{
-				_copyStateNames = false;
-				optionChanged = true;
-			}
+			optionChanged |= SwapButtons("", {
+							{
+								"Name",
+								"Use the state's name in the request",
+								1
+							},
+							{
+								"ID",
+								"Use the state's ID in the request",
+								0
+							},
+				}, _copyStateNames, &_appConfig->_hoverTimer, false);
 
 			ImGui::TableNextColumn();
 			if (ImGui::Button("Copy request"))
@@ -4474,58 +4472,79 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::EndTable();
 				}
 
-				sf::BlendMode oldBlendMode = _blendMode;
-				std::string bmName = "";
-				for (auto& bm : g_blendmodes)
-					if (bm.second == oldBlendMode)
-						bmName = bm.first;
-				ImGui::PushItemWidth(240);
-				if (ImGui::BeginCombo("Blend Mode", bmName.c_str()))
-				{
-					for (auto& bm : g_blendmodes)
-					{
-						if (ImGui::Selectable(bm.first.c_str(), bm.second == oldBlendMode))
-						{
-							_blendMode = bm.second;
-						}
-					}
-					ImGui::EndCombo();
-				}
-				ImGui::SameLine();
-				if (ImGui::Checkbox("Scale Filter", &_scaleFiltering))
-				{
-					if (_idleImage)
-						_idleImage->setSmooth(_scaleFiltering);
-					if (_talkImage)
-						_talkImage->setSmooth(_scaleFiltering);
-					if (_blinkImage)
-						_blinkImage->setSmooth(_scaleFiltering);
-					if (_talkBlinkImage)
-						_talkBlinkImage->setSmooth(_scaleFiltering);
-					if (_screamImage)
-						_screamImage->setSmooth(_scaleFiltering);
-				}
-				ImGui::PopItemWidth();
-				ToolTip("On: Smooth (linear) interpolation when the image is not actual size\nOff: Nearest-neighbour interpolation, sharp pixels at any size", &_parent->_appConfig->_hoverTimer);
-
-				LayerInfo* oldClip = _parent->GetLayer(_clipID);
-				std::string clipName = oldClip ? oldClip->_name : "Off";
-				if (ImGui::BeginCombo("Clip Layer", ANSIToUTF8(clipName).c_str()))
-				{
-					if (ImGui::Selectable("Off", (_clipID == "")))
-						_clipID = "";
-					for (auto& layer : _parent->GetLayers())
-					{
-						if (layer._id != _id && layer._clipID != _id && layer._isFolder == false)
-							if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _clipID == layer._id))
-							{
-								_clipID = layer._id;
-							}
-					}
-					ImGui::EndCombo();
-				}
-
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
+				ToolTip("Restarts all this layer's sprite-sheets whenever\nthis layer is made visible", &_parent->_appConfig->_hoverTimer);
+
+				float UIUnit = ImGui::GetFrameHeight();
+
+				if (LesserCollapsingHeader("Compositing..."))
+				{
+					BetterIndent(indentSize, _id+"comp");
+					{
+						bool scaleFilterChanged = SwapButtons("Scale Filter", { 
+							{
+								"Linear", 
+								"Smooth (linear) interpolation when the image is not actual size",
+								1
+							},  
+							{
+								"Nearest Pixel",
+								"Nearest-neighbour interpolation, sharp pixels at any size",
+								0
+							},
+							}, _scaleFiltering, & _parent->_appConfig->_hoverTimer);
+						if (scaleFilterChanged)
+						{
+							if(_idleImage) _idleImage->setSmooth(_scaleFiltering);
+							if (_talkImage) _talkImage->setSmooth(_scaleFiltering);
+							if (_blinkImage) _blinkImage->setSmooth(_scaleFiltering);
+							if (_talkBlinkImage) _talkBlinkImage->setSmooth(_scaleFiltering);
+							if (_screamImage) _screamImage->setSmooth(_scaleFiltering);
+						}
+
+						sf::BlendMode oldBlendMode = _blendMode;
+						std::string bmName = "";
+						for (auto& bm : g_blendmodes)
+							if (bm.second == oldBlendMode)
+								bmName = bm.first;
+						if (ImGui::BeginCombo("Blend Mode", bmName.c_str()))
+						{
+							for (auto& bm : g_blendmodes)
+							{
+								if (ImGui::Selectable(bm.first.c_str(), bm.second == oldBlendMode))
+								{
+									_blendMode = bm.second;
+								}
+							}
+							ImGui::EndCombo();
+						}
+						ToolTip("Define how this layer's color should be\nblended onto the layers below it", &_parent->_appConfig->_hoverTimer);
+
+						LayerInfo* oldClip = _parent->GetLayer(_clipID);
+						std::string clipName = oldClip ? oldClip->_name : "Off";
+						if (ImGui::BeginCombo("Clip Layer", ANSIToUTF8(clipName).c_str()))
+						{
+							if (ImGui::Selectable("Off", (_clipID == "")))
+								_clipID = "";
+							for (auto& layer : _parent->GetLayers())
+							{
+								if (layer._id != _id && layer._clipID != _id && layer._isFolder == false)
+								{
+									ImGui::PushID((layer._id + "clip").c_str());
+									if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _clipID == layer._id))
+									{
+										_clipID = layer._id;
+									}
+									ImGui::PopID();
+								}
+							}
+							ImGui::EndCombo();
+						}
+						ToolTip("Clip this layer to the transparency\nof any other layer", &_parent->_appConfig->_hoverTimer);
+					}
+					BetterUnindent(_id + "comp");
+				}
+
 
 				ImGui::Separator();
 

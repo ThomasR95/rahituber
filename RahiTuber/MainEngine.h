@@ -676,6 +676,7 @@ public:
 				{
 					if (appConfig->_transparent)
 					{
+#ifdef WIN32
 						if (appConfig->_isFullScreen)
 						{
 							appConfig->_scrW = appConfig->_fullScrW + 1;
@@ -694,26 +695,31 @@ public:
 						margins.cxLeftWidth = -1;
 
 						DwmExtendFrameIntoClientArea(appConfig->_window.getSystemHandle(), &margins);
+
+						// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
+// #else
+						//             Display* display = XOpenDisplay(NULL);
+						//             if (display != NULL)
+						//             {
+						//                 Window wind = appConfig->_window.getSystemHandle();
+
+						//                 setWindowTransparency(display, wind, appConfig->_transparent);
+						//                 setWindowProperties(display, wind);
+
+						//                 enableWindow(display, wind, true);
+						//                 XCloseDisplay(display);
+						//             }
+#endif
 					}
 					else
 					{
+#ifdef WIN32
 						SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
 						EnableWindow(appConfig->_window.getSystemHandle(), true);
+#endif
 					}
-					// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
-					// #else
-					//             Display* display = XOpenDisplay(NULL);
-					//             if (display != NULL)
-					//             {
-					//                 Window wind = appConfig->_window.getSystemHandle();
 
-					//                 setWindowTransparency(display, wind, appConfig->_transparent);
-					//                 setWindowProperties(display, wind);
 
-					//                 enableWindow(display, wind, true);
-					//                 XCloseDisplay(display);
-					//             }
-					// #endif
 				}
 				ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
 

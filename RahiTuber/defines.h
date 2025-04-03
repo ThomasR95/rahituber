@@ -647,6 +647,82 @@ inline bool LesserButton(const char* label, const ImVec2& size_arg = ImVec2(0,0)
 
 }
 
+inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags = 0)
+{
+	auto& style = ImGui::GetStyle();
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(0.8, 0.8, 0.8, 1.0);
+	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
+	ImGui::PushStyleColor(ImGuiCol_Header, lessCol);
+	bool res = ImGui::CollapsingHeader(label, flags);
+	ImGui::PopStyleColor(2);
+	ImGui::PopStyleVar(1);
+	return res;
+
+}
+
+struct SwapButtonDef
+{
+	std::string btnName = "";
+	std::string tooltip = "";
+	int onFlag = 0;
+};
+
+inline bool SwapButtons(const char* label, const std::vector<SwapButtonDef>& options, int& flag, sf::Clock* hoverTimer, bool useLabel = true)
+{
+	bool optionChanged = false;
+	int outerTableCols = 1;
+	if (useLabel)
+		outerTableCols = 3;
+
+	float topLine = ImGui::GetCursorScreenPos().y;
+
+	if (ImGui::BeginTable("##tableOuter", outerTableCols, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_PreciseWidths))
+	{
+		if (useLabel)
+		{
+			ImGui::TableSetupColumn("##buttons", 0, 1.9);
+			ImGui::TableSetupColumn("##spacer", ImGuiTableColumnFlags_WidthFixed, ImGui::GetStyle().ItemInnerSpacing.x - 1);
+			ImGui::TableSetupColumn("##label", 0, 1);
+		}
+
+		ImGui::TableNextColumn();
+
+		if (ImGui::BeginTable("##tableBtns", options.size(), ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_PreciseWidths))
+		{
+			for (auto& opt : options)
+			{
+				ImGui::TableNextColumn();
+				ImGui::SetCursorScreenPos({ ImGui::GetCursorScreenPos().x, topLine });
+				if (flag == opt.onFlag ? ImGui::Button(opt.btnName.c_str(), {-1, 0}) : LesserButton(opt.btnName.c_str(), {-1, 0}))
+				{
+					flag = opt.onFlag;
+					optionChanged = true;
+				}
+				ToolTip(opt.tooltip.c_str(), hoverTimer);
+			}
+
+			ImGui::EndTable();
+		}
+
+		if (useLabel)
+		{
+			ImGui::TableNextColumn();
+
+			ImGui::TableNextColumn();
+
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text(label);
+		}
+
+		ImGui::EndTable();
+
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemInnerSpacing.y);
+	}
+
+	return optionChanged;
+}
+
 inline std::string ANSIToUTF8(const std::string& input)
 {
 #ifdef _WIN32
