@@ -67,7 +67,7 @@ struct AppConfig
 	float menuWindowScaling = 1.0;
 	float customScaling = 1.0;
 
-	bool _enableVSync = true;
+	bool _enableVSync = false;
 
 
 	sf::RenderWindow _window;
@@ -90,7 +90,7 @@ struct AppConfig
 	sf::Vector2i _lastMenuPopPosition = { 0, 0 };
 
 	float _fps = 0;
-	int _fpsLimit = 200;
+	int _fpsLimit = 60;
 
 	sf::Clock _timer;
 
