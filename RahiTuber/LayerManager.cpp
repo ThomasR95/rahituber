@@ -197,8 +197,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				if (layer._blendMode == g_blendmodes["Darken"])
 					_blendingShader.setUniform("invert", true);
 			}
-			
-			if (layer._clipID == "")
+
+			LayerInfo* clipLayer = GetLayer(layer._clipID);
+
+			if (clipLayer == nullptr)
 			{
 				state.blendMode = layer._blendMode;
 				state.shader = &_blendingShader;
@@ -229,7 +231,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 				layer._soloLayerRT->clear({ 0,0,0,0 });
 
-				LayerInfo* clipLayer = GetLayer(layer._clipID);
+				
 				sf::RenderStates clipState = sf::RenderStates::Default;
 
 				// Draw clip layer onto empty canvas

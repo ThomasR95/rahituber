@@ -400,24 +400,12 @@ public:
 		if (appConfig->_alwaysOnTop)
 		{
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-			if (appConfig->_menuWindow.isOpen())
-				SetWindowPos(hwnd2, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+			//if (appConfig->_menuWindow.isOpen())
+			//	SetWindowPos(hwnd2, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 		}
 
-		if (appConfig->_transparent)
-		{
-			MARGINS margins;
-			margins.cxLeftWidth = -1;
+		setWindowTransparency(hwnd, appConfig->_transparent);
 
-			SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT);
-			SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
-			DwmExtendFrameIntoClientArea(hwnd, &margins);
-		}
-		else
-		{
-			SetWindowLong(hwnd, GWL_EXSTYLE, 0);
-			SetWindowLong(hwnd, GWL_STYLE, WS_VISIBLE);
-		}
 #else
 		Display* display = XOpenDisplay(NULL);
 		if (display == NULL) {
@@ -691,10 +679,9 @@ public:
 							appConfig->_window.setView(v);
 						}
 
-						MARGINS margins;
-						margins.cxLeftWidth = -1;
+						auto hwnd = appConfig->_window.getSystemHandle();
 
-						DwmExtendFrameIntoClientArea(appConfig->_window.getSystemHandle(), &margins);
+						setWindowTransparency(hwnd, true);
 
 						// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
 // #else
@@ -714,8 +701,7 @@ public:
 					else
 					{
 #ifdef WIN32
-						SetWindowLong(appConfig->_window.getSystemHandle(), GWL_EXSTYLE, 0);
-						EnableWindow(appConfig->_window.getSystemHandle(), true);
+						setWindowTransparency(appConfig->_window.getSystemHandle(), false);
 #endif
 					}
 

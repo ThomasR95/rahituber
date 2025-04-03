@@ -20,10 +20,52 @@ namespace fs = std::filesystem;
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
+#include <Dwmapi.h>
+
 static inline void OsOpenInShell(const char* path) {
 	// Note: executable path must use  backslashes! 
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
 }
+
+inline void setWindowTransparency(HWND hwnd, bool transparent)
+{
+	if (transparent)
+	{
+		MARGINS margins = { -1 };
+
+		//SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+		SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_STYLE) | WS_POPUP | WS_VISIBLE);
+
+		HRESULT hr = S_OK;
+		hr = DwmExtendFrameIntoClientArea(hwnd, &margins);
+		if (!SUCCEEDED(hr))
+		{
+			__debugbreak();
+		}
+
+		LRESULT nRet = S_OK;
+		HRGN hRgnBlur = 0;
+		DWM_BLURBEHIND bb = { 0 };
+		// Create and populate the BlurBehind structure.
+		// Set Blur Behind and Blur Region.
+		bb.fEnable = transparent;
+		bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+		bb.fTransitionOnMaximized = 0;
+		// Fool DWM with a fake region
+		if (transparent) { hRgnBlur = CreateRectRgn(-1, -1, 0, 0); }
+		bb.hRgnBlur = hRgnBlur;
+		// Set Blur Behind mode.
+		nRet = DwmEnableBlurBehindWindow(hwnd, &bb);
+
+	}
+	else
+	{
+		SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_TRANSPARENT);
+		EnableWindow(hwnd, true);
+	}
+	
+}
+
 #else
 #define MAX_PATH 4095
 #include <cmath>
