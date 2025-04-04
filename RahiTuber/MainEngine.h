@@ -1509,7 +1509,7 @@ public:
 				srcColorMult = sf::BlendMode::SrcAlpha;
 
 			states.blendMode = sf::BlendMode(srcColorMult, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-				sf::BlendMode::SrcAlpha, sf::BlendMode::Zero, sf::BlendMode::Add);
+				sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
 		}
 
 		appConfig->_window.draw(appConfig->_RTPlane, states);
