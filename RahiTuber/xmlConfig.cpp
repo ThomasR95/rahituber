@@ -70,6 +70,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
 	common->QueryBoolAttribute("audioExpanded", &_uiConfig->_audioExpanded);
 	common->QueryBoolAttribute("showBounds", &_uiConfig->_showLayerBounds);
+	common->QueryBoolAttribute("highlightHovered", &_uiConfig->_hilightHovered);
 	common->QueryBoolAttribute("compositeBackground", &_appConfig->_compositeOntoBackground);
 
 	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
@@ -174,6 +175,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
 			common->SetAttribute("audioExpanded", _uiConfig->_audioExpanded);
 			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);
+			common->SetAttribute("highlightHovered", _uiConfig->_hilightHovered);
 			common->SetAttribute("compositeBackground", _appConfig->_compositeOntoBackground);
 
 			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);

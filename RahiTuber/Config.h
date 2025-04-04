@@ -216,6 +216,7 @@ struct UIConfig
 	bool _firstMenu = true;
 	sf::Color* _editingColour;
 	bool _showLayerBounds = true;
+	bool _hilightHovered = false;
 
 	bool _helpPopupActive = false;
 	bool _presetPopupActive = false;

@@ -185,6 +185,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.scale(_globalScale * _appConfig->mainWindowScaling);
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
+
+			bool useBlendShader = false;
 			
 			if (layer._blendMode == g_blendmodes["Multiply"]
 				|| layer._blendMode == g_blendmodes["Lighten"]
@@ -196,6 +198,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				if (layer._blendMode == g_blendmodes["Darken"])
 					_blendingShader.setUniform("invert", true);
+
+				useBlendShader = true;
+				
 			}
 
 			LayerInfo* clipLayer = GetLayer(layer._clipID);
@@ -203,7 +208,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			if (clipLayer == nullptr)
 			{
 				state.blendMode = layer._blendMode;
-				state.shader = &_blendingShader;
+
+				if(useBlendShader)
+					state.shader = &_blendingShader;
 
 				layer._idleSprite->Draw(target, state);
 				layer._talkSprite->Draw(target, state);
@@ -272,7 +279,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				sf::RenderStates RTState = sf::RenderStates::Default;
 				RTState.blendMode = layer._blendMode;
-				RTState.shader = &_blendingShader;
+
+				if (useBlendShader)
+					RTState.shader = &_blendingShader;
+
 				target->draw(layer._clipRect, RTState);
 			}
 		}
@@ -324,14 +334,16 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				sf::Vector2f boxSize = { size.x * scale.x, size.y * scale.y };
 				sf::Vector2f boxOrigin = { origin.x * scale.x, origin.y * scale.y };
 
+				sf::Color brightColor = toSFColor(theme.second + ImVec4(0.2, 0.2, 0.2, 0.2));
+
 				auto box = sf::RectangleShape(boxSize);
 				box.setOrigin(boxOrigin);
 				box.setPosition(pos);
 				box.setRotation(rot);
 				box.setOutlineColor(toSFColor(theme.first + ImVec4(0.2, 0.2, 0.2, 0.2)));
 				box.setOutlineThickness((1.0f / _globalScale.x) * _appConfig->mainWindowScaling);
-				sf::Color fill = toSFColor(theme.first);
-				if (layerHovered)
+				sf::Color fill = brightColor;
+				if (layerHovered && _uiConfig->_hilightHovered)
 					fill.a = 40;
 				else
 					fill.a = 0;
@@ -343,7 +355,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				auto circle = sf::CircleShape(circleRadius, 8);
 				circle.setPosition(pos);
 				circle.setOrigin({ circleRadius ,circleRadius });
-				circle.setFillColor(toSFColor(theme.second + ImVec4(0.2, 0.2, 0.2, 0.2)));
+				circle.setFillColor(brightColor);
 				circle.setOutlineColor(toSFColor(theme.first));
 				circle.setOutlineThickness(2 * _appConfig->mainWindowScaling);
 

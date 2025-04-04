@@ -732,6 +732,10 @@ public:
 				ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
+				ImGui::Checkbox("Highlight Hovered", &uiConfig->_hilightHovered);
+				ToolTip("Highlight the layer bounds when the layer's menu\nis expanded or hovered", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
 				ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
 				ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
 
@@ -1397,7 +1401,6 @@ public:
 
 		float audioLevel = audioConfig->_midAverage;
 
-
 		if (audioConfig->_compression)
 		{
 			audioLevel = Clamp(audioLevel, 0.0, 1.0);
@@ -1488,10 +1491,20 @@ public:
 
 		appConfig->_layersRT.display();
 		appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
-		auto states = sf::RenderStates::Default;
-		states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-			sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
-		appConfig->_window.draw(appConfig->_RTPlane);
+		sf::RenderStates states = sf::RenderStates::Default;
+
+		if (appConfig->_compositeOntoBackground && !appConfig->_transparent)
+		{
+			states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+				sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
+		}
+		else
+		{
+			states.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+				sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+		}
+
+		appConfig->_window.draw(appConfig->_RTPlane, states);
 
 #ifdef _WIN32
 		if (appConfig->_useSpout2Sender)

@@ -1,4 +1,5 @@
-const char* SFML_DefaultVert = R"GLSL(
+const char* SFML_DefaultVert = // vertex shader:
+R"GLSL(
 #version 130
 
 void main()
@@ -14,7 +15,8 @@ void main()
 }
 )GLSL";
 
-const char* SFML_DefaultFrag = R"GLSL(
+const char* SFML_DefaultFrag = // fragment shader:
+R"GLSL(
 #version 130
 
 uniform sampler2D texture;
@@ -29,7 +31,8 @@ void main()
 }
 )GLSL";
 
-const char* SFML_PremultFrag = R"GLSL(
+const char* SFML_PremultFrag = // fragment shader:
+R"GLSL(
 #version 130
 
 uniform sampler2D texture;
