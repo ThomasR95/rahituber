@@ -750,6 +750,10 @@ public:
 				ToolTip("Composite the layers onto the application background color.", &appConfig->_hoverTimer);
 				ImGui::EndDisabled();
 
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
+				ToolTip("Multiply the output color by the alpha value.\nUseful for glow effects etc.", &appConfig->_hoverTimer);
+
 				ImGui::EndTable();
 			}
 
@@ -1500,8 +1504,12 @@ public:
 		}
 		else
 		{
-			states.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-				sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+			auto srcColorMult = sf::BlendMode::One;
+			if(appConfig->_alphaPremultiplied)
+				srcColorMult = sf::BlendMode::SrcAlpha;
+
+			states.blendMode = sf::BlendMode(srcColorMult, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+				sf::BlendMode::SrcAlpha, sf::BlendMode::Zero, sf::BlendMode::Add);
 		}
 
 		appConfig->_window.draw(appConfig->_RTPlane, states);

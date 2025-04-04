@@ -124,6 +124,7 @@ struct AppConfig
 	std::thread* _checkUpdateThread = nullptr;
 
 	bool _compositeOntoBackground = true;
+	bool _alphaPremultiplied = true;
 };
 
 typedef struct

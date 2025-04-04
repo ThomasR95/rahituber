@@ -42,7 +42,7 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Erase", sf::BlendMode(sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add,
 												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 	{"Clip to Backdrop", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-												sf::BlendMode::DstAlpha, sf::BlendMode::One, sf::BlendMode::Add)},
+												sf::BlendMode::DstAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 };
 
 enum MotionStretchType {
