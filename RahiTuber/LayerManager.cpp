@@ -1991,7 +1991,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			thisLayer->SetAttribute("blendMode", bmName.c_str());
 
-			thisLayer->SetAttribute("scaleFilter", layer._scaleFiltering);
+			thisLayer->SetAttribute("scaleFilter", (bool)layer._scaleFiltering);
 
 			thisLayer->SetAttribute("clipID", layer._clipID.c_str());
 		}
@@ -2418,7 +2418,13 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 						layer._blendMode = g_blendmodes[blend];
 				}
 
-				thisLayer->QueryAttribute("scaleFilter", &layer._scaleFiltering);
+				bool scalefilter = false;
+				int scaleFilterInt = 0;
+				if (thisLayer->QueryIntAttribute("scaleFilter", &scaleFilterInt) == tinyxml2::XML_SUCCESS)
+					layer._scaleFiltering = scaleFilterInt;
+				if(thisLayer->QueryBoolAttribute("scaleFilter", &scalefilter) == tinyxml2::XML_SUCCESS)
+					layer._scaleFiltering = scalefilter;
+				
 
 				const char* clipGuid = thisLayer->Attribute("clipID");
 				if (clipGuid)
