@@ -67,22 +67,11 @@ public:
 
 	struct LayerInfo 
 	{
-		~LayerInfo()
-		{
-			if (_clipRT != nullptr)
-				delete _clipRT;
-
-			if (_soloLayerRT != nullptr)
-				delete _soloLayerRT;
-		}
-
 		std::string _id = "";
 
 		LayerManager* _parent = nullptr;
 
 		std::string _clipID = "";
-		sf::RenderTexture* _soloLayerRT = nullptr;
-		sf::RenderTexture* _clipRT = nullptr;
 		sf::RectangleShape _clipRect;
 
 		bool _isFolder = false;
@@ -175,7 +164,6 @@ public:
 		std::shared_ptr<SpriteSheet> _blinkSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _talkBlinkSprite = std::make_shared<SpriteSheet>();
 		std::shared_ptr<SpriteSheet> _screamSprite = std::make_shared<SpriteSheet>();
-
 
 		SpriteSheet* _activeSprite = nullptr;
 
@@ -538,6 +526,15 @@ private:
 	std::vector<StatesInfo> _states;
 
 	std::deque<LayerInfo> _layers;
+
+	struct ClipRenderTextures {
+		sf::RenderTexture _clipRT;
+		sf::RenderTexture _soloLayerRT;
+		bool _clipInitialized = false;
+		bool _soloLayerInitialized = false;
+	};
+
+	std::map<std::string, ClipRenderTextures> _clipRenderTextures;
 
 	sf::RenderTexture _blendingRT;
 	sf::Shader _blendingShader;

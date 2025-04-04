@@ -220,23 +220,21 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			}
 			else
 			{
-				if (layer._clipRT == nullptr || target->getSize() != layer._clipRT->getSize())
+				ClipRenderTextures& clipRTs = _clipRenderTextures[layer._id];
+
+				if (clipRTs._clipInitialized == false || target->getSize() != clipRTs._clipRT.getSize())
 				{
-					if (layer._clipRT == nullptr)
-						layer._clipRT = new sf::RenderTexture();
-
-					layer._clipRT->create(target->getSize().x, target->getSize().y);
+					clipRTs._clipRT.create(target->getSize().x, target->getSize().y);
+					clipRTs._clipInitialized = true;
 				}
-				layer._clipRT->clear({0,0,0,0});
+				clipRTs._clipRT.clear({0,0,0,0});
 
-				if (layer._soloLayerRT == nullptr || target->getSize() != layer._soloLayerRT->getSize())
+				if (clipRTs._soloLayerInitialized == false || target->getSize() != clipRTs._soloLayerRT.getSize())
 				{
-					if (layer._soloLayerRT == nullptr)
-						layer._soloLayerRT = new sf::RenderTexture();
-
-					layer._soloLayerRT->create(target->getSize().x, target->getSize().y);
+					clipRTs._soloLayerRT.create(target->getSize().x, target->getSize().y);
+					clipRTs._soloLayerInitialized = true;
 				}
-				layer._soloLayerRT->clear({ 0,0,0,0 });
+				clipRTs._soloLayerRT.clear({ 0,0,0,0 });
 
 				
 				sf::RenderStates clipState = sf::RenderStates::Default;
@@ -247,35 +245,35 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				clipState.transform.scale(_globalScale* _appConfig->mainWindowScaling);
 				clipState.transform.rotate(_globalRot);
 				clipState.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
-				clipLayer->_idleSprite->Draw(layer._clipRT, clipState);
-				clipLayer->_talkSprite->Draw(layer._clipRT, clipState);
-				clipLayer->_blinkSprite->Draw(layer._clipRT, clipState);
-				clipLayer->_talkBlinkSprite->Draw(layer._clipRT, clipState);
-				clipLayer->_screamSprite->Draw(layer._clipRT, clipState);
+				clipLayer->_idleSprite->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_talkSprite->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_blinkSprite->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_talkBlinkSprite->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_screamSprite->Draw(&clipRTs._clipRT, clipState);
 
 				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
 				layer._clipRect.setPosition({ 0,0 });
 
 				// Draw layer to be clipped onto an empty canvas
-				layer._idleSprite->Draw(layer._soloLayerRT, state);
-				layer._talkSprite->Draw(layer._soloLayerRT, state);
-				layer._blinkSprite->Draw(layer._soloLayerRT, state);
-				layer._talkBlinkSprite->Draw(layer._soloLayerRT, state);
-				layer._screamSprite->Draw(layer._soloLayerRT, state);
+				layer._idleSprite->Draw(&clipRTs._soloLayerRT, state);
+				layer._talkSprite->Draw(&clipRTs._soloLayerRT, state);
+				layer._blinkSprite->Draw(&clipRTs._soloLayerRT, state);
+				layer._talkBlinkSprite->Draw(&clipRTs._soloLayerRT, state);
+				layer._screamSprite->Draw(&clipRTs._soloLayerRT, state);
 
-				layer._soloLayerRT->display();
-				layer._clipRect.setTexture(&layer._soloLayerRT->getTexture(), true);
+				clipRTs._soloLayerRT.display();
+				layer._clipRect.setTexture(&clipRTs._soloLayerRT.getTexture(), true);
 
 				sf::RenderStates clipState2 = sf::RenderStates::Default;
 				// Draw the layer RT onto the clip RT using the fancy new blend mode
 				clipState2.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
 					sf::BlendMode::Zero, sf::BlendMode::SrcAlpha, sf::BlendMode::Add);
 
-				layer._clipRT->draw(layer._clipRect, clipState2);
-				layer._clipRT->display();
+				clipRTs._clipRT.draw(layer._clipRect, clipState2);
+				clipRTs._clipRT.display();
 				
 				// Draw the clip rect onto the actual window
-				layer._clipRect.setTexture(&layer._clipRT->getTexture(), true);
+				layer._clipRect.setTexture(&clipRTs._clipRT.getTexture(), true);
 
 				sf::RenderStates RTState = sf::RenderStates::Default;
 				RTState.blendMode = layer._blendMode;
@@ -1211,7 +1209,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 			{
 				if (&(*lit) == toCopy)
 				{
-					_layers.insert(lit, newLayer);
+					_layers.insert(lit, std::move(newLayer));
 					layer = &_layers[idx];
 					layerPosition = idx;
 					break;
@@ -1222,13 +1220,13 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 		{
 			if (insertPosition < _layers.size())
 			{
-				_layers.insert(_layers.begin() + insertPosition, newLayer);
+				_layers.insert(_layers.begin() + insertPosition, std::move(newLayer));
 				layer = &_layers[insertPosition];
 				layerPosition = insertPosition;
 			}
 			else
 			{
-				_layers.insert(_layers.end(), newLayer);
+				_layers.insert(_layers.end(), std::move(newLayer));
 				layer = &_layers.back();
 				layerPosition = _layers.size() - 1;
 			}
@@ -1236,7 +1234,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	}
 	else
 	{
-		_layers.insert(_layers.begin(), newLayer);
+		_layers.insert(_layers.begin(), std::move(newLayer));
 		layer = &_layers[0];
 
 		layerPosition = 0;
@@ -1353,6 +1351,9 @@ void LayerManager::RemoveLayer(int toRemove)
 				lyr->_inFolder = "";
 		}
 	}
+
+	if(_clipRenderTextures.count(_layers[toRemove]._id))
+		_clipRenderTextures.erase(_layers[toRemove]._id);
 
 	_layers.erase(_layers.begin() + toRemove);
 }
