@@ -396,6 +396,16 @@ inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const T2& right)
 	return sf::Vector2<T>(left.x * (T)right, left.y * (T)right);
 }
 
+inline bool operator ==(const ImVec4& left, const ImVec4& right)
+{
+	return left.x == right.x && left.y == right.y && left.z == right.z && left.w == right.w;
+}
+
+inline bool operator !=(const ImVec4& left, const ImVec4& right)
+{
+	return !(left == right);
+}
+
 
 inline float Clamp(float in, float min = 0.0, float max = 1.0)
 {
@@ -675,16 +685,18 @@ inline ImVec2 operator -(const ImVec2& left, const ImVec2& right)
 	return ImVec2(left.x - right.x, left.y - right.y);
 }
 
-inline bool LesserButton(const char* label, const ImVec2& size_arg = ImVec2(0,0))
+inline bool LesserButton(const char* label, const ImVec2& size_arg = ImVec2(0, 0), bool border = true)
 {
 	auto& style = ImGui::GetStyle();
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+	if(border)
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
 	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(0.5, 0.5, 0.5, 1.0);
 	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
 	ImGui::PushStyleColor(ImGuiCol_Button, lessCol);
 	bool res = ImGui::Button(label, size_arg);
 	ImGui::PopStyleColor(2);
-	ImGui::PopStyleVar(1);
+	if (border)
+		ImGui::PopStyleVar(1);
 	return res;
 
 }

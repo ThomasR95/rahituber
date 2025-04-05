@@ -3400,6 +3400,13 @@ void LayerManager::DrawStatesGUI()
 							if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
 								continue;
 
+							bool customColor = l._layerColor != ImVec4(0, 0, 0, 0);
+							if (customColor)
+							{
+								ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, l._layerColor);
+								ImGui::PushStyleColor(ImGuiCol_TableRowBg, l._layerColor * 0.8);
+							}
+
 							ImGui::PushID(l._id.c_str()); {
 
 								ImGui::TableNextColumn();
@@ -3423,9 +3430,13 @@ void LayerManager::DrawStatesGUI()
 								ImGui::TableNextColumn();
 								ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
 								ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+
 							}ImGui::PopID();
 
 							ImGui::TableNextRow();
+
+							if (customColor)
+								ImGui::PopStyleColor(2);
 						}
 
 						ImGui::EndTable();
@@ -4569,23 +4580,42 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						std::string clipName = oldClip ? oldClip->_name : "Off";
 						if (ImGui::BeginCombo("Clip Layer", ANSIToUTF8(clipName).c_str()))
 						{
+							float comboW = ImGui::GetContentRegionAvail().x;
+
+							ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
 							if (ImGui::Selectable("Off", (_clipID == "")))
 								_clipID = "";
 							for (auto& layer : _parent->GetLayers())
 							{
 								if (layer._id != _id && layer._clipID != _id && layer._isFolder == false)
 								{
-									ImGui::PushID((layer._id + "clip").c_str());
-									if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _clipID == layer._id))
+									bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+									if (customColor)
+										ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+									bool clicked = false;
+									if (_clipID == layer._id)
+										clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+									else
+										clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+									if (customColor)
+										ImGui::PopStyleColor();
+
+									if (clicked)
 									{
 										_clipID = layer._id;
+										ImGui::CloseCurrentPopup();
 									}
-									ImGui::PopID();
 								}
 							}
+							ImGui::PopStyleVar(2);
 							ImGui::EndCombo();
 						}
 						ToolTip("Clip this layer to the transparency\nof any other layer", &_parent->_appConfig->_hoverTimer);
+
 					}
 					BetterUnindent(_id + "comp");
 				}
@@ -4864,25 +4894,48 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				LayerInfo* oldMp = _parent->GetLayer(_motionParent);
 				std::string mpName = oldMp ? oldMp->_name : "Off";
 				ImGui::PushItemWidth(headerBtnSize.x * 7);
+
 				if (ImGui::BeginCombo("##MotionInherit", ANSIToUTF8(mpName).c_str()))
 				{
+					float comboW = ImGui::GetContentRegionAvail().x;
+
+					ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
 					if (ImGui::Selectable("Off", !hasParent))
 						_motionParent = "-1";
 					for (auto& layer : _parent->GetLayers())
 					{
 						if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
-							if (ImGui::Selectable(ANSIToUTF8(layer._name).c_str(), _motionParent == layer._id))
+						{
+							bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+							if (customColor)
+								ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+							bool clicked = false;
+							if(_motionParent == layer._id)
+								clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { UIUnit*8, UIUnit });
+							else
+								clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { UIUnit*8, UIUnit }, false);
+
+							if (customColor)
+								ImGui::PopStyleColor();
+
+							if (clicked)
 							{
 								_motionParent = layer._id;
-							}
-					}
-					ImGui::EndCombo();
+								ImGui::CloseCurrentPopup();
 
-					//recalculate the depths
-					for (auto& layer : _parent->_layers)
-					{
-						layer.CalculateLayerDepth();
+								//recalculate the depths
+								for (auto& layer : _parent->_layers)
+								{
+									layer.CalculateLayerDepth();
+								}
+							}	
+						}
 					}
+					ImGui::PopStyleVar(2);
+					ImGui::EndCombo();
 				}
 				ImGui::SetCursorPos(oldCursorPos);
 				ImGui::PopItemWidth();
