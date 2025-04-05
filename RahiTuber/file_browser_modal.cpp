@@ -443,7 +443,11 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       if (ImGui::InputText("Layer Set Name", editBuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ElideLeft))
       {
         m_savingName = UTF8ToANSI(editBuf);
-        m_currentPath.replace_filename(m_savingName);
+        if (!fs::is_directory(m_currentPath))
+            m_currentPath.replace_filename(m_savingName);
+        else
+            m_currentPath.append(m_savingName);
+
         if (m_currentPath.has_extension() == false)
         {
           m_currentPath = fs::path(m_currentPath.string() + ".xml");
