@@ -398,9 +398,21 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
+	void DrawLoadingMessage();
+
 	void DrawCanvasPresetGUI();
 
 	void DrawMenusLayerSetUI();
+
+	bool IsEmptyAndIdle()
+	{
+		return _loadingFinished == true && _layers.size() == 0;
+	}
+
+	bool IsLoading()
+	{
+		return _loadingFinished == false;
+	}
 
 	LayerInfo* AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false, int insertPosition = -1);
 	void RemoveLayer(int toRemove);

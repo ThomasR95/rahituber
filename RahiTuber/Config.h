@@ -260,6 +260,8 @@ struct UIConfig
 		{"Contrast",  { {0.3f, 0.2f, 0.4f, 1.0f},  {0.2f, 0.5f, 0.5f, 1.f} }},
 	};
 
+	bool _styleLoaded = false;
+
 	sf::Texture fontTex;
 	sf::Image fontimg;
 	bool fontBuilt = false;

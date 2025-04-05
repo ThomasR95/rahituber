@@ -135,7 +135,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		}
 	}
 
-
 	std::vector<LayerInfo*> calculateOrder;
 	for (int l = _layers.size() - 1; l >= 0; l--)
 		calculateOrder.push_back(&_layers[l]);
@@ -808,7 +807,9 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		if (_errorMessage.empty() == false)
 		{
-			ImGui::TextColored(ImVec4(1.0, 0.0, 0.0, 1.0), ANSIToUTF8(_errorMessage).c_str());
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0, 0.0, 0.0, 1.0));
+			ImGui::TextWrapped(ANSIToUTF8(_errorMessage).c_str());
+			ImGui::PopStyleColor();
 		}
 
 		ImGui::PushID("statesPopup"); {
@@ -871,14 +872,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		if (_loadingFinished == false)
 		{
-			if (_loadingPath != "")
-			{
-				ImGui::AlignTextToFramePadding();
-				std::string txt = "Loading " + _loadingProgress + "...";
-				ImVec2 txtSize = ImGui::CalcTextSize(txt.c_str());
-				ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x / 2 - txtSize.x / 2);
-				ImGui::Text(txt.c_str());
-			}
+			DrawLoadingMessage();
 		}
 		else
 		{
@@ -985,6 +979,16 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::EndTooltip();
 	}
 
+}
+
+void LayerManager::DrawLoadingMessage()
+{
+	if (_loadingPath != "")
+	{
+		ImGui::AlignTextToFramePadding();
+		std::string txt = "Loading " + _loadingProgress + "...";
+		TextCentered(ANSIToUTF8(txt).c_str());
+	}
 }
 
 void LayerManager::DrawCanvasPresetGUI()
@@ -3531,13 +3535,13 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 			ImGui::TableNextColumn();
 			optionChanged = SwapButtons("", {
 							{
-								"Activate",
-								"Activate the state when this request is called",
+								"Trigger",
+								"Trigger the state when this request is called",
 								1
 							},
 							{
-								"Deactivate",
-								"Deactivate the state when this request is called",
+								"Stop",
+								"Stop the state when this request is called\n(Necessary only for 'While Held')",
 								0
 							},
 				}, state._webRequestActive, &_appConfig->_hoverTimer, false);

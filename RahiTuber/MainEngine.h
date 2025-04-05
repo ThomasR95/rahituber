@@ -1154,6 +1154,8 @@ public:
 		style.Colors[ImGuiCol_Separator] = col_light2a;
 		style.Colors[ImGuiCol_BorderShadow] = col_shadow;
 		style.Colors[ImGuiCol_Border] = col_border;
+
+		uiConfig->_styleLoaded = true;
 	}
 
 	void menu()
@@ -1184,7 +1186,6 @@ public:
 		ImGuiIO& io = ImGui::GetIO();
 
 		auto& style = ImGui::GetStyle();
-
 
 		RefreshStyle(style, io, backdropCol);
 
@@ -1394,7 +1395,7 @@ public:
 		else
 		{
 			appConfig->_window.clear(appConfig->_bgColor);
-			if(appConfig->_compositeOntoBackground)
+			if (appConfig->_compositeOntoBackground)
 				appConfig->_layersRT.clear(appConfig->_bgColor);
 			else
 				appConfig->_layersRT.clear(sf::Color(0, 0, 0, 0));
@@ -1413,6 +1414,12 @@ public:
 		}
 
 		layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
+
+		if (layerMan && layerMan->IsEmptyAndIdle())
+		{
+			// no layers, show the menu to avoid showing a blank screen
+			uiConfig->_menuShowing = true;
+		}
 
 		appConfig->_RTPlane = sf::RectangleShape({ appConfig->_scrW, appConfig->_scrH });
 
@@ -1445,6 +1452,26 @@ public:
 		else if (appConfig->_menuWindow.isOpen())
 		{
 			menu();
+		}
+		else if (layerMan && layerMan->IsLoading())
+		{
+			if (uiConfig->_styleLoaded == false)
+			{
+				sf::Color backdropCol;
+				RefreshStyle(ImGui::GetStyle(), ImGui::GetIO(), backdropCol);
+			}
+			
+			ImGui::SFML::Update(appConfig->_window, dt);
+
+			ImGui::SetNextWindowSizeConstraints(ImGui::CalcTextSize("...RahiTuber is Loading..."), { 500, 500 });
+			ImGui::SetNextWindowPos({ appConfig->_scrW / 2, appConfig->_scrH / 2 }, 0, { 0.5, 0.5 });
+			ImGui::Begin("RahiTuber is Loading", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+
+			layerMan->DrawLoadingMessage();
+
+			ImGui::End();
+			ImGui::EndFrame();
+			ImGui::SFML::Render(appConfig->_menuRT);
 		}
 
 		if (uiConfig->_showFPS && (!uiConfig->_menuShowing || appConfig->_menuPopped))
