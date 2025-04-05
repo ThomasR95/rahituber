@@ -2839,6 +2839,26 @@ void LayerManager::CheckHotkeys()
 
 				_appConfig->_webSocket->PopQueueFront();
 			}
+			else if(_appConfig->_webSocket->hasQueue())
+			{
+				bool anyMatched = false;
+				// check if the id or name matches any state
+				for (int checkState = 0; checkState < _states.size(); checkState++)
+				{
+					bool checkMatch = qItem.stateId == std::to_string(checkState);
+					checkMatch |= qItem.stateId == _states[checkState]._name;
+
+					if (checkMatch)
+					{
+						anyMatched = true;
+						break;
+					}
+				}
+
+				// pop this request if it matched no states
+				if(!anyMatched)
+					_appConfig->_webSocket->PopQueueFront();
+			}
 
 			if (stateInfo._activeType == StatesInfo::Held && stateInfo._alternateHeld)
 			{

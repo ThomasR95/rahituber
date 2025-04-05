@@ -86,12 +86,18 @@ public:
 
 	void PopQueueFront() 
 	{ 
-		_msgQueue.pop_front(); 
+		if (_msgQueue.size() > 0)
+			_msgQueue.pop_front(); 
 	}
 
 	void ClearQueue() 
 	{
 		_msgQueue.clear();
+	}
+
+	bool hasQueue()
+	{
+		return _msgQueue.size() > 0;
 	}
 
 private:
