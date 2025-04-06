@@ -342,15 +342,19 @@ public:
 			appConfig->_scrH = appConfig->_minScrH * resizeScale;
 			if (appConfig->_wasFullScreen || firstStart)
 			{
+				std::string name = "RahiTuber";
 				appConfig->_nameLock.lock();
 				{
-					auto beforeCreate = std::chrono::system_clock::now();
-					appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), appConfig->windowName, 0);
-					logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
-					appConfig->_pendingNameChange = false;
-					appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
+					name = appConfig->windowName;
 				}
 				appConfig->_nameLock.unlock();
+
+				auto beforeCreate = std::chrono::system_clock::now();
+				appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), name, 0);
+				logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
+				appConfig->_pendingNameChange = false;
+				appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
+				
 			}
 			else
 			{
@@ -456,11 +460,11 @@ public:
 			if (appConfig->_menuWindow.isOpen())
 			{
 				ImVec2 wSize = ImGui::GetCurrentWindow()->Size;
-				ImGui::SetNextWindowPos({ wSize.x / 2 - 200, wSize.y / 4 });
+				ImGui::SetNextWindowPos({ wSize.x / 2 - 200, wSize.y / 6 });
 			}
 			else
 			{
-				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 4 });
+				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 6 });
 			}
 			ImGui::OpenPopup("Help");
 		}
@@ -480,30 +484,48 @@ public:
 		{
 			uiConfig->_helpPopupActive = true;
 
+			float UIUnit = ImGui::GetFrameHeight();
+
 			ImGui::SetWindowSize({ 400 * appConfig->scalingFactor,-1 });
 
 			if (appConfig->_updateAvailable)
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_ButtonActive]);
-				ImGui::TextWrapped("Update available!");
+				char buf[256] = {};
+				sprintf_s(buf, "Update %.3f Available!", appConfig->_versionAvailable);
+				ImGui::SeparatorText(buf);
 				ImGui::PopStyleColor();
 
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Go to Downloads page"))
+				if (ImGui::Button("Go to Downloads page", { -1, UIUnit }))
 				{
 					OsOpenInShell("https://rahisaurus.itch.io/rahituber/download/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys");
 				}
-				ToolTip("Opens the RahiTuber Downloads page in your default web browser.", &appConfig->_hoverTimer);
+				ToolTip("Opens the RahiTuber Downloads page in your default web browser.", "https://rahisaurus.itch.io/rahituber/\ndownload/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys",  & appConfig->_hoverTimer);
 
-				ImGui::NewLine();
+				ImGui::SeparatorText("");
 			}
 
+			if (ImGui::Button("Devlog (web link)", { -1, UIUnit }))
+			{
+				OsOpenInShell("https://rahisaurus.itch.io/rahituber/devlog");
+			}
+			ToolTip("Opens the RahiTuber Development log page\nin your default web browser.", "https://rahisaurus.itch.io/rahituber/devlog", & appConfig->_hoverTimer);
 
-			if (ImGui::Button("FAQ (web link)"))
+			if (ImGui::Button("FAQ (web link)", { -1, UIUnit }))
 			{
 				OsOpenInShell("https://itch.io/t/3967527/faq");
 			}
-			ToolTip("Opens the RahiTuber FAQ page in your default web browser.", &appConfig->_hoverTimer);
+			ToolTip("Opens the RahiTuber FAQ page in your default web browser.", "https://itch.io/t/3967527/faq", &appConfig->_hoverTimer);
+
+			if (ImGui::Button("Tutorials (web link)", { -1, UIUnit }))
+			{
+				OsOpenInShell("https://itch.io/t/3967451/tutorials");
+			}
+			ToolTip("Opens the RahiTuber Tutorials page in your default web browser.", "https://itch.io/t/3967451/tutorials", &appConfig->_hoverTimer);
+
+			ImGui::NewLine();
+
+			ImGui::SeparatorText("General tips:");
 
 			ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
 			ImGui::TextWrapped("Hover over any control to see an explanation of what it does.");
@@ -512,13 +534,13 @@ public:
 
 			ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
 			ImGui::TextWrapped("Drag the squares in the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
-			ImGui::NewLine();
-			ImGui::NewLine();
-			ImGui::NewLine();
-			ImGui::NewLine();
 			ImGui::PopStyleColor();
 
-			ImGui::PushStyleColor(ImGuiCol_Text, { 0.3f,0.3f,0.3f,1.f });
+			ImGui::NewLine();
+
+			ImVec4 dimText = style.Colors[ImGuiCol_Separator] * 0.8;
+			ImGui::PushStyleColor(ImGuiCol_Text, dimText);
+			ImGui::PushStyleColor(ImGuiCol_Separator, dimText);
 
 			time_t timeNow = time(0);
 			tm timeStruct;
@@ -529,12 +551,14 @@ public:
 #endif
 			int year = timeStruct.tm_year + 1900;
 
+			ImGui::SeparatorText("Acknowledgement");
+
 			ImGui::TextWrapped("PortAudio (c) 1999-2006 Ross Bencina and Phil Burk");
 			ImGui::TextWrapped("SFML (c) 2007-%d Laurent Gomila", year);
 			ImGui::TextWrapped("Dear ImGui (c) 2014-%d Omar Cornut", year);
 			ImGui::NewLine();
-			ImGui::TextWrapped("RahiTuber (c) 2018-%d Tom Rule", year);
-			ImGui::PopStyleColor();
+			ImGui::TextWrapped("RahiTuber (c) 2018-%d Rahisaurus (Tom Rule)", year);
+			ImGui::PopStyleColor(2);
 
 			ImGui::TextWrapped("Version: %.3f", appConfig->_versionNumber);
 
@@ -2104,6 +2128,7 @@ public:
 								size_t numPos = buf2.find_first_not_of("{\"latest\":\"");
 
 								float latest = std::stod(buf2.substr(numPos), nullptr);
+								appConfig->_versionAvailable = latest;
 								appConfig->_updateAvailable = appConfig->_versionNumber < latest;
 
 								logToFile(appConfig, "Available version: " + std::to_string(latest));

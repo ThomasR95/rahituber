@@ -121,6 +121,7 @@ struct AppConfig
 	float _versionNumber = 0.0;
 	bool _checkForUpdates = true;
 	bool _updateAvailable = false;
+	float _versionAvailable = 0.0;
 	std::thread* _checkUpdateThread = nullptr;
 
 	bool _compositeOntoBackground = true;
