@@ -831,7 +831,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 			AddResetButton("pos", _globalPos, sf::Vector2f(0.0, 0.0), _appConfig, &style);
 			float pos[2] = { _globalPos.x, _globalPos.y };
-			if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f))
+			if (Float2SliderDrag("Position", pos, -1000.0, 1000.f, "%.0f", 0, _uiConfig->_numberEditType))
 			{
 				_globalPos.x = pos[0];
 				_globalPos.y = pos[1];
@@ -839,12 +839,12 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			ToolTip("Change the position for all layers", &_appConfig->_hoverTimer, true);
 
 			AddResetButton("rot", _globalRot, 0.f, _appConfig, &style);
-			ImGui::SliderFloat("Rotation", &_globalRot, -180.f, 180.f);
+			FloatSliderDrag("Rotation", &_globalRot, -180.f, 180.f, "%.1f deg", 0, _uiConfig->_numberEditType);
 			ToolTip("Change the rotation for all layers", &_appConfig->_hoverTimer, true);
 
 			AddResetButton("scale", _globalScale, sf::Vector2f(1.0, 1.0), _appConfig, &style);
 			float scale[2] = { _globalScale.x, _globalScale.y };
-			if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
+			if (Float2SliderDrag("Scale", scale, 0.0, 5.f, "%.2f", 0, _uiConfig->_numberEditType))
 			{
 				if (!_globalKeepAspect)
 				{
@@ -1333,7 +1333,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	if (_appConfig->_createMinimalLayers == false && toCopy == nullptr)
 	{
 		layer->_useBlinkFrame = true;
-		layer->_doBreathing = true;
+		layer->_idleMotionEnabled = true;
 		layer->_swapWhenTalking = true;
 		layer->_bounceType = LayerInfo::BounceLoudness;
 	}
@@ -1875,7 +1875,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			thisLayer->SetAttribute("bounceTime", layer._bounceFrequency);
 
-			thisLayer->SetAttribute("breathing", layer._doBreathing);
+			thisLayer->SetAttribute("breathing", layer._idleMotionEnabled);
 			thisLayer->SetAttribute("breathHeight", layer._breathMove.y);
 			thisLayer->SetAttribute("breathTime", layer._breathFrequency);
 			thisLayer->SetAttribute("breathMoveX", layer._breathMove.x);
@@ -2267,7 +2267,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("bounceTime", &layer._bounceFrequency);
 
-				thisLayer->QueryAttribute("breathing", &layer._doBreathing);
+				thisLayer->QueryAttribute("breathing", &layer._idleMotionEnabled);
 				thisLayer->QueryAttribute("breathHeight", &layer._breathMove.y);
 				thisLayer->QueryAttribute("breathTime", &layer._breathFrequency);
 				thisLayer->QueryAttribute("breathMoveX", &layer._breathMove.x);
@@ -3030,6 +3030,11 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_newFolderIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWFOLDER);
 		_statesIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_STATES);
 		_plusIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PLUS);
+
+		_lockOpenIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_OPEN);
+		_lockClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_CLOSED);
+		_eyeOpenIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EYE_OPEN);
+		_eyeClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EYE_CLOSED);
 	}
 }
 
@@ -3170,7 +3175,7 @@ void LayerManager::DrawStatesGUI()
 				if (state._enabled == false)
 					col = disabledCol;
 				ImGui::PushStyleColor(ImGuiCol_Header, col);
-				if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowOverlap))
 				{
 
 					ImGui::PopStyleColor();
@@ -3351,7 +3356,7 @@ void LayerManager::DrawStatesGUI()
 
 					if (state._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 					{
-						ImGui::SliderFloat("##Threshold", &state._threshold, 0.0, 1.0, "%.3f");
+						FloatSliderDrag("##Threshold", &state._threshold, 0.0, 1.0, "%.3f", 0, _uiConfig->_numberEditType);
 					}
 
 					if (state._activeType != StatesInfo::Permanent)
@@ -3359,7 +3364,7 @@ void LayerManager::DrawStatesGUI()
 						ImGui::SetCursorPosY(timeoutpos);
 						if (timeoutActive)
 						{
-							ImGui::SliderFloat("##timeoutSlider", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+							FloatSliderDrag("##timeoutSlider", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 							ToolTip("How long the state stays active for", &_appConfig->_hoverTimer, true);
 						}
 					}
@@ -3372,9 +3377,9 @@ void LayerManager::DrawStatesGUI()
 					ImGui::NextColumn();
 					if (state._schedule && state._activeType != StatesInfo::Permanent)
 					{
-						ImGui::SliderFloat("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+						FloatSliderDrag("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 						ToolTip("Sets how long the state will be inactive before reactivating", &_appConfig->_hoverTimer, true);
-						ImGui::SliderFloat("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic);
+						FloatSliderDrag("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 						ToolTip("Adds a random variation to the Interval.\nThis sets the maximum variation.", &_appConfig->_hoverTimer, true);
 					}
 
@@ -3719,7 +3724,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 		break;
 	}
 
-	if (_doBreathing)
+	if (_idleMotionEnabled)
 	{
 		bool talkActive = (talking && _swapWhenTalking || _isBouncing) && !_breatheWhileTalking;
 
@@ -4252,6 +4257,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
 	float uiScale = _parent->_appConfig->scalingFactor;
 
+	float UIUnit = ImGui::GetFrameHeight();
+
 	ImVec4 col = style.Colors[ImGuiCol_Text];
 	sf::Color btnColor = toSFColor(col);
 
@@ -4286,8 +4293,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (_isFolder)
 			name = "[" + _name + "]";
 
-		sf::Vector2f headerBtnSize(17 * uiScale, 17 * uiScale);
-		ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - 134 * uiScale, ImGui::GetCursorPosY() };
+		sf::Vector2f headerBtnSize(UIUnit-2, UIUnit-2);
+		ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - UIUnit*7, ImGui::GetCursorPosY() };
 
 		float indentSize = 8 * uiScale;
 
@@ -4309,7 +4316,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (_layerColor.w != 0)
 			ImGui::PushStyleColor(ImGuiCol_Header, _layerColor);
-		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap))
+		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowOverlap))
 		{
 			if (_scrollToHere)
 			{
@@ -4340,18 +4347,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_parent->_hoveredLayers.push_back(_id);
 
-				float imgBtnWidth = 108 * uiScale;
-				float smlImageBtnWidth = 48 * uiScale;
-				float animBtnWidth = ImGui::GetFrameHeight();
+				float imgBtnWidth = UIUnit*6 - 2;
+				float smlImageBtnWidth = UIUnit*3 - 2;
+				float animBtnWidth = UIUnit;
 
 				if (ImGui::BeginTable("imagebuttons", 3, ImGuiTableFlags_SizingFixedSame))
 				{
-					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
 					ImGui::TableNextColumn();
 
-					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Idle");
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("Idle");
 					ImGui::PushID("idleimport"); {
+
+						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
 						sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
 						sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
@@ -4362,7 +4370,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
 						AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
 
-						ImGui::PopStyleVar();
+						ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 						ImGui::PushID("idleimportfile"); {
 							char idlebuf[MAX_PATH] = {};
@@ -4389,10 +4397,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (_swapWhenTalking)
 					{
-						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-						ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk");
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text("Talk");
 						ImGui::PushID("talkimport"); {
+							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 							sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
 							sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
 							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", talkIcon, imgBtnWidth, talkCol, _talkImage, _talkImagePath, _talkSprite.get());
@@ -4404,7 +4413,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
 							}ImGui::PopID();
 
-							ImGui::PopStyleVar();
+							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 							ImGui::PushID("talkimportfile"); {
 								char talkbuf[MAX_PATH] = {};
@@ -4432,12 +4441,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (_useBlinkFrame)
 					{
-						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
 						float blinkBtnSize = _blinkWhileTalking ? smlImageBtnWidth : imgBtnWidth;
 
-						ImGui::TextColored(style.Colors[ImGuiCol_Text], "Blink");
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text("Blink");
 						ImGui::PushID("blinkimport"); {
+							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 							sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
 							sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
 							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkIcon, blinkBtnSize, blinkCol, _blinkImage, _blinkImagePath, _blinkSprite.get());
@@ -4450,7 +4460,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
 								AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
 							}ImGui::PopID();
-							ImGui::PopStyleVar();
+							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 							ImGui::PushID("blinkimportfile"); {
 								char blinkbuf[MAX_PATH] = {};
@@ -4479,10 +4489,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						if (_blinkWhileTalking)
 						{
-							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
 							//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
 							ImGui::PushID("talkblinkimport"); {
+								ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 								sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
 								sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
 								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", talkblinkIcon, blinkBtnSize, talkblinkCol, _talkBlinkImage, _talkBlinkImagePath, _talkBlinkSprite.get());
@@ -4496,7 +4506,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
 								}ImGui::PopID();//talkblinkanimbtn
 
-								ImGui::PopStyleVar();
+								ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 								ImGui::PushID("talkblinkimportfile"); {
 									char talkblinkbuf[MAX_PATH] = {};
@@ -4530,8 +4540,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
 				ToolTip("Restarts all this layer's sprite-sheets whenever\nthis layer is made visible", &_parent->_appConfig->_hoverTimer);
-
-				float UIUnit = ImGui::GetFrameHeight();
 
 				if (LesserCollapsingHeader("Compositing..."))
 				{
@@ -4645,7 +4653,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::TableNextColumn();
 					if (_smoothTalkFactor)
 					{	
-						ImGui::SliderFloat("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f");
+						FloatSliderDrag("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 						ToolTip("Set how much smoothing to apply.", &_parent->_appConfig->_hoverTimer, true);
 					}
 					ImGui::EndTable();
@@ -4666,7 +4674,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ToolTip("Smoothly transition between the Idle and Talk tint colors", &_parent->_appConfig->_hoverTimer);
 
 				ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowOverlap))
 				{
 					ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "screaming" + _id);
@@ -4723,10 +4731,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::Checkbox("Vibrate", &_screamVibrate);
 					ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
 					AddResetButton("vibamt", _screamVibrateAmount, 5.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px");
+					FloatSliderDrag("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer, true);
 					AddResetButton("vibspeed", _screamVibrateSpeed, 1.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f px");
+					FloatSliderDrag("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The speed of the vibration", &_parent->_appConfig->_hoverTimer, true);
 
 					BetterUnindent("screaming" + _id);
@@ -4740,7 +4748,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SetCursorPos(oldCursorPos);
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowOverlap))
 				{
 					ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "blinking" + _id);
@@ -4748,13 +4756,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 					ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
 					AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s");
+					FloatSliderDrag("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer, true);
 					AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s");
+					FloatSliderDrag("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer, true);
 					AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
-					ImGui::SliderFloat("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s");
+					FloatSliderDrag("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer, true);
 
 					BetterUnindent("blinking" + _id);
@@ -4770,7 +4778,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowOverlap))
 				{
 					ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "motioninherit" + _id);
@@ -4787,27 +4795,27 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						float md = _motionDelay;
 						AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
-						if (ImGui::SliderFloat("Delay", &md, 0.0, 1.0, "%.2f s"))
+						if (FloatSliderDrag("Delay", &md, 0.0, 1.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType))
 							_motionDelay = Clamp(md, 0.0, 1.0);
 
 						ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("motionDrag", _motionDrag, 0.f, _parent->_appConfig, &style);
-						if (ImGui::SliderFloat("Drag", &_motionDrag, 0.f, .999f, "%.2f"))
+						if (FloatSliderDrag("Drag", &_motionDrag, 0.f, .999f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 							_motionDrag = Clamp(_motionDrag, 0.f, .999f);
 						ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("motionSpring", _motionSpring, 0.f, _parent->_appConfig, &style);
-						if (ImGui::SliderFloat("Spring", &_motionSpring, 0.f, .999f, "%.2f"))
+						if (FloatSliderDrag("Spring", &_motionSpring, 0.f, .999f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 							_motionSpring = Clamp(_motionSpring, 0.f, .999f);
 						ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Distance limit", &_distanceLimit, 0.0, 100.f, "%.1f");
+						FloatSliderDrag("Distance limit", &_distanceLimit, 0.0, 100.f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 						ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
-						ImGui::SliderFloat("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f");
+						FloatSliderDrag("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
 						ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer, true);
 
 						AddResetButton("stretchReset", _motionStretch, MS_None, _parent->_appConfig, &style);
@@ -4817,15 +4825,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						if (_motionStretch != MS_None)
 						{
 							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _parent->_appConfig, & style);
-							ImGui::SliderFloat2("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f");
+							Float2SliderDrag("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Set the strength of the stretch effect.", &_parent->_appConfig->_hoverTimer);
 
 							AddResetButton("minStretchReset", _stretchScaleMin, sf::Vector2f(0.5f, 0.5f), _parent->_appConfig, &style);
-							ImGui::SliderFloat2("Min Scale", &_stretchScaleMin.x, -2.0f, 2.0f, "%.1f");
+							Float2SliderDrag("Min Scale", &_stretchScaleMin.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Set the minimum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
 
 							AddResetButton("maxStretchReset", _stretchScaleMax, sf::Vector2f(2.0f, 2.0f), _parent->_appConfig, &style);
-							ImGui::SliderFloat2("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f");
+							Float2SliderDrag("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Set the maximum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
 						}
 						
@@ -4942,9 +4950,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				bool indivEnabled = !hasParent || _allowIndividualMotion;
 
+				ImVec2 headerSize = {};
+				ImVec2 headerPosition = {};
+
 				ImGui::BeginDisabled(!indivEnabled);
 				{
-					if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowItemOverlap))
+					subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+					if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowOverlap))
 					{
 						BetterIndent(indentSize, "indivMotion" + _id);
 
@@ -4974,22 +4986,22 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								if (_bounceType != BounceNone)
 								{
-									AddResetButton("bounceMoveReset", _bounceMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+									AddResetButton("bounceMoveReset", _bounceMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data[2] = { _bounceMove.x, _bounceMove.y };
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									if (ImGui::SliderFloat2("Move##talkingMove", data, -50, 50, "%.2f"))
+									if (Float2SliderDrag("Move##talkingMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_bounceMove = { data[0], data[1] };
 									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("bouncerotatereset", _bounceRotation, 0.0f, _parent->_appConfig, &style);
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									ImGui::SliderFloat("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg");
+									FloatSliderDrag("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data2[2] = { _bounceScale.x, _bounceScale.y };
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									if (ImGui::SliderFloat2("Scale##talkingScale", data2, -1, 1, "%.2f"))
+									if (Float2SliderDrag("Scale##talkingScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
 										if (!_bounceScaleConstrain)
 										{
@@ -5017,7 +5029,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									{
 										AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
 										ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-										ImGui::SliderFloat("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s");
+										FloatSliderDrag("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 										ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
 									}
 								}
@@ -5027,25 +5039,25 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 							if (ImGui::BeginTabItem("Idle"))
 							{
-								ImGui::Checkbox("Do Idle Motion", &_doBreathing);
-								if (_doBreathing)
+								ImGui::Checkbox("Do Idle Motion", &_idleMotionEnabled);
+								if (_idleMotionEnabled)
 								{
-									AddResetButton("breathmove", _breathMove, { 0.0, 30.0 }, _parent->_appConfig, &style);
+									AddResetButton("breathmove", _breathMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data[2] = { _breathMove.x, _breathMove.y };
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									if (ImGui::SliderFloat2("Move##idleMove", data, -50, 50, "%.2f"))
+									if (Float2SliderDrag("Move##idleMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_breathMove = { data[0], data[1] };
 									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, &style);
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									ImGui::SliderFloat("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg");
+									FloatSliderDrag("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathscale", _breathScale, { 0.1, 0.1 }, _parent->_appConfig, &style);
+									AddResetButton("breathscale", _breathScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data2[2] = { _breathScale.x, _breathScale.y };
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									if (ImGui::SliderFloat2("Scale##idleScale", data2, -1, 1, "%.2f"))
+									if (Float2SliderDrag("Scale##idleScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
 										if (!_breathScaleConstrain)
 										{
@@ -5076,11 +5088,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 									AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
 									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-									ImGui::SliderFloat("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s");
+									FloatSliderDrag("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
 
 									ImGui::Checkbox("Change Color", &_doBreathTint);
-									ToolTip("Interpolate the active sprite's Tint color with this one while breathing", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Interpolate the active sprite's Tint color with\nthis one along with the idle animation", &_parent->_appConfig->_hoverTimer);
 
 									if (_doBreathTint)
 									{
@@ -5103,7 +5115,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 								AddResetButton("rotspeedreset", _constantRot, 0.f, _parent->_appConfig, &style);
-								ImGui::SliderFloat("Rotation Speed", &_constantRot, -360, 360, "%.1f deg/s");
+								FloatSliderDrag("Rotation Speed", &_constantRot, -360, 360, "%.1f deg/s", 0, _parent->_uiConfig->_numberEditType);
 								ToolTip("Continuously rotate the sprite with this speed \n(degrees per second)", &_parent->_appConfig->_hoverTimer, true);
 								ImGui::EndTabItem();
 							}
@@ -5112,44 +5124,106 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 						BetterUnindent("indivMotion" + _id);
 					}
+
+					headerSize = ImGui::GetItemRectSize();
+					headerPosition = ImGui::GetItemRectMin();
+
+					if(indivEnabled)
+					{
+						ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_parent->_appConfig->_hoverTimer);
+					}	
+
+					auto oldCursorPos = ImGui::GetCursorPos();
+					ImGui::SetCursorPos(subHeaderBtnPos);
+
+					if (_bounceType != BounceNone)
+					{
+						if (GreaterButton("T##TalkEnableHeader", { UIUnit, UIUnit }, false))
+						{
+							_lastEnabledBounceType = _bounceType;
+							_bounceType = BounceNone;
+						}
+					}
+					else
+					{
+						if (LesserButton("T##TalkEnableHeader", { UIUnit, UIUnit }, false))
+						{
+							_bounceType = _lastEnabledBounceType;
+						}
+					}
+					ToolTip("Quickly enable/disable Talking motion", &_parent->_appConfig->_hoverTimer);
+					ImGui::SameLine();
+					if (_idleMotionEnabled)
+					{
+						if (GreaterButton("I##IdleEnableHeader", { UIUnit, UIUnit }, false))
+							_idleMotionEnabled = false;
+					}
+					else
+					{
+						if (LesserButton("I##IdleEnableHeader", { UIUnit, UIUnit }, false))
+							_idleMotionEnabled = true;
+					}
+					ToolTip("Quickly enable/disable Idle motion", &_parent->_appConfig->_hoverTimer);
+					
+
+					ImGui::SetCursorPos(oldCursorPos);
 				}
 				ImGui::EndDisabled();
-				if (!indivEnabled)
+				if (hasParent)
 				{
 					auto curpos = ImGui::GetCursorPos();
-					ImGui::SetCursorScreenPos(ImGui::GetItemRectMin());
-					ImGui::InvisibleButton("indivMotionDisabledTooltip", ImGui::GetItemRectSize());
-					ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
+
+					if (!indivEnabled)
+					{
+						headerSize.x -= UIUnit*1.5;
+						ImGui::SetCursorScreenPos(headerPosition);
+						ImGui::InvisibleButton("indivMotionDisabledTooltip", headerSize);
+						ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
+					}
+
+					subHeaderBtnPos.x = ImGui::GetContentRegionMax().x - UIUnit;
+					ImGui::SetCursorPos(subHeaderBtnPos);
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+					if (ImGui::ImageButton("allowIndivMotion", _allowIndividualMotion ? *_lockOpenIcon : *_lockClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+					{
+						_allowIndividualMotion = !_allowIndividualMotion;
+					}
+					ImGui::PopStyleVar(2);
+					if(_allowIndividualMotion)
+						ToolTip("Disable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
+					else
+						ToolTip("Enable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
+
+					
 					ImGui::SetCursorPos(curpos);
 				}
-				else
-				{
-					ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_parent->_appConfig->_hoverTimer);
-				}
+				
 
-				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowItemOverlap))
+				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowOverlap))
 				{
 					BetterIndent(indentSize, "transforms" + _id);
 
 					AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 					float pos[2] = { _pos.x, _pos.y };
 					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					if (ImGui::SliderFloat2("Position", pos, -1000.0, 1000.f, "%.1f px"))
+					if (Float2SliderDrag("Position", pos, -1000.0, 1000.f, "%.0f px", 0, _parent->_uiConfig->_numberEditType))
 					{
 						_pos.x = pos[0];
 						_pos.y = pos[1];
 					}
+
 					ToolTip("The position of this layer.", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("rot", _rot, 0.f, _parent->_appConfig, &style);
 					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					ImGui::SliderFloat("Rotation", &_rot, -180.f, 180.f, "%.1f deg");
+					FloatSliderDrag("Rotation", &_rot, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The rotation of this layer.", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
 					float scale[2] = { _scale.x, _scale.y };
 					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					if (ImGui::SliderFloat2("Scale", scale, 0.0, 5.f))
+					if (Float2SliderDrag("Scale", scale, 0.0, 5.f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 					{
 						if (!_keepAspect)
 						{
@@ -5195,7 +5269,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 
 					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-					if (ImGui::SliderFloat2("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str()))
+					if (Float2SliderDrag("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str(), 0, _parent->_uiConfig->_numberEditType))
 					{
 						auto prevPivot = _pivot;
 
@@ -5260,7 +5334,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						AddResetButton("moveLimits", _mouseMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
 						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-						ImGui::SliderFloat2("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px");
+						Float2SliderDrag("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
 						ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer, true);
 
 						ImGui::Checkbox("Elliptical", &_followElliptical);
@@ -5302,8 +5376,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		auto oldCursorPos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(headerButtonsPos);
 
-		if (ImGui::Checkbox("##visible", &_visible))
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0.5));
+		if (ImGui::ImageButton("visible", _visible ? *_eyeOpenIcon : *_eyeClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 		{
+			_visible = !_visible;
+
 			bool safe = true;
 			// if any active state changes this layer's visibility, it's not safe to update the default
 			for (auto& state : _parent->_states)
@@ -5323,133 +5403,124 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (safe)
 				_parent->_defaultLayerStates[_id] = _visible;
 		}
+		ImGui::PopStyleColor();
 		ToolTip("Show or hide the layer", &_parent->_appConfig->_hoverTimer);
 
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0.25));
+		ImGui::SameLine();
+		if (ImGui::ImageButton("upbtn", *_upIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+			_parent->MoveLayerUp(this);
+		ToolTip("Move the layer up", &_parent->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
-		ImGui::PushID("upbtn"); {
-			if (ImGui::ImageButton("upbtn", *_upIcon, headerBtnSize, sf::Color::Transparent, btnColor))
-				_parent->MoveLayerUp(this);
-			ToolTip("Move the layer up", &_parent->_appConfig->_hoverTimer);
-		}ImGui::PopID();//upbtn
+		if (ImGui::ImageButton("dnbtn", *_dnIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+			_parent->MoveLayerDown(this);
+		ToolTip("Move the layer down", &_parent->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
-		ImGui::PushID("dnbtn"); {
-			if (ImGui::ImageButton("dnbtn", *_dnIcon, headerBtnSize, sf::Color::Transparent, btnColor))
-				_parent->MoveLayerDown(this);
-			ToolTip("Move the layer down", &_parent->_appConfig->_hoverTimer);
-		}ImGui::PopID();//dnbtn
-
-		ImGui::SameLine();
-		ImGui::PushID("renameBtn"); {
-			if (ImGui::ImageButton("renamebtn", *_editIcon, headerBtnSize, sf::Color::Transparent, btnColor))
-			{
-				_renamingString = _name;
-				_renamePopupOpen = true;
-				_renameFirstOpened = true;
-				ImGui::SetNextWindowSize({ 200 * uiScale,80 * uiScale });
-				ImGui::OpenPopup("Rename Layer");
-			}
-
-			if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar))
-			{
-				ImGui::PopStyleVar(2);
-
-				char inputStr[32] = " ";
-				ANSIToUTF8(_renamingString).copy(inputStr, 32);
-				if (_renameFirstOpened)
-				{
-					ImGui::SetKeyboardFocusHere();
-					_renameFirstOpened = false;
-				}
-
-				bool edited = false;
-				if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
-				{
-					edited = true;
-				}
-				_renamingString = UTF8ToANSI(inputStr);
-				ImGui::SameLine();
-
-				bool saved = ImGui::Button("Save");
-
-				ImGui::Separator();
-
-				if (ImGui::BeginTable("colorPickerTable", 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX))
-				{
-					float fp = ImGui::GetStyle().FramePadding.y;
-					ImVec2 btnSize = { ImGui::GetFrameHeight(), ImGui::GetFrameHeight() };
-					sf::Vector2f imgBtnSize = { ImGui::GetFrameHeight() - fp*2,ImGui::GetFrameHeight() - fp*2 };
-					auto textCol = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
-
-					ImGui::TableNextColumn();
-
-					ImVec2 colPos = ImGui::GetCursorPos();
-					if (ImGui::ColorButton("delbtn", ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0, 0, 0, 0 };
-
-					ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
-					ImGui::Image(*_delIcon, imgBtnSize, textCol);
-
-
-					ImGui::TableNextColumn();
-					colPos = ImGui::GetCursorPos();
-					if (ImGui::ColorEdit3("##customCol", &_layerColor.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
-						_layerColor.w = 1.f;
-					
-					ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
-					ImGui::Image(*_editIcon, imgBtnSize, textCol);
-
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("red", { 0.5, 0.0, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.5, 0.0, 0.1, 1 };
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("yellow", { 0.45, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.45, 0.4, 0.1, 1 };
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("green", { 0.1, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.1, 0.4, 0.1, 1 };
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("cyan", { 0.1, 0.4, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.1, 0.4, 0.4, 1 };
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("blue", { 0.1, 0.2, 0.5, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.1, 0.2, 0.5, 1 };
-					ImGui::TableNextColumn();
-					if (ImGui::ColorButton("magenta", { 0.5, 0.1, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-						_layerColor = { 0.5, 0.1, 0.4, 1 };
-
-
-					ImGui::EndTable();
-				}
-
-				if (saved || edited)
-				{
-					_renamePopupOpen = false;
-					_name = _renamingString;
-					ImGui::CloseCurrentPopup();
-				}
-
-				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
-				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-				ImGui::EndPopup();
-			}
-
-		}ImGui::PopID();//renamebtn
+		if (ImGui::ImageButton("renamebtn", *_editIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+		{
+			_renamingString = _name;
+			_renamePopupOpen = true;
+			_renameFirstOpened = true;
+			ImGui::SetNextWindowSize({ 200 * uiScale,80 * uiScale });
+			ImGui::OpenPopup("Rename Layer");
+		}
 		ToolTip("Rename or Color the layer", &_parent->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
-		ImGui::PushID("duplicateBtn"); {
-			if (ImGui::ImageButton("dupebtn", *_dupeIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+		if (ImGui::ImageButton("dupebtn", *_dupeIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+		{
+			allowContinue = false;
+			_parent->AddLayer(this);
+		}
+		ToolTip("Duplicate the layer", &_parent->_appConfig->_hoverTimer);
+		ImGui::PopStyleColor();
+
+		if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::PopStyleVar(2);
+
+			char inputStr[32] = " ";
+			ANSIToUTF8(_renamingString).copy(inputStr, 32);
+			if (_renameFirstOpened)
 			{
-				allowContinue = false;
-				_parent->AddLayer(this);
+				ImGui::SetKeyboardFocusHere();
+				_renameFirstOpened = false;
 			}
-			ToolTip("Duplicate the layer", &_parent->_appConfig->_hoverTimer);
-		}ImGui::PopID(); //duplicatebtn
+
+			bool edited = false;
+			if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				edited = true;
+			}
+			_renamingString = UTF8ToANSI(inputStr);
+			ImGui::SameLine();
+
+			bool saved = ImGui::Button("Save");
+
+			ImGui::Separator();
+
+			if (ImGui::BeginTable("colorPickerTable", 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX))
+			{
+				float fp = ImGui::GetStyle().FramePadding.y;
+				ImVec2 btnSize = { ImGui::GetFrameHeight(), ImGui::GetFrameHeight() };
+				sf::Vector2f imgBtnSize = { ImGui::GetFrameHeight() - fp * 2,ImGui::GetFrameHeight() - fp * 2 };
+				auto textCol = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+
+				ImGui::TableNextColumn();
+
+				ImVec2 colPos = ImGui::GetCursorPos();
+				if (ImGui::ColorButton("delbtn", ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0, 0, 0, 0 };
+
+				ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+				ImGui::Image(*_delIcon, imgBtnSize, textCol);
+
+
+				ImGui::TableNextColumn();
+				colPos = ImGui::GetCursorPos();
+				if (ImGui::ColorEdit3("##customCol", &_layerColor.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
+					_layerColor.w = 1.f;
+
+				ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+				ImGui::Image(*_editIcon, imgBtnSize, textCol);
+
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("red", { 0.5, 0.0, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.5, 0.0, 0.1, 1 };
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("yellow", { 0.5, 0.35, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.5, 0.35, 0.1, 1 };
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("green", { 0.1, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.1, 0.4, 0.1, 1 };
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("cyan", { 0.1, 0.4, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.1, 0.4, 0.4, 1 };
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("blue", { 0.1, 0.2, 0.5, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.1, 0.2, 0.5, 1 };
+				ImGui::TableNextColumn();
+				if (ImGui::ColorButton("magenta", { 0.5, 0.1, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+					_layerColor = { 0.5, 0.1, 0.4, 1 };
+
+
+				ImGui::EndTable();
+			}
+
+			if (saved || edited)
+			{
+				_renamePopupOpen = false;
+				_name = _renamingString;
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
+			ImGui::EndPopup();
+		}
 
 		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
@@ -5616,6 +5687,8 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 	{
 		ImGui::SetWindowSize({ 400 * uiScale, -1 });
 
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {uiScale * 3, uiScale * 3});
+
 		ImGui::Columns(2, 0, false);
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });
 		ImGui::TextWrapped("If you need help creating a sprite sheet, here's a free tool by Final Parsec:");
@@ -5694,6 +5767,8 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 		}
 
 		ImGui::PopItemWidth();
+
+		ImGui::PopStyleVar();
 
 		ImGui::EndPopup();
 	}

@@ -492,7 +492,11 @@ public:
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_ButtonActive]);
 				char buf[256] = {};
+#ifdef WIN32
 				sprintf_s(buf, "Update %.3f Available!", appConfig->_versionAvailable);
+#else
+                sprintf(buf, "Update %.3f Available!", appConfig->_versionAvailable);
+#endif
 				ImGui::SeparatorText(buf);
 				ImGui::PopStyleColor();
 
@@ -573,23 +577,25 @@ public:
 
 	void menuAdvanced(ImGuiStyle& style)
 	{
+		float UIUnit = ImGui::GetFrameHeight();
+
 		if (ImGui::Button("Advanced", { -1, ImGui::GetFrameHeight() }))
 		{
 			float h = ImGui::GetWindowHeight();
-			ImGui::SetNextWindowSize({ 420 * appConfig->scalingFactor, h });
+			ImGui::SetNextWindowSize({ UIUnit * 24, h });
 
 			if (appConfig->_menuWindow.isOpen())
 			{
 				ImVec2 wSize = ImGui::GetCurrentWindow()->Size;
-				ImGui::SetNextWindowPos({ wSize.x / 2 - 200, wSize.y / 4 });
+				ImGui::SetNextWindowPos({ wSize.x / 2 - UIUnit*12, wSize.y / 6 });
 			}
 			else
 			{
-				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 4 });
+				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - UIUnit*12, appConfig->_scrH/2 - uiConfig->_advancedMenuHeight/2 });
 			}
 			ImGui::OpenPopup("Advanced Settings");
 		}
-		ImGui::SetNextWindowSize({ 420 * appConfig->scalingFactor,-1 });
+		ImGui::SetNextWindowSize({ UIUnit * 24,-1 });
 
 
 		uiConfig->_advancedMenuShowing = false;
@@ -800,6 +806,16 @@ public:
 
 				ImGui::EndTable();
 
+				if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
+				{
+					for (auto& numType : uiConfig->_numbertypes)
+						if (ImGui::Selectable(numType.second.c_str(), numType.first == uiConfig->_numberEditType))
+							uiConfig->_numberEditType = numType.first;
+
+					ImGui::EndCombo();
+				}
+				ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
+
 				ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
 				ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
 			}
@@ -849,6 +865,9 @@ public:
 			}
 
 			ImGui::PopStyleVar();
+
+			uiConfig->_advancedMenuHeight - ImGui::GetWindowHeight();
+
 			ImGui::EndPopup();
 		}
 	}
@@ -946,7 +965,7 @@ public:
 			float percentVal = 1.0 / 60.0;
 			float smooth = (61.0 - audioConfig->_smoothFactor) * percentVal;
 			smooth = powf(smooth, 2.f);
-			if (ImGui::SliderFloat("Soft Fall", &smooth, 0.0, 1.0, "%.2f"))
+			if (FloatSliderDrag("Soft Fall", &smooth, 0.0, 1.0, "%.2f", 0, uiConfig->_numberEditType))
 			{
 				smooth = Clamp(smooth, 0.0f, 1.0f);
 				smooth = powf(smooth, 0.5);
@@ -1114,7 +1133,9 @@ public:
 		io.ConfigErrorRecovery = false;
 #endif
 
-		ImVec4 baseColor(uiConfig->_themes[uiConfig->_theme].first);
+		auto thisTheme = uiConfig->_themes[uiConfig->_theme];
+
+		ImVec4 baseColor(thisTheme.first);
 
 		ImVec4 col_dark2(baseColor.x * 0.2f, baseColor.y * 0.2f, baseColor.z * 0.2f, 1.f);
 		ImVec4 col_dark1a(baseColor.x * 0.32f, baseColor.y * 0.32f, baseColor.z * 0.32f, 1.f);
@@ -1127,7 +1148,7 @@ public:
 		ImVec4 col_border = col_dark;
 		ImVec4 col_shadow = col_dark1;
 
-		ImVec4 baseColor2 = uiConfig->_themes[uiConfig->_theme].second;
+		ImVec4 baseColor2 = thisTheme.second;
 
 		ImVec4 col_light(baseColor2.x * 0.8f, baseColor2.y * 0.8f, baseColor2.z * 0.8f, 1.f);
 		ImVec4 col_light2(baseColor2);
@@ -1138,7 +1159,7 @@ public:
 		backdropCol = toSFColor(col_med);
 
 		auto oldFont = uiConfig->_fontName;
-		if (uiConfig->_theme == "Contrast")
+		if (uiConfig->_theme.find("Contrast") != std::string::npos)
 		{
 			col_dark2 = col_dark1a = col_med3 = ImVec4(0, 0, 0, 1.f);
 			col_dark = col_med = baseColor;
@@ -1152,14 +1173,11 @@ public:
 			style.FrameBorderSize = 2.f;
 			style.SeparatorTextBorderSize = 4.f;
 			style.ItemSpacing = { 3 * appConfig->scalingFactor, 5 * appConfig->scalingFactor };
-			uiConfig->_fontName = "res/verdana.ttf";
-			uiConfig->_fontSize = 30.f;
 		}
-		else
-		{
-			uiConfig->_fontName = "res/monof55.ttf";
-			uiConfig->_fontSize = 26.f;
-		}
+
+		uiConfig->_fontName = thisTheme.fontName;
+		uiConfig->_fontSize = thisTheme.fontSize;
+
 		uiConfig->_fontReloadNeeded = uiConfig->_fontName != oldFont;
 
 		col_shadow = { 0,0,0,0 };
@@ -1180,12 +1198,26 @@ public:
 		style.Colors[ImGuiCol_Border] = col_border;
 
 		uiConfig->_styleLoaded = true;
+
+		float UIUnit = ImGui::GetFrameHeight();
+
+		auto menuSize = appConfig->_menuWindow.getSize();
+		if (appConfig->_menuPopped && menuSize.x < UIUnit * 25)
+		{
+			menuSize.x = UIUnit * 25;
+			appConfig->_menuWindow.setSize(menuSize);
+		}
+
+		uiConfig->_lastTheme = uiConfig->_theme;
 	}
 
 	void menu()
 	{
 		bool menuUnpopped = appConfig->_menuPopped == true && appConfig->_menuPopPending == false;
 		bool menuPoppedNow = appConfig->_menuPopped == false && appConfig->_menuPopPending == true;
+
+		if(menuPoppedNow)
+			uiConfig->_lastTheme = "";
 
 		appConfig->_menuPopped = appConfig->_menuPopPending;
 
@@ -1211,7 +1243,8 @@ public:
 
 		auto& style = ImGui::GetStyle();
 
-		RefreshStyle(style, io, backdropCol);
+		if(uiConfig->_theme != uiConfig->_lastTheme)
+			RefreshStyle(style, io, backdropCol);
 
 		io.FontGlobalScale = appConfig->scalingFactor * 0.5;
 
@@ -1222,13 +1255,15 @@ public:
 
 		// Main menu window
 
+		float UIUnit = ImGui::GetFrameHeight();
+
 		float windowHeight = appConfig->_scrH - 20;
 		if (appConfig->_menuPopped == false)
 		{
 			ImGui::SetNextWindowPos(ImVec2(10, 10));
-			ImGui::SetNextWindowSize({ 480 * appConfig->scalingFactor, windowHeight });
+			ImGui::SetNextWindowSize({ UIUnit*25, windowHeight });
 
-			sf::RectangleShape backdrop({ 474 * appConfig->scalingFactor, windowHeight - 6 * appConfig->scalingFactor });
+			sf::RectangleShape backdrop({ UIUnit*25 - 4, windowHeight - 6 * appConfig->scalingFactor });
 			backdrop.setPosition(13, 13);
 			backdrop.setFillColor(backdropCol);
 			appConfig->_menuRT.draw(backdrop);
@@ -1261,12 +1296,12 @@ public:
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
 		ImGui::BeginTable("##menuVisibility", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchSame);
 		ImGui::TableNextColumn();
-		if (ImGui::Button(menuShowName.c_str(), { -1, ImGui::GetFrameHeight() }))
+		if (ImGui::Button(menuShowName.c_str(), { -1, UIUnit }))
 		{
 			uiConfig->_menuShowing = !uiConfig->_menuShowing;
 		}
 		ImGui::TableNextColumn();
-		if (ImGui::Button(menuPopName.c_str(), { -1,ImGui::GetFrameHeight() }))
+		if (ImGui::Button(menuPopName.c_str(), { -1, UIUnit }))
 		{
 			appConfig->_menuPopPending = !appConfig->_menuPopPending;
 			layerMan->CloseAllPopups();
@@ -1275,7 +1310,7 @@ public:
 		ImGui::PopStyleVar();
 
 		//	FULLSCREEN
-		if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1,ImGui::GetFrameHeight() }))
+		if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1, UIUnit }))
 		{
 			swapFullScreen();
 		}
@@ -1319,7 +1354,7 @@ public:
 		ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_FrameBg]);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
-		if (ImGui::Button("Exit RahiTuber", { -1, ImGui::GetFrameHeight() }))
+		if (ImGui::Button("Exit RahiTuber", { -1, UIUnit }))
 		{
 			if (appConfig->_menuWindow.isOpen())
 				appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
@@ -1384,10 +1419,10 @@ public:
 
 		if (menuPoppedNow)
 		{
-			float scaleFactor = CheckMonitorScaleFactor(appConfig->_lastMenuPopPosition, { (sf::Uint16)(480u * appConfig->customScaling), (sf::Uint16)appConfig->_scrH + 4u });
+			float scaleFactor = CheckMonitorScaleFactor(appConfig->_lastMenuPopPosition, { (sf::Uint16)(UIUnit * 25), (sf::Uint16)appConfig->_scrH + 4u });
 			float scaleFactorDiff = scaleFactor / appConfig->mainWindowScaling;
 
-			appConfig->_menuWindow.create(sf::VideoMode(480 * scaleFactor * appConfig->customScaling, appConfig->_scrH * scaleFactorDiff + 4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
+			appConfig->_menuWindow.create(sf::VideoMode(scaleFactorDiff * UIUnit * 25, appConfig->_scrH * scaleFactorDiff + 4), "RahiTuber - Menu", sf::Style::Default | sf::Style::Resize | sf::Style::Titlebar);
 			appConfig->_menuWindow.setIcon(uiConfig->_ico.getSize().x, uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
 
 			appConfig->_menuWindow.setPosition(appConfig->_lastMenuPopPosition);

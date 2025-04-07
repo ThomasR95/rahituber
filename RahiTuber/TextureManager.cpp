@@ -41,6 +41,14 @@ void TextureManager::LoadIcons(const std::string& appLocation)
 		LoadTexture(appLocation + "res/reset.png", _icons[ICON_RESET]);
 	if (_icons.count(ICON_PLUS) == 0)
 		LoadTexture(appLocation + "res/plus.png", _icons[ICON_PLUS]);
+	if (_icons.count(ICON_LOCK_OPEN) == 0)
+		LoadTexture(appLocation + "res/lock_open.png", _icons[ICON_LOCK_OPEN]);
+	if (_icons.count(ICON_LOCK_CLOSED) == 0)
+		LoadTexture(appLocation + "res/lock_closed.png", _icons[ICON_LOCK_CLOSED]);
+	if (_icons.count(ICON_EYE_OPEN) == 0)
+		LoadTexture(appLocation + "res/eye_open.png", _icons[ICON_EYE_OPEN]);
+	if (_icons.count(ICON_EYE_CLOSED) == 0)
+		LoadTexture(appLocation + "res/eye_closed.png", _icons[ICON_EYE_CLOSED]);
 
 	for (auto& ic : _icons)
 		ic.second->setSmooth(true);

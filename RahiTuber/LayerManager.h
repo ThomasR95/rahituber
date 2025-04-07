@@ -105,6 +105,7 @@ public:
 			BounceOnce = 3
 		};
 
+		BounceType _lastEnabledBounceType = BounceLoudness;
 		BounceType _bounceType = BounceNone;
 		sf::Vector2f _bounceMove = { 0.f, 80.f };
 		float _bounceRotation = 0.0;
@@ -114,7 +115,7 @@ public:
 		bool _isBouncing = false;
 		int _prevNumBounces = 0;
 
-		bool _doBreathing = false;
+		bool _idleMotionEnabled = false;
 		float _breathFrequency = 4.0;
 		bool _isBreathing = false;
 		sf::Vector2f _breathAmount = { 0.0f, 0.0f };
@@ -780,6 +781,11 @@ static sf::Texture* _newFolderIcon = nullptr;
 static sf::Texture* _statesIcon = nullptr;
 static sf::Texture* _plusIcon = nullptr;
 
+static sf::Texture* _lockOpenIcon = nullptr;
+static sf::Texture* _lockClosedIcon = nullptr;
+static sf::Texture* _eyeOpenIcon = nullptr;
+static sf::Texture* _eyeClosedIcon = nullptr;
+
 
 template <typename T>
 inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
@@ -813,6 +819,8 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 		*cursorPos = ImGui::GetCursorPos();
 		cursorPos->x += btnSize + (style ? style->ItemSpacing.x : 0);
 	}
+
+	ToolTip("Reset this value", &appConfig->_hoverTimer);
 
 	ImGui::SameLine(0);
 

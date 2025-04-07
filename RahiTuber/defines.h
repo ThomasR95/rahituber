@@ -701,6 +701,22 @@ inline bool LesserButton(const char* label, const ImVec2& size_arg = ImVec2(0, 0
 
 }
 
+inline bool GreaterButton(const char* label, const ImVec2& size_arg = ImVec2(0, 0), bool border = true)
+{
+	auto& style = ImGui::GetStyle();
+	if (border)
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(1.4, 1.4, 1.4, 1.0);
+	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
+	ImGui::PushStyleColor(ImGuiCol_Button, lessCol);
+	bool res = ImGui::Button(label, size_arg);
+	ImGui::PopStyleColor(2);
+	if (border)
+		ImGui::PopStyleVar(1);
+	return res;
+
+}
+
 inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags = 0)
 {
 	auto& style = ImGui::GetStyle();
@@ -713,6 +729,48 @@ inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags =
 	ImGui::PopStyleVar(1);
 	return res;
 
+}
+
+inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
+{
+	float diff = (v_max - v_min);
+	float speed = (diff * 0.004);
+	if(diff > 100)
+		speed = 5;
+	else if (diff <= 100 && diff > 10)
+		speed = 1;
+	else if (diff <= 10 && diff > 1)
+		speed = 0.1;
+	else
+		speed = 0.005;
+
+	if (type == 0)
+		return ImGui::SliderFloat(label, v, v_min, v_max, format, flags);
+	else if (type == 1)
+		return ImGui::DragFloat(label, v, speed, v_min, v_max, format, flags);
+	else if (type == 2)
+		return ImGui::InputFloat(label, v, speed, speed*4, format, 0);
+}
+
+inline bool Float2SliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
+{
+	float diff = (v_max - v_min);
+	float speed = (diff * 0.004);
+	if (diff > 100)
+		speed = 5;
+	else if (diff <= 100 && diff > 10)
+		speed = 1;
+	else if (diff <= 10 && diff > 1)
+		speed = 0.1;
+	else
+		speed = 0.005;
+
+	if (type == 0)
+		return ImGui::SliderFloat2(label, v, v_min, v_max, format, flags);
+	else if (type == 1)
+		return ImGui::DragFloat2(label, v, speed, v_min, v_max, format, flags);
+	else if (type == 2)
+		return ImGui::InputFloat2(label, v, format, 0);
 }
 
 struct SwapButtonDef

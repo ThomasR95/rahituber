@@ -78,6 +78,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("nameWindowsSeperately", &_appConfig->_nameWindowWithSet);
 
 	common->QueryBoolAttribute("createMinimal", &_appConfig->_createMinimalLayers);
+	common->QueryIntAttribute("numberEditType", &_uiConfig->_numberEditType);
 
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
 
@@ -130,6 +131,12 @@ bool xmlConfigLoader::loadCommon()
 			themeElmt->QueryAttribute("accent_r", &theme.second.x);
 			themeElmt->QueryAttribute("accent_g", &theme.second.y);
 			themeElmt->QueryAttribute("accent_b", &theme.second.z);
+
+			const char* fontPath = themeElmt->Attribute("font");
+			if (fontPath != NULL)
+				theme.fontName = fontPath;
+
+			themeElmt->QueryAttribute("fontSize", &theme.fontSize);
 		}
 
 		themeElmt = themeElmt->NextSiblingElement("Theme");
@@ -184,6 +191,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("nameWindowsSeperately", _appConfig->_nameWindowWithSet);
 
 			common->SetAttribute("createMinimal", _appConfig->_createMinimalLayers);
+			common->SetAttribute("numberEditType", _uiConfig->_numberEditType);
 
 			common->SetAttribute("trackMouse", _appConfig->_mouseTrackingEnabled);
 
@@ -231,6 +239,8 @@ bool xmlConfigLoader::saveCommon()
 				themeElmt->SetAttribute("accent_r", theme.second.second.x);
 				themeElmt->SetAttribute("accent_g", theme.second.second.y);
 				themeElmt->SetAttribute("accent_b", theme.second.second.z);
+				themeElmt->SetAttribute("font", theme.second.fontName.c_str());
+				themeElmt->SetAttribute("fontSize", theme.second.fontSize);
 			}
 			
 

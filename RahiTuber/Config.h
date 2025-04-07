@@ -222,6 +222,7 @@ struct UIConfig
 
 	bool _helpPopupActive = false;
 	bool _presetPopupActive = false;
+	float _advancedMenuHeight = 540;
 
 	sf::RectangleShape _topLeftBox;
 	sf::RectangleShape _bottomRightBox;
@@ -249,7 +250,15 @@ struct UIConfig
 	float _fontSize = 26.f;
 	bool _fontReloadNeeded = false;
 
-	std::map<std::string, std::pair<ImVec4, ImVec4>> _themes = {
+	struct ThemeDef
+	{
+		ImVec4 first = ImVec4(0.37f, 0.1f, 0.35f, 1.0f);
+		ImVec4 second = ImVec4(0.75f, 0.2f, 0.7f, 1.0f);
+		std::string fontName = "res/monof55.ttf";
+		float fontSize = 26.f;
+	};
+
+	std::map<std::string, ThemeDef> _themes = {
 		{"Default", { {0.37f, 0.1f, 0.35f, 1.0f}, {0.75f, 0.2f, 0.7f, 1.0f} }},
 		{"Sunset",  { {0.35f, 0.05f, 0.3f, 1.0f},  {0.6f, 0.2f, 0.2f, 1.0f} }},
 		{"Forest",  { {0.15f, 0.2f, 0.25f, 1.0f},  {0.2f, 0.5f, 0.3f, 1.0f} }},
@@ -258,14 +267,23 @@ struct UIConfig
 		{"Volcano", { {0.35f, 0.05f, 0.1f, 1.0f},  {0.9f, 0.6f, 0.2f, 1.0f} }},
 		{"Oxide",   { {0.25f, 0.35f, 0.4f, 1.0f},  {0.7f, 0.2f, 0.05f, 1.0f} }},
 		{"Pretty",  { {0.5f, 0.25f, 0.45f, 1.0f},  {0.7f, 0.75f, 1.0f, 1.0f} }},
-		{"Contrast",  { {0.3f, 0.2f, 0.4f, 1.0f},  {0.2f, 0.5f, 0.5f, 1.f} }},
+		{"Contrast",  { {0.3f, 0.2f, 0.4f, 1.0f},  {0.2f, 0.5f, 0.5f, 1.f}, "res/verdana.ttf", 30.f }},
 	};
 
+	std::string _lastTheme = "";
 	bool _styleLoaded = false;
 
 	sf::Texture fontTex;
 	sf::Image fontimg;
 	bool fontBuilt = false;
+
+	std::map<int, std::string> _numbertypes = {
+		{0, "Slider"},
+		{1, "Drag (use Alt for fine adjustment)"},
+		{2, "Input Only"}
+	};
+
+	int _numberEditType = 0;
 };
 
 

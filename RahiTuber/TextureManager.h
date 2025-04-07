@@ -46,6 +46,10 @@ public:
 		ICON_STATES,
 		ICON_RESET,
 		ICON_PLUS,
+		ICON_LOCK_OPEN,
+		ICON_LOCK_CLOSED,
+		ICON_EYE_OPEN,
+		ICON_EYE_CLOSED
 	};
 
 	void LoadIcons(const std::string& appLocation);
