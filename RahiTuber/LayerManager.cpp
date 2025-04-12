@@ -108,6 +108,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 	// progressively display the states in order of activation
 	auto statesOrderCopy = _statesOrder;
+	int stateIdx = 0;
 	for (auto state : statesOrderCopy)
 	{
 		if (state->_active &&																											//     Is active
@@ -124,6 +125,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (state->_active)
 		{
 			_statesDirty = true;
+			std::scoped_lock lockState(_stateLocks[stateIdx]);
+
 			for (auto& st : state->_layerStates)
 			{
 				LayerInfo* layer = GetLayer(st.first);
@@ -133,6 +136,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 			}
 		}
+
+		++stateIdx;
 	}
 
 	std::vector<LayerInfo*> calculateOrder;
@@ -178,7 +183,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		if (visible)
 		{
 			sf::RenderStates state = sf::RenderStates::Default;
-			
+
 			state.transform.translate(_globalPos);
 			state.transform.translate(0.5 * target->getSize().x, 0.5 * target->getSize().y);
 			state.transform.scale(_globalScale * _appConfig->mainWindowScaling);
@@ -186,7 +191,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
 
 			bool useBlendShader = false;
-			
+
 			if (layer._blendMode == g_blendmodes["Multiply"]
 				|| layer._blendMode == g_blendmodes["Lighten"]
 				|| layer._blendMode == g_blendmodes["Darken"]
@@ -199,7 +204,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					_blendingShader.setUniform("invert", true);
 
 				useBlendShader = true;
-				
+
 			}
 
 			LayerInfo* clipLayer = GetLayer(layer._clipID);
@@ -208,7 +213,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			{
 				state.blendMode = layer._blendMode;
 
-				if(useBlendShader)
+				if (useBlendShader)
 					state.shader = &_blendingShader;
 
 				layer._idleSprite->Draw(target, state);
@@ -226,7 +231,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipRTs._clipRT.create(target->getSize().x, target->getSize().y);
 					clipRTs._clipInitialized = true;
 				}
-				clipRTs._clipRT.clear({0,0,0,0});
+				clipRTs._clipRT.clear({ 0,0,0,0 });
 
 				if (clipRTs._soloLayerInitialized == false || target->getSize() != clipRTs._soloLayerRT.getSize())
 				{
@@ -235,13 +240,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 				clipRTs._soloLayerRT.clear({ 0,0,0,0 });
 
-				
+
 				sf::RenderStates clipState = sf::RenderStates::Default;
 
 				// Draw clip layer onto empty canvas
 				clipState.transform.translate(_globalPos);
 				clipState.transform.translate(0.5 * target->getSize().x, 0.5 * target->getSize().y);
-				clipState.transform.scale(_globalScale* _appConfig->mainWindowScaling);
+				clipState.transform.scale(_globalScale * _appConfig->mainWindowScaling);
 				clipState.transform.rotate(_globalRot);
 				clipState.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
 				clipLayer->_idleSprite->Draw(&clipRTs._clipRT, clipState);
@@ -270,7 +275,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				clipRTs._clipRT.draw(layer._clipRect, clipState2);
 				clipRTs._clipRT.display();
-				
+
 				// Draw the clip rect onto the actual window
 				layer._clipRect.setTexture(&clipRTs._clipRT.getTexture(), true);
 
@@ -515,7 +520,7 @@ void LayerManager::UpdateWindowTitle()
 			_appConfig->windowName = "RahiTuber - " + _layerSetName;
 			_appConfig->_pendingNameChange = true;
 			_appConfig->_pendingSpoutNameChange = true;
-			
+
 		}
 		_appConfig->_nameLock.unlock();
 	}
@@ -630,7 +635,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		}
 		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory.\nThen a folder will be created with the\nsame name, and your sprites copied there.", &_appConfig->_hoverTimer);
 
-		if (ImGui::Button("Create portable XML only", {-1, ImGui::GetFrameHeight()}))
+		if (ImGui::Button("Create portable XML only", { -1, ImGui::GetFrameHeight() }))
 		{
 			_saveAsXMLOpen = true;
 			_saveLayersPortable = true;
@@ -652,7 +657,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 
 	if (_saveXMLOpen)
 	{
-		if(SaveLayers(_savingXMLPath = _fullLoadedXMLPath))
+		if (SaveLayers(_savingXMLPath = _fullLoadedXMLPath))
 			_loadedXMLExists = true;
 
 		_saveXMLOpen = false;
@@ -878,7 +883,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		{
 			float topBarHeight = ImGui::GetCursorPosY() - topBarBegin;
 
-			ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, maxHeight - topBarHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+			ImGui::BeginChild(ImGuiID(10001), ImVec2(-1, (maxHeight - topBarHeight)), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
 			bool outOfFocus = !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootWindow | ImGuiFocusedFlags_NoPopupHierarchy);
 
@@ -972,6 +977,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		}
 
 	}ImGui::PopID();
+
+	_maxCursorDragY = ImGui::GetCursorScreenPos().y;
 
 	if (_dragActive && _draggedLayer != -1 && _layers.size() > _draggedLayer && ImGui::BeginTooltip())
 	{
@@ -1356,7 +1363,7 @@ void LayerManager::RemoveLayer(int toRemove)
 		}
 	}
 
-	if(_clipRenderTextures.count(_layers[toRemove]._id))
+	if (_clipRenderTextures.count(_layers[toRemove]._id))
 		_clipRenderTextures.erase(_layers[toRemove]._id);
 
 	_layers.erase(_layers.begin() + toRemove);
@@ -1623,6 +1630,10 @@ bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed
 		_dragActive = false;
 	}
 
+	// test if mouse is within the layers window
+	if (mouseY > _maxCursorDragY)
+		return false;
+
 	// If a mouse is newly down on a layer, save which layer and start the clock
 	if (mousePressed == true && hoveredLayer >= 0)
 	{
@@ -1834,7 +1845,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			CopyFileAndUpdatePath(layer._screamImagePath, targetFolder, copyOpts);
 		}
 	}
-	
+
 	layers->DeleteChildren();
 
 	ResetStates();
@@ -2081,9 +2092,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 		thisHotkey->SetAttribute("name", stateInfo._name.c_str());
 
-		if(stateInfo._key != sf::Keyboard::Unknown)
+		if (stateInfo._key != sf::Keyboard::Unknown)
 			thisHotkey->SetAttribute("key", (int)stateInfo._key);
-		if(stateInfo._scancode != sf::Keyboard::Scan::Unknown)
+		if (stateInfo._scancode != sf::Keyboard::Scan::Unknown)
 			thisHotkey->SetAttribute("scancode", (int)stateInfo._scancode);
 
 		thisHotkey->SetAttribute("ctrl", stateInfo._ctrl);
@@ -2109,13 +2120,17 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		thisHotkey->SetAttribute("interval", stateInfo._intervalTime);
 		thisHotkey->SetAttribute("variation", stateInfo._intervalVariation);
 
-		for (auto& state : stateInfo._layerStates)
 		{
-			if (state.second != StatesInfo::State::NoChange)
+			std::scoped_lock lockState(_stateLocks[h]);
+			for (auto& state : stateInfo._layerStates)
 			{
-				auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
-				thisState->SetAttribute("id", state.first.c_str());
-				thisState->SetAttribute("state", state.second);
+				if (state.second != StatesInfo::State::NoChange)
+				{
+					auto thisState = thisHotkey->InsertEndChild(doc.NewElement("state"))->ToElement();
+					thisState->SetAttribute("id", state.first.c_str());
+					thisState->SetAttribute("state", state.second);
+
+				}
 			}
 		}
 	}
@@ -2310,16 +2325,16 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				fs::current_path(_appConfig->_appLocation);
 
-                if(layer._idleImagePath != "")
-                    layer._idleImage = _textureMan->GetTexture(TryAbsolutePath(layer._idleImagePath).string(), &_errorMessage);
-                if(layer._talkImagePath != "")
-                    layer._talkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkImagePath).string(), &_errorMessage);
-                if(layer._blinkImagePath != "")
-                    layer._blinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._blinkImagePath).string(), &_errorMessage);
-                if(layer._talkBlinkImagePath != "")
-                    layer._talkBlinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkBlinkImagePath).string(), &_errorMessage);
-                if(layer._screamImagePath != "")
-                    layer._screamImage = _textureMan->GetTexture(TryAbsolutePath(layer._screamImagePath).string(), &_errorMessage);
+				if (layer._idleImagePath != "")
+					layer._idleImage = _textureMan->GetTexture(TryAbsolutePath(layer._idleImagePath).string(), &_errorMessage);
+				if (layer._talkImagePath != "")
+					layer._talkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkImagePath).string(), &_errorMessage);
+				if (layer._blinkImagePath != "")
+					layer._blinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._blinkImagePath).string(), &_errorMessage);
+				if (layer._talkBlinkImagePath != "")
+					layer._talkBlinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkBlinkImagePath).string(), &_errorMessage);
+				if (layer._screamImagePath != "")
+					layer._screamImage = _textureMan->GetTexture(TryAbsolutePath(layer._screamImagePath).string(), &_errorMessage);
 
 				if (layer._idleImage)
 					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
@@ -2427,9 +2442,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				int scaleFilterInt = 0;
 				if (thisLayer->QueryIntAttribute("scaleFilter", &scaleFilterInt) == tinyxml2::XML_SUCCESS)
 					layer._scaleFiltering = scaleFilterInt;
-				if(thisLayer->QueryBoolAttribute("scaleFilter", &scalefilter) == tinyxml2::XML_SUCCESS)
+				if (thisLayer->QueryBoolAttribute("scaleFilter", &scalefilter) == tinyxml2::XML_SUCCESS)
 					layer._scaleFiltering = scalefilter;
-				
+
 
 				const char* clipGuid = thisLayer->Attribute("clipID");
 				if (clipGuid)
@@ -2562,6 +2577,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisHotkey->QueryAttribute("variation", &hkey._intervalVariation);
 
 				auto thisLayerState = thisHotkey->FirstChildElement("state");
+				int stateIdx = 0;
 				while (thisLayerState)
 				{
 					std::string id;
@@ -2579,14 +2595,19 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 					thisLayerState->QueryIntAttribute("state", &state);
 
-					hkey._layerStates[id] = (StatesInfo::State)state;
+					{
+						std::scoped_lock lockState(_stateLocks[stateIdx]);
+						hkey._layerStates[id] = (StatesInfo::State)state;
+					}
+
 
 					thisLayerState = thisLayerState->NextSiblingElement("state");
+					++stateIdx;
 				}
 
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
-			
+
 			std::error_code ec = {};
 			_fullLoadedXMLPath = fs::absolute(_loadingPath, ec).string();
 			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path for " + _loadingPath);
@@ -2732,6 +2753,8 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			{
 				if (stateInfo._activeType == StatesInfo::Permanent)
 				{
+					std::scoped_lock lockState(_stateLocks[h]);
+
 					// activate immediately & alter the default states
 					for (auto& state : stateInfo._layerStates)
 					{
@@ -2755,14 +2778,19 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 					// activate and add to stack
 					SaveDefaultStates();
 
-					for (auto& state : stateInfo._layerStates)
 					{
-						LayerInfo* layer = GetLayer(state.first);
-						if (layer && state.second != StatesInfo::NoChange)
+						std::scoped_lock lockState(_stateLocks[h]);
+
+						for (auto& state : stateInfo._layerStates)
 						{
-							layer->_visible = state.second;
+							LayerInfo* layer = GetLayer(state.first);
+							if (layer && state.second != StatesInfo::NoChange)
+							{
+								layer->_visible = state.second;
+							}
 						}
 					}
+
 					AppendStateToOrder(&stateInfo);
 					stateInfo._timer.restart();
 					stateInfo._active = true;
@@ -2843,7 +2871,7 @@ void LayerManager::CheckHotkeys()
 
 				_appConfig->_webSocket->PopQueueFront();
 			}
-			else if(_appConfig->_webSocket->hasQueue())
+			else if (_appConfig->_webSocket->hasQueue())
 			{
 				bool anyMatched = false;
 				// check if the id or name matches any state
@@ -2860,7 +2888,7 @@ void LayerManager::CheckHotkeys()
 				}
 
 				// pop this request if it matched no states
-				if(!anyMatched)
+				if (!anyMatched)
 					_appConfig->_webSocket->PopQueueFront();
 			}
 
@@ -2942,6 +2970,8 @@ void LayerManager::CheckHotkeys()
 			{
 				if (stateInfo._activeType == StatesInfo::Permanent)
 				{
+					std::scoped_lock lockState(_stateLocks[h]);
+
 					// activate immediately & alter the default states
 					for (auto& state : stateInfo._layerStates)
 					{
@@ -2965,14 +2995,18 @@ void LayerManager::CheckHotkeys()
 					// activate and add to stack
 					SaveDefaultStates();
 
-					for (auto& state : stateInfo._layerStates)
 					{
-						LayerInfo* layer = GetLayer(state.first);
-						if (layer && state.second != StatesInfo::NoChange)
+						std::scoped_lock lockState(_stateLocks[h]);
+						for (auto& state : stateInfo._layerStates)
 						{
-							layer->_visible = state.second;
+							LayerInfo* layer = GetLayer(state.first);
+							if (layer && state.second != StatesInfo::NoChange)
+							{
+								layer->_visible = state.second;
+							}
 						}
 					}
+
 					AppendStateToOrder(&stateInfo);
 					stateInfo._timer.restart();
 					stateInfo._active = true;
@@ -3088,6 +3122,7 @@ void LayerManager::DrawStatesGUI()
 			_states.push_back(StatesInfo());
 			for (auto& l : _layers)
 			{
+				std::scoped_lock lockState(_stateLocks[_states.size()-1]);
 				_states.back()._layerStates[l._id] = StatesInfo::NoChange;
 			}
 		}
@@ -3399,8 +3434,11 @@ void LayerManager::DrawStatesGUI()
 						int layerIdx = 0;
 						for (auto& l : _layers)
 						{
-							if (state._layerStates.count(l._id) == 0)
-								state._layerStates[l._id] = StatesInfo::NoChange;
+							{
+								std::scoped_lock lockState(_stateLocks[stateIdx]);
+								if (state._layerStates.count(l._id) == 0)
+									state._layerStates[l._id] = StatesInfo::NoChange;
+							}
 
 							if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
 								continue;
@@ -3424,17 +3462,21 @@ void LayerManager::DrawStatesGUI()
 								ImGui::AlignTextToFramePadding();
 								ImGui::Text(ANSIToUTF8(l._name).c_str());
 
-								ImGui::TableNextColumn();
-								ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
-								ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
+								{
+									std::scoped_lock lockState(_stateLocks[stateIdx]);
 
-								ImGui::TableNextColumn();
-								ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
-								ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+									ImGui::TableNextColumn();
+									ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
+									ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
 
-								ImGui::TableNextColumn();
-								ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
-								ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+									ImGui::TableNextColumn();
+									ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
+									ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+
+									ImGui::TableNextColumn();
+									ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
+									ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+								}
 
 							}ImGui::PopID();
 
@@ -3533,7 +3575,7 @@ ImVec4 LayerManager::PushDeleteStyle()
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.8,0.4,0.4,1.0 });
 	ImGui::PushStyleColor(ImGuiCol_Text, { 255.f / 255,200.f / 255,170.f / 255, 1.f });
 
-	return ImVec4( 255.f / 255,200.f / 255,170.f / 255, 1.f );
+	return ImVec4(255.f / 255, 200.f / 255, 170.f / 255, 1.f);
 }
 
 void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& disabledCol, int stateIdx)
@@ -3688,7 +3730,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 			}
 		}
 
-		if(_isBouncing)
+		if (_isBouncing)
 		{
 			float motionTime = _bounceTimer.getElapsedTime().asSeconds();
 			int bounces = floor(motionTime / _bounceFrequency);
@@ -3899,7 +3941,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 
 			sf::Vector2f offset = motionPos - newPhysicsPos;
 			float movementDist = Length(offset);
-			
+
 			sf::Vector2f rotOffset = offset;
 			if (!_parent->_appConfig->_undoRotationEffectFix)
 				rotOffset.x *= -1;
@@ -3912,7 +3954,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 				pivotDiff = -_weightDirection;
 			}
 			pivotDiff = Rotate(pivotDiff, Deg2Rad(totalRot));
-			
+
 			float lenPivot = Length(pivotDiff);
 
 			if (lenPivot > 0 && movementDist > 0 && _rotationEffect != 0)
@@ -3930,10 +3972,10 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 				if (_physicsIgnorePivots)
 					pivotDirLocal = _weightDirection;
 
-				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 0.0 : 1.0 - 2.0*(int)(pivotDirLocal.x < 0);
-				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 0.0 : 1.0 - 2.0*(int)(pivotDirLocal.y < 0);
-				
-				sf::Vector2f pivotStrength = sf::Vector2f( _motionStretchStrength.x * (pivotDirLocal.x == 0 ? 1 : pivotDirLocal.x), _motionStretchStrength.y * (pivotDirLocal.y == 0 ? 1 : pivotDirLocal.y));
+				pivotDirLocal.x = pivotDirLocal.x == 0.0 ? 0.0 : 1.0 - 2.0 * (int)(pivotDirLocal.x < 0);
+				pivotDirLocal.y = pivotDirLocal.y == 0.0 ? 0.0 : 1.0 - 2.0 * (int)(pivotDirLocal.y < 0);
+
+				sf::Vector2f pivotStrength = sf::Vector2f(_motionStretchStrength.x * (pivotDirLocal.x == 0 ? 1 : pivotDirLocal.x), _motionStretchStrength.y * (pivotDirLocal.y == 0 ? 1 : pivotDirLocal.y));
 				float pivotLen = Length(pivotDirLocal);
 				sf::Vector2f pivotDir = pivotDirLocal / (pivotLen == 0 ? 1 : pivotLen);
 				float angle = pivotLen == 0 ? 0 : atan2(pivotDir.y, pivotDir.x);
@@ -3953,22 +3995,22 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2f& motionScale
 
 				float xStretch = -rotatedOffsetDir.x * stretchFactor.x;
 				float yStretch = -rotatedOffsetDir.y * stretchFactor.y;
-					switch (_motionStretch)
-					{
-					case MS_PreserveVolume:
-					{
-						motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch - yStretch, 1.0 + yStretch - xStretch), _stretchScaleMin, _stretchScaleMax);
-						break;
-					}
-					case MS_Linear:
-						motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch, 1.0 + yStretch), _stretchScaleMin, _stretchScaleMax);
-						break;
+				switch (_motionStretch)
+				{
+				case MS_PreserveVolume:
+				{
+					motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch - yStretch, 1.0 + yStretch - xStretch), _stretchScaleMin, _stretchScaleMax);
+					break;
+				}
+				case MS_Linear:
+					motionScale = motionScale * Clamp(sf::Vector2f(1.0 + xStretch, 1.0 + yStretch), _stretchScaleMin, _stretchScaleMax);
+					break;
 					//case MS_Circular:
 					//	break;
-					case MS_None:
-					default:
-						break;
-					}
+				case MS_None:
+				default:
+					break;
+				}
 			}
 
 			physicsPos = newPhysicsPos;
@@ -4293,8 +4335,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (_isFolder)
 			name = "[" + _name + "]";
 
-		sf::Vector2f headerBtnSize(UIUnit-2, UIUnit-2);
-		ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - UIUnit*7, ImGui::GetCursorPosY() };
+		sf::Vector2f headerBtnSize(UIUnit - 2, UIUnit - 2);
+		ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - UIUnit * 7, ImGui::GetCursorPosY() };
 
 		float indentSize = 8 * uiScale;
 
@@ -4321,7 +4363,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (_scrollToHere)
 			{
 				_scrollToHere = false;
-				if(!_isFolder)
+				if (!_isFolder)
 					ImGui::SetScrollHereY();
 			}
 
@@ -4334,7 +4376,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor();
-				
+
 				for (int l = 0; l < _folderContents.size(); l++)
 				{
 					int layerIdx = 0;
@@ -4347,8 +4389,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_parent->_hoveredLayers.push_back(_id);
 
-				float imgBtnWidth = UIUnit*6 - 2;
-				float smlImageBtnWidth = UIUnit*3 - 2;
+				float imgBtnWidth = UIUnit * 6 - 2;
+				float smlImageBtnWidth = UIUnit * 3 - 2;
 				float animBtnWidth = UIUnit;
 
 				if (ImGui::BeginTable("imagebuttons", 3, ImGuiTableFlags_SizingFixedSame))
@@ -4543,23 +4585,23 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				if (LesserCollapsingHeader("Compositing..."))
 				{
-					BetterIndent(indentSize, _id+"comp");
+					BetterIndent(indentSize, _id + "comp");
 					{
-						bool scaleFilterChanged = SwapButtons("Scale Filter", { 
+						bool scaleFilterChanged = SwapButtons("Scale Filter", {
 							{
-								"Linear", 
+								"Linear",
 								"Smooth (linear) interpolation when the image is not actual size",
 								1
-							},  
+							},
 							{
 								"Nearest Pixel",
 								"Nearest-neighbour interpolation, sharp pixels at any size",
 								0
 							},
-							}, _scaleFiltering, & _parent->_appConfig->_hoverTimer);
+							}, _scaleFiltering, &_parent->_appConfig->_hoverTimer);
 						if (scaleFilterChanged)
 						{
-							if(_idleImage) _idleImage->setSmooth(_scaleFiltering);
+							if (_idleImage) _idleImage->setSmooth(_scaleFiltering);
 							if (_talkImage) _talkImage->setSmooth(_scaleFiltering);
 							if (_blinkImage) _blinkImage->setSmooth(_scaleFiltering);
 							if (_talkBlinkImage) _talkBlinkImage->setSmooth(_scaleFiltering);
@@ -4639,7 +4681,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				float barWidth = ImGui::CalcItemWidth() - style.GrabMinSize;
 				ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
 				ImGui::NewLine();
-				
+
 				DrawThresholdBar(_lastTalkFactor, _talkThreshold, barPos, uiScale, barWidth);
 
 				if (ImGui::BeginTable("smoothinputtable", 2, ImGuiTableFlags_SizingFixedFit))
@@ -4652,13 +4694,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::TableNextColumn();
 					if (_smoothTalkFactor)
-					{	
+					{
 						FloatSliderDrag("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 						ToolTip("Set how much smoothing to apply.", &_parent->_appConfig->_hoverTimer, true);
 					}
 					ImGui::EndTable();
 				}
-				
+
 
 				ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
 				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
@@ -4824,7 +4866,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						if (_motionStretch != MS_None)
 						{
-							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _parent->_appConfig, & style);
+							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _parent->_appConfig, &style);
 							Float2SliderDrag("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Set the strength of the stretch effect.", &_parent->_appConfig->_hoverTimer);
 
@@ -4836,7 +4878,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							Float2SliderDrag("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Set the maximum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
 						}
-						
+
 						ImGui::Checkbox("Ignore pivots", &_physicsIgnorePivots);
 						ToolTip("Ignores the position of the layer's pivot point\nwhen calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
 
@@ -4846,12 +4888,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							float spacingY = style.ItemSpacing.y;
 							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 
-							if (ImGui::RadioButton("##topleft", _weightDirection == sf::Vector2f(-1.0, -1.0))) { _weightDirection = {-1.0, -1.0}; }
+							if (ImGui::RadioButton("##topleft", _weightDirection == sf::Vector2f(-1.0, -1.0))) { _weightDirection = { -1.0, -1.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
-							ImGui::SameLine(); 
+							ImGui::SameLine();
 							if (ImGui::RadioButton("##top", _weightDirection == sf::Vector2f(0.0, -1.0))) { _weightDirection = { 0.0, -1.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
-							ImGui::SameLine(); 
+							ImGui::SameLine();
 							if (ImGui::RadioButton("##topRight", _weightDirection == sf::Vector2f(1.0, -1.0))) { _weightDirection = { 1.0, -1.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
 
@@ -4863,10 +4905,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##right", _weightDirection == sf::Vector2f(1.0, 0.0))) { _weightDirection = { 1.0, 0.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
-							ImGui::SameLine(0, spacing*2);
+							ImGui::SameLine(0, spacing * 2);
 							ImGui::Text("Weight Direction");
 
-							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,spacingY*2 });
+							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,spacingY * 2 });
 
 							if (ImGui::RadioButton("##bottomleft", _weightDirection == sf::Vector2f(-1.0, 1.0))) { _weightDirection = { -1.0, 1.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
@@ -4876,10 +4918,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##bottomright", _weightDirection == sf::Vector2f(1.0, 1.0))) { _weightDirection = { 1.0, 1.0 }; }
 							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
-						
+
 							ImGui::PopStyleVar(2);
 						}
-						
+
 						ImGui::Checkbox("Hide with Parent", &_hideWithParent);
 						ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
 
@@ -4921,10 +4963,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
 
 							bool clicked = false;
-							if(_motionParent == layer._id)
-								clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { UIUnit*8, UIUnit });
+							if (_motionParent == layer._id)
+								clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit });
 							else
-								clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { UIUnit*8, UIUnit }, false);
+								clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit }, false);
 
 							if (customColor)
 								ImGui::PopStyleColor();
@@ -4939,7 +4981,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								{
 									layer.CalculateLayerDepth();
 								}
-							}	
+							}
 						}
 					}
 					ImGui::PopStyleVar(2);
@@ -4964,7 +5006,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						{
 							if (ImGui::BeginTabItem("Talking"))
 							{
-								std::vector<const char*> bobOptions = { "None", "Loudness", "Regular", "Once"};
+								std::vector<const char*> bobOptions = { "None", "Loudness", "Regular", "Once" };
 								ImGui::PushItemWidth(headerBtnSize.x * 7);
 								if (ImGui::BeginCombo("Motion Type", bobOptions[_bounceType]))
 								{
@@ -5128,10 +5170,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					headerSize = ImGui::GetItemRectSize();
 					headerPosition = ImGui::GetItemRectMin();
 
-					if(indivEnabled)
+					if (indivEnabled)
 					{
 						ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_parent->_appConfig->_hoverTimer);
-					}	
+					}
 
 					auto oldCursorPos = ImGui::GetCursorPos();
 					ImGui::SetCursorPos(subHeaderBtnPos);
@@ -5164,7 +5206,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							_idleMotionEnabled = true;
 					}
 					ToolTip("Quickly enable/disable Idle motion", &_parent->_appConfig->_hoverTimer);
-					
+
 
 					ImGui::SetCursorPos(oldCursorPos);
 				}
@@ -5175,7 +5217,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (!indivEnabled)
 					{
-						headerSize.x -= UIUnit*1.5;
+						headerSize.x -= UIUnit * 1.5;
 						ImGui::SetCursorScreenPos(headerPosition);
 						ImGui::InvisibleButton("indivMotionDisabledTooltip", headerSize);
 						ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
@@ -5190,15 +5232,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						_allowIndividualMotion = !_allowIndividualMotion;
 					}
 					ImGui::PopStyleVar(2);
-					if(_allowIndividualMotion)
+					if (_allowIndividualMotion)
 						ToolTip("Disable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
 					else
 						ToolTip("Enable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
 
-					
+
 					ImGui::SetCursorPos(curpos);
 				}
-				
+
 
 				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowOverlap))
 				{
@@ -5386,19 +5428,24 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 			bool safe = true;
 			// if any active state changes this layer's visibility, it's not safe to update the default
+			int stateIdx = 0;
 			for (auto& state : _parent->_states)
 			{
 				if (state._active == false)
 					continue;
 
-				if (state._layerStates.count(_id) == 0u)
-					continue;
-
-				if (state._layerStates[_id] != StatesInfo::NoChange)
 				{
-					safe = false;
-					break;
+					std::scoped_lock lockState(_parent->_stateLocks[stateIdx]);
+					if (state._layerStates.count(_id) == 0u)
+						continue;
+
+					if (state._layerStates[_id] != StatesInfo::NoChange)
+					{
+						safe = false;
+						break;
+					}
 				}
+				++stateIdx;
 			}
 			if (safe)
 				_parent->_defaultLayerStates[_id] = _visible;
@@ -5406,7 +5453,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PopStyleColor();
 		ToolTip("Show or hide the layer", &_parent->_appConfig->_hoverTimer);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0.25));
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0.25));
 		ImGui::SameLine();
 		if (ImGui::ImageButton("upbtn", *_upIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 			_parent->MoveLayerUp(this);
@@ -5546,7 +5593,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			std::string graphName = "Inheritance Graph (" + _name + ")";
 			if (!_inheritanceGraphWasOpen)
 			{
-				ImGui::SetNextWindowPos(_inheritanceGraphStartPos, 0, {0,1});
+				ImGui::SetNextWindowPos(_inheritanceGraphStartPos, 0, { 0,1 });
 				ImGui::SetNextWindowFocus();
 			}
 			ImGui::SetNextWindowSizeConstraints({ ImGui::CalcTextSize(graphName.c_str()).x + ImGui::GetFrameHeight() * 2, 0 }, ImGui::GetWindowSize());
@@ -5621,8 +5668,8 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 		texture = _parent->_textureMan->GetTexture(path, &_parent->_errorMessage);
 		if (texture)
 		{
-				texture->setSmooth(_scaleFiltering);
-				sprite->LoadFromTexture(*texture, 1, 1, 1, 1);
+			texture->setSmooth(_scaleFiltering);
+			sprite->LoadFromTexture(*texture, 1, 1, 1, 1);
 		}
 	}
 }
@@ -5687,7 +5734,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 	{
 		ImGui::SetWindowSize({ 400 * uiScale, -1 });
 
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {uiScale * 3, uiScale * 3});
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 3, uiScale * 3 });
 
 		ImGui::Columns(2, 0, false);
 		ImGui::PushStyleColor(ImGuiCol_Text, { 0.4,0.4,0.4,1 });

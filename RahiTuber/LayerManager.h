@@ -536,7 +536,8 @@ private:
 	AppConfig* _appConfig = nullptr;
 	UIConfig* _uiConfig = nullptr;
 
-	std::vector<StatesInfo> _states;
+	std::map<int, std::mutex> _stateLocks;
+	std::deque<StatesInfo> _states;
 
 	std::deque<LayerInfo> _layers;
 
@@ -605,7 +606,7 @@ private:
 		float _rot = 0.0;
 	};
 
-	std::vector<GlobalPreset> _globalPresets;
+	std::deque<GlobalPreset> _globalPresets;
 	int _currentGlobalPreset = -1;
 	bool _canvasPresetMenuOpen = false;
 	bool _canvasPresetMenuFirstOpen = true;
@@ -618,7 +619,7 @@ private:
 	bool _pivotPreservePosition = true;
 
 	std::map<std::string, bool> _defaultLayerStates;
-	std::vector<StatesInfo*> _statesOrder;
+	std::deque<StatesInfo*> _statesOrder;
 	sf::Clock _statesTimer;
 	bool _statesDirty = false;
 	void DrawStatesGUI();
@@ -637,6 +638,8 @@ private:
 	sf::Vector2f _layerDragPos = { 0,0 };
 	sf::Clock _layerDragTimer;
 	bool _dragActive = false;
+
+	float _maxCursorDragY = 0;
 
 	std::vector<std::string> _hoveredLayers;
 
