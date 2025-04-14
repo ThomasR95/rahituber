@@ -4819,8 +4819,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 
+				if (!hasParent)
+					ImGui::SetNextItemOpen(false);
+
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowOverlap))
+				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowOverlap) && hasParent)
 				{
 					ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "motioninherit" + _id);
@@ -4954,10 +4957,25 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (ImGui::Selectable("Off", !hasParent))
 						_motionParent = "-1";
-					for (auto& layer : _parent->GetLayers())
+
+					for (auto& layer : _parent->_layers)
 					{
 						if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
 						{
+							if (layer._motionParent != "")
+							{
+								// If the selection layer has a parent, check the hierarchy to ensure it's not already beneath this one
+								std::vector<LayerInfo*> parents;
+								layer.CalculateLayerDepth(&parents);
+								if (std::find_if(parents.begin(), parents.end(), [&](const LayerInfo* lyr) {
+										return lyr->_id == _id;
+									}) != parents.end())
+								{
+									// Is a child, can't be a parent
+									continue;
+								}
+							}
+
 							bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
 							if (customColor)
 								ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
@@ -4998,6 +5016,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::BeginDisabled(!indivEnabled);
 				{
 					subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+
+					if (!indivEnabled)
+						ImGui::SetNextItemOpen(false);
+
 					if (ImGui::CollapsingHeader("Individual Motion", ImGuiTreeNodeFlags_AllowOverlap))
 					{
 						BetterIndent(indentSize, "indivMotion" + _id);

@@ -482,7 +482,8 @@ inline float Min(T a, T b)
 
 static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
-	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
+
+	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip(true))
 	{
 		if (title != nullptr)
 		{
@@ -750,6 +751,8 @@ inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_ma
 		return ImGui::DragFloat(label, v, speed, v_min, v_max, format, flags);
 	else if (type == 2)
 		return ImGui::InputFloat(label, v, speed, speed*4, format, 0);
+
+	return false;
 }
 
 inline bool Float2SliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
@@ -771,6 +774,8 @@ inline bool Float2SliderDrag(const char* label, float* v, float v_min, float v_m
 		return ImGui::DragFloat2(label, v, speed, v_min, v_max, format, flags);
 	else if (type == 2)
 		return ImGui::InputFloat2(label, v, format, 0);
+
+	return false;
 }
 
 struct SwapButtonDef
