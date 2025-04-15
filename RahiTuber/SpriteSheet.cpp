@@ -30,22 +30,62 @@ void SpriteSheet::Draw(sf::RenderTarget* target, const sf::RenderStates& states)
 		}
 	}
 	
-	if(_visible)
-		target->draw(_sprite, states);
+	if (_visible)
+	{
+		if (_spriteUnloaded)
+			ReloadTexture();
 
+		if (_spriteLoadFinished)
+		{
+			target->draw(_sprite, states);
+		}
+
+		_loadTimer.restart();
+	}
+	else if (_loadTimeout > 0)
+	{
+		if (_loadTimeout < _loadTimer.getElapsedTime().asSeconds())
+		{
+			UnloadTexture();
+		}
+	}
 }
 
-void SpriteSheet::LoadFromTexture(const sf::Texture& tex, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
+void SpriteSheet::Tick()
+{
+	if (_loadTimeout > 0 && _spriteUnloaded == false)
+	{
+		if (_loadTimeout < _loadTimer.getElapsedTime().asSeconds())
+		{
+			UnloadTexture();
+		}
+	}
+}
+
+void SpriteSheet::LoadFromTexture(TextureManager* texMan, const std::string& texPath, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size, std::string* errorMsg)
 {
 	bool autoSize = size == sf::Vector2f(-1, -1);
 
+	if (texMan == nullptr)
+		return;
+
+	sf::Texture* tex = texMan->GetTexture(texPath, (void*)this, errorMsg);
+	if (tex == nullptr)
+		return;
+
+	_tex = tex;
+	_texMan = texMan;
+	_texPath = texPath;
+
 	if(autoSize)
-		_sprite.setTexture(tex, true);
+		_sprite.setTexture(*tex, true);
 
 	SetAttributes(frameCount, gridX, gridY, fps, size);
 
 	if(!autoSize)
-		_sprite.setTexture(tex, false);
+		_sprite.setTexture(*tex, false);
+
+	_spriteLoadFinished = true;
 }
 
 void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& size)
@@ -87,4 +127,38 @@ void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps,
 	_spriteSize = frameSize;
 
 	_playing = true;
+}
+
+void SpriteSheet::UnloadTexture()
+{
+	if (_texMan == nullptr || _spriteUnloaded)
+		return;
+
+	_spriteUnloaded = true;
+	_spriteLoadFinished = false;
+
+	_visible = false;
+	_tex = nullptr;
+	_sprite.setTexture(*_texMan->GetIcon(TextureManager::ICON_EMPTY));
+	_texMan->UnloadTexture(_texPath, (void*)this);
+	
+
+}
+
+void SpriteSheet::ReloadTexture()
+{
+	if (_texMan == nullptr || !_spriteUnloaded)
+		return;
+
+	_spriteUnloaded = false;
+	_loadingThread = new std::thread([&]
+		{
+
+			auto tex = _texMan->GetTexture(_texPath, (void*)this);
+			_tex = tex;
+			_tex->setSmooth(_texSmooth);
+			_sprite.setTexture(*tex);
+			_spriteLoadFinished = true;
+
+		});
 }

@@ -8,6 +8,8 @@
 #include <fstream>
 #include <iostream>
 
+#include <mutex>
+
 #ifndef _WIN32
 typedef  __uint32_t uint32_t;
 typedef  __uint8_t uint8_t;
@@ -54,18 +56,30 @@ public:
 
 	void LoadIcons(const std::string& appLocation);
 
-	sf::Texture* GetTexture(const std::string& path, std::string* errString = nullptr);
+	sf::Texture* GetTexture(const std::string& path, void* caller, std::string* errString = nullptr);
 
-	bool LoadTexture(const std::string& path, sf::Texture*& storage, std::string* errString = nullptr);
+
+	bool LoadTexture(const std::string& path, void* caller, std::string* errString = nullptr);
+	bool LoadIcon(const std::string& path, sf::Texture*& storage);
+
+	void UnloadTexture(const std::string& path, void* caller);
 
 	void Reset();
 
 	sf::Texture* GetIcon(IconID id);
 
 private:
-	std::map<std::string, sf::Texture*> _textures;
+
+	struct TextureItem {
+		std::unique_ptr<sf::Texture> tex;
+		std::map<void*, bool> refHolders;
+	};
+
+	std::map<std::string, TextureItem> _textures;
 
 	std::map<IconID, sf::Texture*> _icons;
+
+	std::mutex _loadMutex;
 
 	sf::Vector2i GetDimensions(const char* path) 
 	{

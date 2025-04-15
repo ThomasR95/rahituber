@@ -82,6 +82,9 @@ bool xmlConfigLoader::loadCommon()
 
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
 
+	common->QueryBoolAttribute("unloadTimeoutEnabled", &_appConfig->_unloadTimeoutEnabled);
+	common->QueryIntAttribute("unloadTimeout", &_appConfig->_unloadTimeout);
+
 	common->QueryBoolAttribute("checkForUpdates", &_appConfig->_checkForUpdates);
 
 	common->QueryBoolAttribute("listenHTTP", &_appConfig->_listenHTTP);
@@ -192,6 +195,9 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("createMinimal", _appConfig->_createMinimalLayers);
 			common->SetAttribute("numberEditType", _uiConfig->_numberEditType);
+
+			common->SetAttribute("unloadTimeoutEnabled", _appConfig->_unloadTimeoutEnabled);
+			common->SetAttribute("unloadTimeout", _appConfig->_unloadTimeout);
 
 			common->SetAttribute("trackMouse", _appConfig->_mouseTrackingEnabled);
 

@@ -6,55 +6,55 @@
 void TextureManager::LoadIcons(const std::string& appLocation)
 {
 	if (_icons.count(ICON_ANIM) == 0)
-		LoadTexture(appLocation + "res/anim.png", _icons[ICON_ANIM]);
+		LoadIcon(appLocation + "res/anim.png", _icons[ICON_ANIM]);
 	if (_icons.count(ICON_EMPTY) == 0)
-		LoadTexture(appLocation + "res/empty.png", _icons[ICON_EMPTY]);
+		LoadIcon(appLocation + "res/empty.png", _icons[ICON_EMPTY]);
 	if (_icons.count(ICON_UP) == 0)
-		LoadTexture(appLocation + "res/arrowup.png", _icons[ICON_UP]);
+		LoadIcon(appLocation + "res/arrowup.png", _icons[ICON_UP]);
 	if (_icons.count(ICON_DN) == 0)
-		LoadTexture(appLocation + "res/arrowdn.png", _icons[ICON_DN]);
+		LoadIcon(appLocation + "res/arrowdn.png", _icons[ICON_DN]);
 	if (_icons.count(ICON_EDIT) == 0)
-		LoadTexture(appLocation + "res/edit.png", _icons[ICON_EDIT]);
+		LoadIcon(appLocation + "res/edit.png", _icons[ICON_EDIT]);
 	if (_icons.count(ICON_DEL) == 0)
-		LoadTexture(appLocation + "res/delete.png", _icons[ICON_DEL]);
+		LoadIcon(appLocation + "res/delete.png", _icons[ICON_DEL]);
 	if (_icons.count(ICON_DUPE) == 0)
-		LoadTexture(appLocation + "res/duplicate.png", _icons[ICON_DUPE]);
+		LoadIcon(appLocation + "res/duplicate.png", _icons[ICON_DUPE]);
 	if (_icons.count(ICON_NEWFILE) == 0)
-		LoadTexture(appLocation + "res/new_file.png", _icons[ICON_NEWFILE]);
+		LoadIcon(appLocation + "res/new_file.png", _icons[ICON_NEWFILE]);
 	if (_icons.count(ICON_OPEN) == 0)
-		LoadTexture(appLocation + "res/open.png", _icons[ICON_OPEN]);
+		LoadIcon(appLocation + "res/open.png", _icons[ICON_OPEN]);
 	if (_icons.count(ICON_SAVE) == 0)
-		LoadTexture(appLocation + "res/save.png", _icons[ICON_SAVE]);
+		LoadIcon(appLocation + "res/save.png", _icons[ICON_SAVE]);
 	if (_icons.count(ICON_SAVEAS) == 0)
-		LoadTexture(appLocation + "res/save_as.png", _icons[ICON_SAVEAS]);
+		LoadIcon(appLocation + "res/save_as.png", _icons[ICON_SAVEAS]);
 	if (_icons.count(ICON_MAKEPORTABLE) == 0)
-		LoadTexture(appLocation + "res/make_portable.png", _icons[ICON_MAKEPORTABLE]);
+		LoadIcon(appLocation + "res/make_portable.png", _icons[ICON_MAKEPORTABLE]);
 	if (_icons.count(ICON_RELOAD) == 0)
-		LoadTexture(appLocation + "res/reload.png", _icons[ICON_RELOAD]);
+		LoadIcon(appLocation + "res/reload.png", _icons[ICON_RELOAD]);
 	if (_icons.count(ICON_NEWLAYER) == 0)
-		LoadTexture(appLocation + "res/new_layer.png", _icons[ICON_NEWLAYER]);
+		LoadIcon(appLocation + "res/new_layer.png", _icons[ICON_NEWLAYER]);
 	if (_icons.count(ICON_NEWFOLDER) == 0)
-		LoadTexture(appLocation + "res/new_folder.png", _icons[ICON_NEWFOLDER]);
+		LoadIcon(appLocation + "res/new_folder.png", _icons[ICON_NEWFOLDER]);
 	if (_icons.count(ICON_STATES) == 0)
-		LoadTexture(appLocation + "res/states.png", _icons[ICON_STATES]);
+		LoadIcon(appLocation + "res/states.png", _icons[ICON_STATES]);
 	if (_icons.count(ICON_RESET) == 0)
-		LoadTexture(appLocation + "res/reset.png", _icons[ICON_RESET]);
+		LoadIcon(appLocation + "res/reset.png", _icons[ICON_RESET]);
 	if (_icons.count(ICON_PLUS) == 0)
-		LoadTexture(appLocation + "res/plus.png", _icons[ICON_PLUS]);
+		LoadIcon(appLocation + "res/plus.png", _icons[ICON_PLUS]);
 	if (_icons.count(ICON_LOCK_OPEN) == 0)
-		LoadTexture(appLocation + "res/lock_open.png", _icons[ICON_LOCK_OPEN]);
+		LoadIcon(appLocation + "res/lock_open.png", _icons[ICON_LOCK_OPEN]);
 	if (_icons.count(ICON_LOCK_CLOSED) == 0)
-		LoadTexture(appLocation + "res/lock_closed.png", _icons[ICON_LOCK_CLOSED]);
+		LoadIcon(appLocation + "res/lock_closed.png", _icons[ICON_LOCK_CLOSED]);
 	if (_icons.count(ICON_EYE_OPEN) == 0)
-		LoadTexture(appLocation + "res/eye_open.png", _icons[ICON_EYE_OPEN]);
+		LoadIcon(appLocation + "res/eye_open.png", _icons[ICON_EYE_OPEN]);
 	if (_icons.count(ICON_EYE_CLOSED) == 0)
-		LoadTexture(appLocation + "res/eye_closed.png", _icons[ICON_EYE_CLOSED]);
+		LoadIcon(appLocation + "res/eye_closed.png", _icons[ICON_EYE_CLOSED]);
 
 	for (auto& ic : _icons)
 		ic.second->setSmooth(true);
 }
 
-sf::Texture* TextureManager::GetTexture(const std::string& path, std::string* errString)
+sf::Texture* TextureManager::GetTexture(const std::string& path, void* caller, std::string* errString)
 {
 	if(errString != nullptr)
 		*errString = "";
@@ -66,21 +66,20 @@ sf::Texture* TextureManager::GetTexture(const std::string& path, std::string* er
 
 	if (_textures.count(path))
 	{
-		out = _textures[path];
+		_textures[path].refHolders[caller] = true;
+		out = _textures[path].tex.get();
 	}
 	else
 	{
-		bool success = LoadTexture(path, _textures[path], errString);
-		if (!success)
-			_textures.erase(path);
-		else
-			out = _textures[path];
+		bool success = LoadTexture(path, caller, errString);
+		if (success)
+			out = _textures[path].tex.get();
 	}
 
 	return out;
 }
 
-bool TextureManager::LoadTexture(const std::string& path, sf::Texture*& storage, std::string* errString)
+bool TextureManager::LoadIcon(const std::string& path, sf::Texture*& storage)
 {
 	storage = new sf::Texture();
 	int tries = 5;
@@ -91,6 +90,41 @@ bool TextureManager::LoadTexture(const std::string& path, sf::Texture*& storage,
 		try
 		{
 			success = storage->loadFromFile(path);
+		}
+		catch (const std::exception& exc)
+		{
+			err = ": " + std::string(exc.what());
+		}
+
+		if (success)
+		{
+			return true;
+		}
+
+		tries--;
+	}
+
+	return false;
+}
+
+bool TextureManager::LoadTexture(const std::string& path, void* caller, std::string* errString)
+{
+	auto loadingTex = std::make_unique<sf::Texture>();
+	int tries = 5;
+	while (tries > 0)
+	{
+		bool success = false;
+		std::string err = "";
+		try
+		{
+			success = loadingTex->loadFromFile(path);
+
+			if (success)
+			{
+				std::scoped_lock loadLock(_loadMutex);
+				_textures[path].refHolders[caller] = true;
+				_textures[path].tex = std::move(loadingTex);
+			}
 		}
 		catch (const std::exception& exc)
 		{
@@ -133,13 +167,30 @@ bool TextureManager::LoadTexture(const std::string& path, sf::Texture*& storage,
 	return false;
 }
 
+void TextureManager::UnloadTexture(const std::string& path, void* caller)
+{
+	if (_textures.count(path) != 0)
+	{
+		if (_textures[path].refHolders.size() <= 1)
+		{
+			_textures[path].tex = nullptr;
+			_textures.erase(path);
+		}
+		else if (_textures[path].refHolders.count(caller))
+		{
+			_textures[path].refHolders.erase(caller);
+		}
+	}
+}
+
 void TextureManager::Reset()
 {
+	std::scoped_lock loadLock(_loadMutex);
 	auto it = _textures.begin();
 	for (; it != _textures.end(); it++)
 	{
-		delete (*it).second;
-		(*it).second = nullptr;
+		(*it).second.refHolders.clear();
+		(*it).second.tex = nullptr;
 	}
 	_textures.clear();
 }

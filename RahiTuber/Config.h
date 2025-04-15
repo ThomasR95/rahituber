@@ -126,6 +126,8 @@ struct AppConfig
 
 	bool _compositeOntoBackground = true;
 	bool _alphaPremultiplied = true;
+	int _unloadTimeout = 10;
+	bool _unloadTimeoutEnabled = false;
 };
 
 typedef struct

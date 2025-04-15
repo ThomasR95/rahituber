@@ -141,23 +141,18 @@ public:
 		float _screamVibrateSpeed = 1;
 
 		std::string _idleImagePath = u8"";
-		sf::Texture* _idleImage = nullptr;
 		ImVec4 _idleTint = { 1,1,1,1 };
 
-		std::string _talkImagePath = u8"";
-		sf::Texture* _talkImage = nullptr;
+		std::string _talkSpritePath = u8"";
 		ImVec4 _talkTint = { 1,1,1,1 };
 
-		std::string _blinkImagePath = u8"";
-		sf::Texture* _blinkImage = nullptr;
+		std::string _blinkSpritePath = u8"";
 		ImVec4 _blinkTint = { 1,1,1,1 };
 
-		std::string _talkBlinkImagePath = u8"";
-		sf::Texture* _talkBlinkImage = nullptr;
+		std::string _talkBlinkSpritePath = u8"";
 		ImVec4 _talkBlinkTint = { 1,1,1,1 };
 
-		std::string _screamImagePath = u8"";
-		sf::Texture* _screamImage = nullptr;
+		std::string _screamSpritePath = u8"";
 		ImVec4 _screamTint = { 1,1,1,1 };
 
 		std::shared_ptr<SpriteSheet> _idleSprite = std::make_shared<SpriteSheet>();
@@ -204,6 +199,7 @@ public:
 		bool _inheritanceGraphOpen = false;
 		bool _inheritanceGraphWasOpen = false;
 		ImVec2 _inheritanceGraphStartPos;
+		std::vector<LayerInfo*> _lastCalculatedParents;
 
 		bool AnyPopupOpen() const
 		{
@@ -222,7 +218,7 @@ public:
 			false;
 		}
 
-		void CalculateLayerDepth(std::vector<LayerInfo*>* parents = nullptr);
+		void CalculateLayerDepth();
 
 		bool EvaluateLayerVisibility();
 
@@ -240,7 +236,7 @@ public:
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
-		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, sf::Texture*& texture, std::string& path, SpriteSheet* sprite);
+		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, std::string& path, SpriteSheet* sprite);
 
 		void DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth);
 
@@ -432,6 +428,8 @@ public:
 
 	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false);
 	bool LoadLayers(const std::string& settingsFileName);
+
+	void SetUnloadingTimer(int timer);
 
 	bool PendingHotkey() { return _waitingForHotkey; }
 	void SetHotkeys(const sf::Event& evt)

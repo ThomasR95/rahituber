@@ -816,6 +816,22 @@ public:
 				}
 				ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
 
+				if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
+				{
+					if (appConfig->_unloadTimeoutEnabled)
+						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+					else
+						layerMan->SetUnloadingTimer(0);
+				}
+				ToolTip("Remove images from RAM while they're not being used.\n  WARNING: expect a delay in visibility\n  while an unloaded image is reloading!", &appConfig->_hoverTimer);
+				if (appConfig->_unloadTimeoutEnabled)
+				{
+					if(ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeout, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
+						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+					ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
+				}
+
+
 				ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
 				ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
 			}

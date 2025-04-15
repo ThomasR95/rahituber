@@ -288,6 +288,14 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				target->draw(layer._clipRect, RTState);
 			}
 		}
+		else
+		{
+			layer._idleSprite->Tick();
+			layer._talkSprite->Tick();
+			layer._blinkSprite->Tick();
+			layer._talkBlinkSprite->Tick();
+			layer._screamSprite->Tick();
+		}
 
 		layer._oldVisible = visible;
 	}
@@ -1839,10 +1847,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		for (auto& layer : _layers)
 		{
 			CopyFileAndUpdatePath(layer._idleImagePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._talkImagePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._blinkImagePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._talkBlinkImagePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._screamImagePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._talkSpritePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._blinkSpritePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._talkBlinkSpritePath, targetFolder, copyOpts);
+			CopyFileAndUpdatePath(layer._screamSpritePath, targetFolder, copyOpts);
 		}
 	}
 
@@ -1916,17 +1924,17 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			if (makePortable)
 			{
 				MakePortablePath(layer._idleImagePath);
-				MakePortablePath(layer._talkImagePath);
-				MakePortablePath(layer._blinkImagePath);
-				MakePortablePath(layer._talkBlinkImagePath);
-				MakePortablePath(layer._screamImagePath);
+				MakePortablePath(layer._talkSpritePath);
+				MakePortablePath(layer._blinkSpritePath);
+				MakePortablePath(layer._talkBlinkSpritePath);
+				MakePortablePath(layer._screamSpritePath);
 			}
 
 			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
-			thisLayer->SetAttribute("talkPath", layer._talkImagePath.c_str());
-			thisLayer->SetAttribute("blinkPath", layer._blinkImagePath.c_str());
-			thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkImagePath.c_str());
-			thisLayer->SetAttribute("screamPath", layer._screamImagePath.c_str());
+			thisLayer->SetAttribute("talkPath", layer._talkSpritePath.c_str());
+			thisLayer->SetAttribute("blinkPath", layer._blinkSpritePath.c_str());
+			thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkSpritePath.c_str());
+			thisLayer->SetAttribute("screamPath", layer._screamSpritePath.c_str());
 
 			if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
 				SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite, layer._animsSynced);
@@ -2315,37 +2323,26 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (const char* idlePth = thisLayer->Attribute("idlePath"))
 					layer._idleImagePath = idlePth;
 				if (const char* talkPth = thisLayer->Attribute("talkPath"))
-					layer._talkImagePath = talkPth;
+					layer._talkSpritePath = talkPth;
 				if (const char* blkPth = thisLayer->Attribute("blinkPath"))
-					layer._blinkImagePath = blkPth;
+					layer._blinkSpritePath = blkPth;
 				if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
-					layer._talkBlinkImagePath = talkBlkPth;
+					layer._talkBlinkSpritePath = talkBlkPth;
 				if (const char* screamPth = thisLayer->Attribute("screamPath"))
-					layer._screamImagePath = screamPth;
+					layer._screamSpritePath = screamPth;
 
 				fs::current_path(_appConfig->_appLocation);
 
 				if (layer._idleImagePath != "")
-					layer._idleImage = _textureMan->GetTexture(TryAbsolutePath(layer._idleImagePath).string(), &_errorMessage);
-				if (layer._talkImagePath != "")
-					layer._talkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkImagePath).string(), &_errorMessage);
-				if (layer._blinkImagePath != "")
-					layer._blinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._blinkImagePath).string(), &_errorMessage);
-				if (layer._talkBlinkImagePath != "")
-					layer._talkBlinkImage = _textureMan->GetTexture(TryAbsolutePath(layer._talkBlinkImagePath).string(), &_errorMessage);
-				if (layer._screamImagePath != "")
-					layer._screamImage = _textureMan->GetTexture(TryAbsolutePath(layer._screamImagePath).string(), &_errorMessage);
-
-				if (layer._idleImage)
-					layer._idleSprite->LoadFromTexture(*layer._idleImage, 1, 1, 1, 1);
-				if (layer._talkImage)
-					layer._talkSprite->LoadFromTexture(*layer._talkImage, 1, 1, 1, 1);
-				if (layer._blinkImage)
-					layer._blinkSprite->LoadFromTexture(*layer._blinkImage, 1, 1, 1, 1);
-				if (layer._talkBlinkImage)
-					layer._talkBlinkSprite->LoadFromTexture(*layer._talkBlinkImage, 1, 1, 1, 1);
-				if (layer._screamImage)
-					layer._screamSprite->LoadFromTexture(*layer._screamImage, 1, 1, 1, 1);
+					layer._idleSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._idleImagePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._talkSpritePath != "")
+					layer._talkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._talkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._blinkSpritePath != "")
+					layer._blinkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._blinkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._talkBlinkSpritePath != "")
+					layer._talkBlinkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._talkBlinkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._screamSpritePath != "")
+					layer._screamSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._screamSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
 
 				LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
 				LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
@@ -2450,14 +2447,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (clipGuid)
 					layer._clipID = clipGuid;
 
-				if (layer._idleImage)
-					layer._idleImage->setSmooth(layer._scaleFiltering);
-				if (layer._talkImage)
-					layer._talkImage->setSmooth(layer._scaleFiltering);
-				if (layer._blinkImage)
-					layer._blinkImage->setSmooth(layer._scaleFiltering);
-				if (layer._talkBlinkImage)
-					layer._talkBlinkImage->setSmooth(layer._scaleFiltering);
+
+					layer._idleSprite->setSmooth(layer._scaleFiltering);
+					layer._talkSprite->setSmooth(layer._scaleFiltering);
+					layer._blinkSprite->setSmooth(layer._scaleFiltering);
+					layer._talkBlinkSprite->setSmooth(layer._scaleFiltering);
 
 				thisLayer->QueryAttribute("isFolder", &layer._isFolder);
 
@@ -2644,11 +2638,28 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			logToFile(_appConfig, "Loaded Layer Set " + _loadingPath);
 			_loadingPath = "";
 
+			SetUnloadingTimer(_appConfig->_unloadTimeout);
+
 			_loadingFinished = true;
 
 		});
 
 	return true;
+}
+
+void LayerManager::SetUnloadingTimer(int timer)
+{
+	if (_loadingFinished)
+	{
+		for (auto& l : _layers)
+		{
+			l._idleSprite->UnloadIfUnused(timer);
+			l._talkSprite->UnloadIfUnused(timer);
+			l._blinkSprite->UnloadIfUnused(timer);
+			l._talkBlinkSprite->UnloadIfUnused(timer);
+			l._screamSprite->UnloadIfUnused(timer);
+		}
+	}
 }
 
 void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
@@ -3643,21 +3654,21 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 	ImGui::PopStyleColor();
 }
 
-void LayerManager::LayerInfo::CalculateLayerDepth(std::vector<LayerInfo*>* parents)
+void LayerManager::LayerInfo::CalculateLayerDepth()
 {
 	if (_parent == nullptr)
 		return;
 
-	if (parents)
-		parents->insert(parents->begin(), this);
+	_lastCalculatedParents.clear();
+
+	_lastCalculatedParents.insert(_lastCalculatedParents.begin(), this);
 
 	int depth = 0;
 	std::string& searchMotionParent = _motionParent;
 	LayerInfo* mp = _parent->GetLayer(searchMotionParent);
 	while (mp != nullptr)
 	{
-		if (parents)
-			parents->insert(parents->begin(), mp);
+		_lastCalculatedParents.insert(_lastCalculatedParents.begin(), mp);
 
 		depth++;
 		mp = _parent->GetLayer(mp->_motionParent);
@@ -3668,17 +3679,27 @@ void LayerManager::LayerInfo::CalculateLayerDepth(std::vector<LayerInfo*>* paren
 
 bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 {
+	if (!_visible)
+		return false;
+
 	bool visible = _visible;
+	
+
 	if (_hideWithParent)
 	{
-		LayerInfo* mp = _parent->GetLayer(_motionParent);
-		while (mp != nullptr)
+		CalculateLayerDepth();
+
+		for (int mpIdx = _lastCalculatedParents.size()-1; mpIdx > -1; mpIdx--)
 		{
+			auto& mp = _lastCalculatedParents[mpIdx];
 			visible &= mp->_visible;
-			if (mp->_hideWithParent)
-				mp = _parent->GetLayer(mp->_motionParent);
-			else
+
+			if (!visible)
+				return false;
+
+			if (!mp->_hideWithParent)
 				break;
+
 		}
 	}
 
@@ -4191,8 +4212,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
 {
 
-	bool blinkAvailable = _blinkImage && !talking && !screaming;
-	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkImage && talking && !screaming;
+	bool blinkAvailable = _blinkSprite && !talking && !screaming;
+	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite && talking && !screaming;
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
@@ -4234,7 +4255,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_isBlinking = false;
 	}
 
-	if (_talkImage && !_isBlinking && _swapWhenTalking && talking)
+	if (_talkSprite && !_isBlinking && _swapWhenTalking && talking)
 	{
 		_activeSprite = _talkSprite.get();
 		_screamSprite->_visible = false;
@@ -4254,7 +4275,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_talkSprite->Restart();
 		}
 	}
-	else if (_screamImage && screaming)
+	else if (_screamSprite && screaming)
 	{
 		_activeSprite = _screamSprite.get();
 		_screamSprite->_visible = true;
@@ -4268,8 +4289,12 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
 {
+	bool mouseTrack = _followMouse && _parent->_appConfig->_mouseTrackingEnabled;
+	if (!mouseTrack)
+		return;
+
 	bool visible = EvaluateLayerVisibility();
-	if (_followMouse && _parent->_appConfig->_mouseTrackingEnabled && (visible || !_mouseUntrackedWhenHidden))
+	if (visible || !_mouseUntrackedWhenHidden)
 	{
 		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
 		sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
@@ -4403,9 +4428,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-						sf::Color idleCol = _idleImage == nullptr ? btnColor : sf::Color::White;
-						sf::Texture* idleIcon = _idleImage == nullptr ? _emptyIcon : _idleImage;
-						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", idleIcon, imgBtnWidth, idleCol, _idleImage, _idleImagePath, _idleSprite.get());
+						sf::Texture* idleIcon = _idleSprite->getTexture();
+						sf::Color idleCol = idleIcon == nullptr ? btnColor : sf::Color::White;
+						idleIcon = idleIcon == nullptr ? _emptyIcon : _idleSprite->getTexture();
+						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", idleIcon, imgBtnWidth, idleCol, _idleImagePath, _idleSprite.get());
 
 						ImGui::SameLine();
 						_spriteIdleOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
@@ -4421,12 +4447,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (ImGui::InputText("", idlebuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 							{
 								_idleImagePath = UTF8ToANSI(idlebuf);
-								_idleImage = _parent->_textureMan->GetTexture(_idleImagePath, &_parent->_errorMessage);
-								if (_idleImage)
-								{
-									_idleImage->setSmooth(_scaleFiltering);
-									_idleSprite->LoadFromTexture(*_idleImage, 1, 1, 1, 1);
-								}
+								_idleSprite->LoadFromTexture(_parent->_textureMan, _idleImagePath, 1, 1, 1, 1, {-1,-1}, &_parent->_errorMessage);
+								_idleSprite->setSmooth(_scaleFiltering);
+
 							}
 						}ImGui::PopID();
 						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4444,9 +4467,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("talkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							sf::Color talkCol = _talkImage == nullptr ? btnColor : sf::Color::White;
-							sf::Texture* talkIcon = _talkImage == nullptr ? _emptyIcon : _talkImage;
-							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", talkIcon, imgBtnWidth, talkCol, _talkImage, _talkImagePath, _talkSprite.get());
+							sf::Texture* talkIcon = _talkSprite->getTexture();
+							sf::Color talkCol = talkIcon == nullptr ? btnColor : sf::Color::White;
+							talkIcon = talkIcon == nullptr ? _emptyIcon : _talkSprite->getTexture();
+							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", talkIcon, imgBtnWidth, talkCol, _talkSpritePath, _talkSprite.get());
 
 							ImGui::SameLine();
 							ImGui::PushID("talkanimbtn"); {
@@ -4459,17 +4483,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 							ImGui::PushID("talkimportfile"); {
 								char talkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_talkImagePath).copy(talkbuf, MAX_PATH);
+								ANSIToUTF8(_talkSpritePath).copy(talkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
 								if (ImGui::InputText("", talkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
-									_talkImagePath = UTF8ToANSI(talkbuf);
-									_talkImage = _parent->_textureMan->GetTexture(_talkImagePath, &_parent->_errorMessage);
-									if (_talkImage)
-									{
-										_talkImage->setSmooth(_scaleFiltering);
-										_talkSprite->LoadFromTexture(*_talkImage, 1, 1, 1, 1);
-									}
+									_talkSpritePath = UTF8ToANSI(talkbuf);
+									_talkSprite->LoadFromTexture(_parent->_textureMan, _talkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+									_talkSprite->setSmooth(_scaleFiltering);
 								}
 							}ImGui::PopID();
 							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4490,9 +4510,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("blinkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							sf::Color blinkCol = _blinkImage == nullptr ? btnColor : sf::Color::White;
-							sf::Texture* blinkIcon = _blinkImage == nullptr ? _emptyIcon : _blinkImage;
-							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkIcon, blinkBtnSize, blinkCol, _blinkImage, _blinkImagePath, _blinkSprite.get());
+							sf::Texture* blinkIcon = _blinkSprite->getTexture();
+							sf::Color blinkCol = blinkIcon == nullptr ? btnColor : sf::Color::White;
+							blinkIcon = blinkIcon == nullptr ? _emptyIcon : _blinkSprite->getTexture();
+							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkIcon, blinkBtnSize, blinkCol, _blinkSpritePath, _blinkSprite.get());
 
 							ImGui::SameLine();
 							auto tintPos = ImGui::GetCursorPos();
@@ -4506,17 +4527,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 							ImGui::PushID("blinkimportfile"); {
 								char blinkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_blinkImagePath).copy(blinkbuf, MAX_PATH);
+								ANSIToUTF8(_blinkSpritePath).copy(blinkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
 								if (ImGui::InputText("", blinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
-									_blinkImagePath = UTF8ToANSI(blinkbuf);
-									_blinkImage = _parent->_textureMan->GetTexture(_blinkImagePath, &_parent->_errorMessage);
-									if (_blinkImage)
-									{
-										_blinkImage->setSmooth(_scaleFiltering);
-										_blinkSprite->LoadFromTexture(*_blinkImage, 1, 1, 1, 1);
-									}
+									_blinkSpritePath = UTF8ToANSI(blinkbuf);
+									_blinkSprite->LoadFromTexture(_parent->_textureMan, _blinkSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
+									_blinkSprite->setSmooth(_scaleFiltering);
 								}
 							}ImGui::PopID();
 							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4535,9 +4552,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushID("talkblinkimport"); {
 								ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-								sf::Color talkblinkCol = _talkBlinkImage == nullptr ? btnColor : sf::Color::White;
-								sf::Texture* talkblinkIcon = _talkBlinkImage == nullptr ? _emptyIcon : _talkBlinkImage;
-								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", talkblinkIcon, blinkBtnSize, talkblinkCol, _talkBlinkImage, _talkBlinkImagePath, _talkBlinkSprite.get());
+								sf::Texture* talkblinkIcon = _talkBlinkSprite->getTexture();
+								sf::Color talkblinkCol = talkblinkIcon == nullptr ? btnColor : sf::Color::White;
+								talkblinkIcon = talkblinkIcon == nullptr ? _emptyIcon : _talkBlinkSprite->getTexture();
+								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", talkblinkIcon, blinkBtnSize, talkblinkCol, _talkBlinkSpritePath, _talkBlinkSprite.get());
 
 								ImGui::SameLine();
 								auto tintPos = ImGui::GetCursorPos();
@@ -4552,17 +4570,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								ImGui::PushID("talkblinkimportfile"); {
 									char talkblinkbuf[MAX_PATH] = {};
-									ANSIToUTF8(_talkBlinkImagePath).copy(talkblinkbuf, MAX_PATH);
+									ANSIToUTF8(_talkBlinkSpritePath).copy(talkblinkbuf, MAX_PATH);
 									ImGui::SetNextItemWidth(-1);
 									if (ImGui::InputText("", talkblinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 									{
-										_talkBlinkImagePath = UTF8ToANSI(talkblinkbuf);
-										_talkBlinkImage = _parent->_textureMan->GetTexture(_talkBlinkImagePath, &_parent->_errorMessage);
-										if (_talkBlinkImage)
-										{
-											_talkBlinkImage->setSmooth(_scaleFiltering);
-											_talkBlinkSprite->LoadFromTexture(*_talkBlinkImage, 1, 1, 1, 1);
-										}
+										_talkBlinkSpritePath = UTF8ToANSI(talkblinkbuf);
+										_talkBlinkSprite->LoadFromTexture(_parent->_textureMan, _talkBlinkSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
+										_talkBlinkSprite->setSmooth(_scaleFiltering);
 									}
 								}ImGui::PopID();//talkblinkimportfile
 								ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4601,11 +4615,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}, _scaleFiltering, &_parent->_appConfig->_hoverTimer);
 						if (scaleFilterChanged)
 						{
-							if (_idleImage) _idleImage->setSmooth(_scaleFiltering);
-							if (_talkImage) _talkImage->setSmooth(_scaleFiltering);
-							if (_blinkImage) _blinkImage->setSmooth(_scaleFiltering);
-							if (_talkBlinkImage) _talkBlinkImage->setSmooth(_scaleFiltering);
-							if (_screamImage) _screamImage->setSmooth(_scaleFiltering);
+							if (_idleSprite) _idleSprite->setSmooth(_scaleFiltering);
+							if (_talkSprite) _talkSprite->setSmooth(_scaleFiltering);
+							if (_blinkSprite) _blinkSprite->setSmooth(_scaleFiltering);
+							if (_talkBlinkSprite) _talkBlinkSprite->setSmooth(_scaleFiltering);
+							if (_screamSprite) _screamSprite->setSmooth(_scaleFiltering);
 						}
 
 						sf::BlendMode oldBlendMode = _blendMode;
@@ -4725,9 +4739,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 					ImGui::PushID("screamimport"); {
-						sf::Color screamCol = _screamImage == nullptr ? btnColor : sf::Color::White;
-						sf::Texture* screamIcon = _screamImage == nullptr ? _emptyIcon : _screamImage;
-						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", screamIcon, imgBtnWidth, screamCol, _screamImage, _screamImagePath, _screamSprite.get());
+						sf::Texture* screamIcon = _screamSprite->getTexture();
+						sf::Color screamCol = screamIcon == nullptr ? btnColor : sf::Color::White;
+						screamIcon = screamIcon == nullptr ? _emptyIcon : _screamSprite->getTexture();
+						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", screamIcon, imgBtnWidth, screamCol, _screamSpritePath, _screamSprite.get());
 
 						ImGui::SameLine();
 						ImGui::PushID("screamanimbtn"); {
@@ -4740,16 +4755,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::PushID("screamimportfile"); {
 							char screambuf[MAX_PATH] = {};
-							ANSIToUTF8(_screamImagePath).copy(screambuf, MAX_PATH);
+							ANSIToUTF8(_screamSpritePath).copy(screambuf, MAX_PATH);
 							if (ImGui::InputText("", screambuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
 							{
-								_screamImagePath = UTF8ToANSI(screambuf);
-								_screamImage = _parent->_textureMan->GetTexture(_screamImagePath);
-								if (_screamImage)
-								{
-									_screamImage->setSmooth(_scaleFiltering);
-									_screamSprite->LoadFromTexture(*_screamImage, 1, 1, 1, 1);
-								}
+								_screamSpritePath = UTF8ToANSI(screambuf);
+								_screamSprite->LoadFromTexture(_parent->_textureMan, _screamSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
+								_screamSprite->setSmooth(_scaleFiltering);
 							}
 						}ImGui::PopID();//screamimportfile
 						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4965,8 +4976,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (layer._motionParent != "")
 							{
 								// If the selection layer has a parent, check the hierarchy to ensure it's not already beneath this one
-								std::vector<LayerInfo*> parents;
-								layer.CalculateLayerDepth(&parents);
+								auto& parents = layer._lastCalculatedParents;
 								if (std::find_if(parents.begin(), parents.end(), [&](const LayerInfo* lyr) {
 										return lyr->_id == _id;
 									}) != parents.end())
@@ -5625,8 +5635,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_inheritanceGraphWasOpen = true;
 
 				float treeIndent = ImGui::GetFrameHeight() * 0.8;
-				std::vector<LayerInfo*> layerParents;
-				CalculateLayerDepth(&layerParents);
+				std::vector<LayerInfo*> layerParents = _lastCalculatedParents;
 				for (int n = 0; n < layerParents.size(); n++)
 				{
 					ImGui::Indent(treeIndent);
@@ -5673,7 +5682,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	return allowContinue;
 }
 
-void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, sf::Texture*& texture, std::string& path, SpriteSheet* sprite)
+void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, std::string& path, SpriteSheet* sprite)
 {
 	static imgui_ext::file_browser_modal fileBrowserIdle("Import Sprite");
 	if (fileBrowserIdle.GetLastChosenDir() == "")
@@ -5683,16 +5692,12 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 
 	openFlag = ImGui::ImageButton(btnname, *idleIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, idleCol);
 	ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-	if (openFlag && texture)
+	if (openFlag && sprite->getTexture())
 		fileBrowserIdle.SetStartingDir(path);
 	if (fileBrowserIdle.render(openFlag, path))
 	{
-		texture = _parent->_textureMan->GetTexture(path, &_parent->_errorMessage);
-		if (texture)
-		{
-			texture->setSmooth(_scaleFiltering);
-			sprite->LoadFromTexture(*texture, 1, 1, 1, 1);
-		}
+		sprite->LoadFromTexture(_parent->_textureMan, path, 1, 1, 1, 1, {-1, -1}, &_parent->_errorMessage);
+		sprite->setSmooth(_scaleFiltering);
 	}
 }
 
