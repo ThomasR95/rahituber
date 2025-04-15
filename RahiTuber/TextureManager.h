@@ -7,7 +7,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-
+#include <memory>
 #include <mutex>
 
 #ifndef _WIN32
