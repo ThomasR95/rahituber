@@ -1,7 +1,7 @@
 #include "TextureManager.h"
 
 #include "file_browser_modal.h"
-
+#include <thread>
 
 void TextureManager::LoadIcons(const std::string& appLocation)
 {
