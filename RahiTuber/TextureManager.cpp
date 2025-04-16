@@ -49,6 +49,10 @@ void TextureManager::LoadIcons(const std::string& appLocation)
 		LoadIcon(appLocation + "res/eye_open.png", _icons[ICON_EYE_OPEN]);
 	if (_icons.count(ICON_EYE_CLOSED) == 0)
 		LoadIcon(appLocation + "res/eye_closed.png", _icons[ICON_EYE_CLOSED]);
+	if (_icons.count(ICON_PIN) == 0)
+		LoadIcon(appLocation + "res/pin.png", _icons[ICON_PIN]);
+	if (_icons.count(ICON_PIN_OFF) == 0)
+		LoadIcon(appLocation + "res/pin_off.png", _icons[ICON_PIN_OFF]);
 
 	for (auto& ic : _icons)
 		ic.second->setSmooth(true);
@@ -64,16 +68,26 @@ sf::Texture* TextureManager::GetTexture(const std::string& path, void* caller, s
 
 	sf::Texture* out = nullptr;
 
-	if (_textures.count(path))
+	while (_textures.count(path) && _textures[path].busyLoading)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+
+	
+	if ( _textures[path].tex != nullptr)
 	{
 		_textures[path].refHolders[caller] = true;
 		out = _textures[path].tex.get();
 	}
 	else
 	{
+		_textures[path].busyLoading = true;
+
 		bool success = LoadTexture(path, caller, errString);
 		if (success)
 			out = _textures[path].tex.get();
+		else
+			_textures.erase(path);
 	}
 
 	return out;
@@ -133,6 +147,7 @@ bool TextureManager::LoadTexture(const std::string& path, void* caller, std::str
 
 		if (success)
 		{
+			_textures[path].busyLoading = false;
 			return true;
 		}
 		else

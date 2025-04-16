@@ -1297,6 +1297,8 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	layer->_parent = this;
 	layer->_id = guid;
 
+	layer->SetUnloadingTimer(_appConfig->_unloadTimeout);
+
 	int childPosition = layerPosition + 1;
 	for (auto& id : _layers[layerPosition]._folderContents)
 	{
@@ -2008,6 +2010,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 				thisLayer->SetAttribute("untrackedWhenHidden", layer._mouseUntrackedWhenHidden);
 			}
 
+			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
+
 			std::string bmName = "Normal";
 			for (auto& bm : g_blendmodes)
 				if (bm.second == layer._blendMode)
@@ -2428,6 +2432,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("rotateChildren", &layer._passRotationToChildLayers);
 
+				thisLayer->QueryBoolAttribute("pinLoaded", &layer._pinLoaded);
+
 				layer._blendMode = g_blendmodes["Normal"];
 				if (const char* blend = thisLayer->Attribute("blendMode"))
 				{
@@ -2638,9 +2644,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			logToFile(_appConfig, "Loaded Layer Set " + _loadingPath);
 			_loadingPath = "";
 
-			SetUnloadingTimer(_appConfig->_unloadTimeout);
-
 			_loadingFinished = true;
+
+			SetUnloadingTimer(_appConfig->_unloadTimeout);
 
 		});
 
@@ -2653,13 +2659,20 @@ void LayerManager::SetUnloadingTimer(int timer)
 	{
 		for (auto& l : _layers)
 		{
-			l._idleSprite->UnloadIfUnused(timer);
-			l._talkSprite->UnloadIfUnused(timer);
-			l._blinkSprite->UnloadIfUnused(timer);
-			l._talkBlinkSprite->UnloadIfUnused(timer);
-			l._screamSprite->UnloadIfUnused(timer);
+			l.SetUnloadingTimer(timer);
 		}
 	}
+}
+
+void LayerManager::LayerInfo::SetUnloadingTimer(int timer)
+{
+	int ltimer = _pinLoaded ? 0 : timer;
+
+	_idleSprite->UnloadIfUnused(ltimer);
+	_talkSprite->UnloadIfUnused(ltimer);
+	_blinkSprite->UnloadIfUnused(ltimer);
+	_talkBlinkSprite->UnloadIfUnused(ltimer);
+	_screamSprite->UnloadIfUnused(ltimer);
 }
 
 void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
@@ -3080,6 +3093,9 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_lockClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_CLOSED);
 		_eyeOpenIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EYE_OPEN);
 		_eyeClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_EYE_CLOSED);
+
+		_pinIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PIN);
+		_pinOffIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PIN_OFF);
 	}
 }
 
@@ -5448,11 +5464,28 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		}
 
 		auto oldCursorPos = ImGui::GetCursorPos();
-		ImGui::SetCursorPos(headerButtonsPos);
+		
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
+		if (_parent->_appConfig->_unloadTimeoutEnabled && !_isFolder)
+		{
+			auto pinPos = headerButtonsPos;
+			pinPos.x -= UIUnit;
+			ImGui::SetCursorPos(pinPos);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+			if (ImGui::ImageButton("pinloaded", _pinLoaded ? *_pinIcon : *_pinOffIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+			{
+				_pinLoaded = !_pinLoaded;
+
+				SetUnloadingTimer(_parent->_appConfig->_unloadTimeout);
+			}
+			ImGui::PopStyleColor();
+			ToolTip(_pinLoaded ? "Pinned" : "Unpinned", _pinLoaded ? "Click to unpin\n(allow unloading this layer's images)" : "Click to pin\n(keep this layer's images in memory)", & _parent->_appConfig->_hoverTimer);
+		}
+		
+		ImGui::SetCursorPos(headerButtonsPos);
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0.5));
 		if (ImGui::ImageButton("visible", _visible ? *_eyeOpenIcon : *_eyeClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 		{

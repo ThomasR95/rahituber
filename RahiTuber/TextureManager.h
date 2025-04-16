@@ -51,7 +51,9 @@ public:
 		ICON_LOCK_OPEN,
 		ICON_LOCK_CLOSED,
 		ICON_EYE_OPEN,
-		ICON_EYE_CLOSED
+		ICON_EYE_CLOSED,
+		ICON_PIN,
+		ICON_PIN_OFF,
 	};
 
 	void LoadIcons(const std::string& appLocation);
@@ -73,6 +75,7 @@ private:
 	struct TextureItem {
 		std::unique_ptr<sf::Texture> tex;
 		std::map<void*, bool> refHolders;
+		bool busyLoading = false;
 	};
 
 	std::map<std::string, TextureItem> _textures;

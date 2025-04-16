@@ -819,15 +819,18 @@ public:
 				if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
 				{
 					if (appConfig->_unloadTimeoutEnabled)
-						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
-					else
-						layerMan->SetUnloadingTimer(0);
+						appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+
+					layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+
 				}
 				ToolTip("Remove images from RAM while they're not being used.\n  WARNING: expect a delay in visibility\n  while an unloaded image is reloading!", &appConfig->_hoverTimer);
 				if (appConfig->_unloadTimeoutEnabled)
 				{
-					if(ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeout, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
-						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+					if(ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeoutSetting, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
+						appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+
+					layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
 					ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
 				}
 

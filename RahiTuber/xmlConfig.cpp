@@ -83,7 +83,10 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
 
 	common->QueryBoolAttribute("unloadTimeoutEnabled", &_appConfig->_unloadTimeoutEnabled);
-	common->QueryIntAttribute("unloadTimeout", &_appConfig->_unloadTimeout);
+	common->QueryIntAttribute("unloadTimeout", &_appConfig->_unloadTimeoutSetting);
+
+	if (_appConfig->_unloadTimeoutEnabled)
+		_appConfig->_unloadTimeout = _appConfig->_unloadTimeoutSetting;
 
 	common->QueryBoolAttribute("checkForUpdates", &_appConfig->_checkForUpdates);
 
@@ -197,7 +200,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("numberEditType", _uiConfig->_numberEditType);
 
 			common->SetAttribute("unloadTimeoutEnabled", _appConfig->_unloadTimeoutEnabled);
-			common->SetAttribute("unloadTimeout", _appConfig->_unloadTimeout);
+			common->SetAttribute("unloadTimeout", _appConfig->_unloadTimeoutSetting);
 
 			common->SetAttribute("trackMouse", _appConfig->_mouseTrackingEnabled);
 

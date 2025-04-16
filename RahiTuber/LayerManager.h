@@ -314,6 +314,9 @@ public:
 		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };
 
 		ImVec4 _layerColor = { 0,0,0,0 };
+
+		bool _pinLoaded = false;
+		void SetUnloadingTimer(int timer);
 	};
 
 	struct StatesInfo
@@ -786,6 +789,9 @@ static sf::Texture* _lockOpenIcon = nullptr;
 static sf::Texture* _lockClosedIcon = nullptr;
 static sf::Texture* _eyeOpenIcon = nullptr;
 static sf::Texture* _eyeClosedIcon = nullptr;
+
+static sf::Texture* _pinIcon = nullptr;
+static sf::Texture* _pinOffIcon = nullptr;
 
 
 template <typename T>
