@@ -1297,7 +1297,10 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	layer->_parent = this;
 	layer->_id = guid;
 
-	layer->SetUnloadingTimer(_appConfig->_unloadTimeout);
+	if(_appConfig->_unloadTimeoutEnabled)
+		layer->SetUnloadingTimer(_appConfig->_unloadTimeout);
+	else
+		layer->SetUnloadingTimer(0);
 
 	int childPosition = layerPosition + 1;
 	for (auto& id : _layers[layerPosition]._folderContents)
@@ -2646,7 +2649,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			_loadingFinished = true;
 
-			SetUnloadingTimer(_appConfig->_unloadTimeout);
+			if(_appConfig->_unloadTimeoutEnabled)
+				SetUnloadingTimer(_appConfig->_unloadTimeout);
+			else
+				SetUnloadingTimer(0);
 
 		});
 

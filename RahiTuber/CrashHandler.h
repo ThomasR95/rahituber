@@ -21,6 +21,12 @@ public:
 	{
 		// Open the file 
 
+#ifdef _WIN32
+		std::wstring message(L"RahiTuber has crashed.\nPlease look for the RahiTuber_Crash.dmp and RahiTuber_Log.txt files in the application directory and send them to rahisaurus via discord, bluesky, or the github issues page.");
+
+		MessageBox(NULL, message.c_str(), L"RahiTuber Crashed :(", MB_ICONEXCLAMATION | MB_OK);
+#endif
+
 		logToFile(appConfig, "Crash! Creating dump file. Please contact the developer and send this :)");
 
 		HANDLE hFile = CreateFile(_T("RahiTuber_Crash.dmp"), GENERIC_READ | GENERIC_WRITE,

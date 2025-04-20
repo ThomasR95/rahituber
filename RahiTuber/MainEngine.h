@@ -2456,6 +2456,11 @@ If you accept, please click the Accept button.
 			}
 		}
 
+		if (appConfig->_unloadTimeoutEnabled)
+			appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+		else
+			appConfig->_unloadTimeout = 0;
+
 		{ // scope to destruct verFile when finished
 			logToFile(appConfig, "Checking Version");
 			std::ifstream verFile;
@@ -2470,6 +2475,8 @@ If you accept, please click the Accept button.
 				buf.resize(length + 1, 0);
 				verFile.read(buf.data(), length);
 				appConfig->_versionNumber = std::stod(buf, nullptr);
+
+				logToFile(appConfig, "Current version: " + buf);
 
 				if (appConfig->_checkForUpdates)
 				{
