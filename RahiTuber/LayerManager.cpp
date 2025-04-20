@@ -4228,8 +4228,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
 {
 
-	bool blinkAvailable = _blinkSprite && !talking && !screaming;
-	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite && talking && !screaming;
+	bool blinkAvailable = _blinkSprite->getTexture() && !talking && !screaming;
+	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite->getTexture() && talking && !screaming;
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
@@ -4271,7 +4271,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_isBlinking = false;
 	}
 
-	if (_talkSprite && !_isBlinking && _swapWhenTalking && talking)
+	if (_talkSprite->getTexture() && !_isBlinking && _swapWhenTalking && talking)
 	{
 		_activeSprite = _talkSprite.get();
 		_screamSprite->_visible = false;
@@ -4291,7 +4291,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_talkSprite->Restart();
 		}
 	}
-	else if (_screamSprite && screaming)
+	else if (_screamSprite->getTexture() && screaming)
 	{
 		_activeSprite = _screamSprite.get();
 		_screamSprite->_visible = true;
