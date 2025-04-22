@@ -2161,7 +2161,7 @@ public:
 
 				std::string cmd = "curl \"https://itch.io/api/1/x/wharf/latest?target=rahisaurus/rahituber&channel_name=win\" > \"" + queryTxt + "\"";
 
-				if (runProcess(cmd))
+				if (runProcess(cmd, true))
 				{
 					std::ifstream updateFile;
 					updateFile.open(queryTxt);
@@ -2187,12 +2187,10 @@ public:
 
 								logToFile(appConfig, "Available version: " + std::to_string(latest));
 							}
-
-							updateFile.close();
 						}
+						updateFile.close();
 
 						std::remove(queryTxt.c_str());
-
 
 					}
 				}

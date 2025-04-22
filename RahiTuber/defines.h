@@ -305,7 +305,7 @@ static fs::path TryAbsolutePath(const fs::path& orig)
 		return out;
 };
 
-static bool runProcess(const std::string& cmd) {
+static bool runProcess(const std::string& cmd, bool wait = false) {
 #ifdef _WIN32
     std::string cmd2 = "cmd /c " + cmd;
 
@@ -323,7 +323,9 @@ static bool runProcess(const std::string& cmd) {
 
     if (CreateProcessA(NULL, cmd2.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &procInfo))
     {
-        //WaitForSingleObject(procInfo.hProcess, INFINITE);
+		if(wait)
+			WaitForSingleObject(procInfo.hProcess, INFINITE);
+
         CloseHandle(procInfo.hProcess);
         CloseHandle(procInfo.hThread);
         return true;
