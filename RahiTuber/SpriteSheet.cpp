@@ -162,3 +162,14 @@ void SpriteSheet::ReloadTexture()
 
 		});
 }
+
+bool SpriteSheet::HasTexture()
+{
+	if (_tex != nullptr)
+		return true;
+
+	if (_spriteUnloaded && _texPath != "")
+		return true;
+
+	return false;
+}

@@ -236,7 +236,7 @@ public:
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
-		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, std::string& path, SpriteSheet* sprite);
+		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, float imgBtnWidth, std::string& path, SpriteSheet* sprite);
 
 		void DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth);
 

@@ -21,6 +21,7 @@ public:
 
 	void UnloadTexture();
 	void ReloadTexture();
+	bool HasTexture();
 
 	inline void setPosition(const sf::Vector2f& pos) { _sprite.setPosition(pos); }
 	inline void setOrigin(const sf::Vector2f& origin) { _sprite.setOrigin(origin); }

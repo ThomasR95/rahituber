@@ -2628,16 +2628,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
 
-			if (_appConfig->_nameWindowWithSet)
-			{
-				_appConfig->_nameLock.lock();
-				{
-					_appConfig->windowName = "RahiTuber - " + _layerSetName;
-					_appConfig->_pendingNameChange = true;
-					_appConfig->_pendingSpoutNameChange = true;
-				}
-				_appConfig->_nameLock.unlock();
-			}
+			UpdateWindowTitle();
 
 			for (auto& layer : _layers)
 			{
@@ -4234,8 +4225,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
 {
 
-	bool blinkAvailable = _blinkSprite->getTexture() && !talking && !screaming;
-	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite->getTexture() && talking && !screaming;
+	bool blinkAvailable = _blinkSprite->HasTexture() && !talking && !screaming;
+	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite->HasTexture() && talking && !screaming;
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
@@ -4277,7 +4268,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_isBlinking = false;
 	}
 
-	if (_talkSprite->getTexture() && !_isBlinking && _swapWhenTalking && talking)
+	if (_talkSprite->HasTexture() && !_isBlinking && _swapWhenTalking && talking)
 	{
 		_activeSprite = _talkSprite.get();
 		_screamSprite->_visible = false;
@@ -4297,7 +4288,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			_talkSprite->Restart();
 		}
 	}
-	else if (_screamSprite->getTexture() && screaming)
+	else if (_screamSprite->HasTexture() && screaming)
 	{
 		_activeSprite = _screamSprite.get();
 		_screamSprite->_visible = true;
@@ -4450,10 +4441,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-						sf::Texture* idleIcon = _idleSprite->getTexture();
-						sf::Color idleCol = idleIcon == nullptr ? btnColor : sf::Color::White;
-						idleIcon = idleIcon == nullptr ? _emptyIcon : _idleSprite->getTexture();
-						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", idleIcon, imgBtnWidth, idleCol, _idleImagePath, _idleSprite.get());
+						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", imgBtnWidth, _idleImagePath, _idleSprite.get());
 
 						ImGui::SameLine();
 						_spriteIdleOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
@@ -4489,10 +4477,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("talkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							sf::Texture* talkIcon = _talkSprite->getTexture();
-							sf::Color talkCol = talkIcon == nullptr ? btnColor : sf::Color::White;
-							talkIcon = talkIcon == nullptr ? _emptyIcon : _talkSprite->getTexture();
-							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", talkIcon, imgBtnWidth, talkCol, _talkSpritePath, _talkSprite.get());
+							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", imgBtnWidth, _talkSpritePath, _talkSprite.get());
 
 							ImGui::SameLine();
 							ImGui::PushID("talkanimbtn"); {
@@ -4532,10 +4517,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("blinkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							sf::Texture* blinkIcon = _blinkSprite->getTexture();
-							sf::Color blinkCol = blinkIcon == nullptr ? btnColor : sf::Color::White;
-							blinkIcon = blinkIcon == nullptr ? _emptyIcon : _blinkSprite->getTexture();
-							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkIcon, blinkBtnSize, blinkCol, _blinkSpritePath, _blinkSprite.get());
+							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkBtnSize, _blinkSpritePath, _blinkSprite.get());
 
 							ImGui::SameLine();
 							auto tintPos = ImGui::GetCursorPos();
@@ -4574,10 +4556,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushID("talkblinkimport"); {
 								ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-								sf::Texture* talkblinkIcon = _talkBlinkSprite->getTexture();
-								sf::Color talkblinkCol = talkblinkIcon == nullptr ? btnColor : sf::Color::White;
-								talkblinkIcon = talkblinkIcon == nullptr ? _emptyIcon : _talkBlinkSprite->getTexture();
-								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", talkblinkIcon, blinkBtnSize, talkblinkCol, _talkBlinkSpritePath, _talkBlinkSprite.get());
+								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", blinkBtnSize, _talkBlinkSpritePath, _talkBlinkSprite.get());
 
 								ImGui::SameLine();
 								auto tintPos = ImGui::GetCursorPos();
@@ -4761,10 +4740,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 					ImGui::PushID("screamimport"); {
-						sf::Texture* screamIcon = _screamSprite->getTexture();
-						sf::Color screamCol = screamIcon == nullptr ? btnColor : sf::Color::White;
-						screamIcon = screamIcon == nullptr ? _emptyIcon : _screamSprite->getTexture();
-						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", screamIcon, imgBtnWidth, screamCol, _screamSpritePath, _screamSprite.get());
+
+						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", imgBtnWidth, _screamSpritePath, _screamSprite.get());
 
 						ImGui::SameLine();
 						ImGui::PushID("screamanimbtn"); {
@@ -5721,23 +5698,36 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	return allowContinue;
 }
 
-void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, sf::Texture* idleIcon, float imgBtnWidth, sf::Color& idleCol, std::string& path, SpriteSheet* sprite)
+void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, float imgBtnWidth, std::string& path, SpriteSheet* sprite)
 {
+	bool emptyTex = !sprite->HasTexture();
+	sf::Color btnCol = emptyTex ? toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text)) : sf::Color::White;
+	sf::Texture* btnIcon = emptyTex ? _emptyIcon : sprite->getTexture();
+
+	bool reloading = false;
+	if (btnIcon == nullptr)
+	{
+		reloading = true;
+		btnIcon = _reloadIcon;
+	}
+
 	static imgui_ext::file_browser_modal fileBrowserIdle("Import Sprite");
 	if (fileBrowserIdle.GetLastChosenDir() == "")
 		fileBrowserIdle.SetStartingDir(_parent->_loadedXMLAbsDirectory);
 	else
 		fileBrowserIdle.SetStartingDir(fileBrowserIdle.GetLastChosenDir());
 
-	openFlag = ImGui::ImageButton(btnname, *idleIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, idleCol);
+	ImGui::BeginDisabled(reloading);
+	openFlag = ImGui::ImageButton(btnname, *btnIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, btnCol);
 	ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
-	if (openFlag && sprite->getTexture())
+	if (openFlag && sprite->HasTexture())
 		fileBrowserIdle.SetStartingDir(path);
 	if (fileBrowserIdle.render(openFlag, path))
 	{
 		sprite->LoadFromTexture(_parent->_textureMan, path, 1, 1, 1, 1, {-1, -1}, &_parent->_errorMessage);
 		sprite->setSmooth(_scaleFiltering);
 	}
+	ImGui::EndDisabled();
 }
 
 void LayerManager::LayerInfo::DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth)
