@@ -192,6 +192,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 			bool useBlendShader = false;
 
+			LayerInfo* clipLayer = GetLayer(layer._clipID);
+
 			if (layer._blendMode == g_blendmodes["Multiply"]
 				|| layer._blendMode == g_blendmodes["Lighten"]
 				|| layer._blendMode == g_blendmodes["Darken"]
@@ -206,8 +208,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				useBlendShader = true;
 
 			}
-
-			LayerInfo* clipLayer = GetLayer(layer._clipID);
 
 			if (clipLayer == nullptr)
 			{
@@ -258,6 +258,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
 				layer._clipRect.setPosition({ 0,0 });
 
+				// Do not premultiply alpha here
+				state.blendMode.colorSrcFactor = sf::BlendMode::One;
+
 				// Draw layer to be clipped onto an empty canvas
 				layer._idleSprite->Draw(&clipRTs._soloLayerRT, state);
 				layer._talkSprite->Draw(&clipRTs._soloLayerRT, state);
@@ -271,7 +274,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				sf::RenderStates clipState2 = sf::RenderStates::Default;
 				// Draw the layer RT onto the clip RT using the fancy new blend mode
 				clipState2.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
-					sf::BlendMode::Zero, sf::BlendMode::SrcAlpha, sf::BlendMode::Add);
+					sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Min);
 
 				clipRTs._clipRT.draw(layer._clipRect, clipState2);
 				clipRTs._clipRT.display();
