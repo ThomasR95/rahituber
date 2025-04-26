@@ -114,3 +114,10 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE X11 GL freetype asound
     sfml-window
     sfml-system
      )
+
+ cmake_policy(SET CMP0095 OLD)
+ set_target_properties(${CMAKE_PROJECT_NAME}
+     PROPERTIES
+         INSTALL_RPATH "\\\$ORIGIN/lib"
+ )
+

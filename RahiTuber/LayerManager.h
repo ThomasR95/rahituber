@@ -832,6 +832,8 @@ static sf::Texture* _pinOffIcon = nullptr;
 template <typename T>
 inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
 {
+	auto curPos = ImGui::GetCursorPos();
+
 	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
 
 	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
@@ -845,6 +847,8 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 		if (enabled)
 			value = resetValue;
 	ImGui::PopID();
+	float btnIndent = ImGui::GetItemRectSize().x + (style ? style->ItemSpacing.x : 0);
+
 	
 	if (zeroValue != nullptr)
 	{
@@ -854,17 +858,24 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 			if (enabled)
 				value = {};
 		ImGui::PopID();
+
+		curPos.x += btnIndent;
 	}
 	
 	if (cursorPos)
 	{
 		*cursorPos = ImGui::GetCursorPos();
-		cursorPos->x += btnSize + (style ? style->ItemSpacing.x : 0);
+		cursorPos->x += btnIndent;
 	}
 
 	ToolTip("Reset this value", &appConfig->_hoverTimer);
 
-	ImGui::SameLine(0);
+	curPos.x += btnIndent;
+
+	ImGui::SetCursorPos(curPos);
+
+	float w = ImGui::CalcItemWidth();
+	ImGui::SetNextItemWidth(w - btnIndent);
 
 }
 

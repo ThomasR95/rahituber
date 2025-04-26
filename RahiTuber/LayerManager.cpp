@@ -4787,7 +4787,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
 				barPos.x += style.GrabMinSize * 0.5;
 				barPos.y += ImGui::GetItemRectSize().y;
-				float barWidth = ImGui::CalcItemWidth() - style.GrabMinSize;
+				float barWidth = ImGui::CalcItemWidth() - (style.GrabMinSize + UIUnit + style.ItemSpacing.x*2);
 				ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
 				ImGui::NewLine();
 
@@ -4868,7 +4868,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
 					barPos.x += style.GrabMinSize * 0.5;
 					barPos.y += ImGui::GetItemRectSize().y;
-					float barWidth = ImGui::CalcItemWidth() - style.GrabMinSize;
+					float barWidth = ImGui::CalcItemWidth() - (style.GrabMinSize + UIUnit + style.ItemSpacing.x * 2);
 					ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer, true);
 					ImGui::NewLine();
 
@@ -5050,7 +5050,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::SetCursorPos(subHeaderBtnPos);
 				LayerInfo* oldMp = _parent->GetLayer(_motionParent);
 				std::string mpName = oldMp ? oldMp->_name : "Off";
-				ImGui::PushItemWidth(headerBtnSize.x * 7);
+				ImGui::SetNextItemWidth(headerBtnSize.x * 7);
 
 				if (ImGui::BeginCombo("##MotionInherit", ANSIToUTF8(mpName).c_str()))
 				{
@@ -5109,7 +5109,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::EndCombo();
 				}
 				ImGui::SetCursorPos(oldCursorPos);
-				ImGui::PopItemWidth();
 
 				bool indivEnabled = !hasParent || _allowIndividualMotion;
 
@@ -5132,7 +5131,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (ImGui::BeginTabItem("Talking"))
 							{
 								std::vector<const char*> bobOptions = { "None", "Loudness", "Regular", "Once" };
-								ImGui::PushItemWidth(headerBtnSize.x * 7);
 								if (ImGui::BeginCombo("Motion Type", bobOptions[_bounceType]))
 								{
 									if (ImGui::Selectable("None", _bounceType == BounceNone))
@@ -5155,19 +5153,16 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								{
 									AddResetButton("bounceMoveReset", _bounceMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data[2] = { _bounceMove.x, _bounceMove.y };
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									if (Float2SliderDrag("Move##talkingMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_bounceMove = { data[0], data[1] };
 									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("bouncerotatereset", _bounceRotation, 0.0f, _parent->_appConfig, &style);
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									FloatSliderDrag("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data2[2] = { _bounceScale.x, _bounceScale.y };
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									if (Float2SliderDrag("Scale##talkingScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
 										if (!_bounceScaleConstrain)
@@ -5195,7 +5190,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									if (_bounceType == BounceRegular || _bounceType == BounceOnce)
 									{
 										AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
-										ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 										FloatSliderDrag("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 										ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
 									}
@@ -5211,19 +5205,16 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								{
 									AddResetButton("breathmove", _breathMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data[2] = { _breathMove.x, _breathMove.y };
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									if (Float2SliderDrag("Move##idleMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_breathMove = { data[0], data[1] };
 									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, &style);
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									FloatSliderDrag("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
 									AddResetButton("breathscale", _breathScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
 									float data2[2] = { _breathScale.x, _breathScale.y };
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									if (Float2SliderDrag("Scale##idleScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
 										if (!_breathScaleConstrain)
@@ -5254,7 +5245,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									ToolTip("Idle animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
 
 									AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
-									ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 									FloatSliderDrag("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
 
@@ -5280,7 +5270,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								}
 								ToolTip("Reset the stored constant motion", &_parent->_appConfig->_hoverTimer);
 
-								ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
 								AddResetButton("rotspeedreset", _constantRot, 0.f, _parent->_appConfig, &style);
 								FloatSliderDrag("Rotation Speed", &_constantRot, -360, 360, "%.1f deg/s", 0, _parent->_uiConfig->_numberEditType);
 								ToolTip("Continuously rotate the sprite with this speed \n(degrees per second)", &_parent->_appConfig->_hoverTimer, true);
@@ -5382,8 +5371,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					BetterIndent(indentSize, "tracking" + _id);
 
+					float widgetWidth = 0.7;
 
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					if (ImGui::BeginCombo("Tracking Type", g_trackingNames[_trackingType]))
 					{
 
@@ -5404,19 +5393,16 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::SeparatorText("Mouse");
 
 						AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 						ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
 						ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
 
 						AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 						ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
 						ToolTip("The maximum mouse distance from the Neutral position.\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
 					
 						if (_trackingType == TRACKING_BOTH)
 						{
 							AddResetButton("mouseEffect", _mouseEffect, 1.f, _parent->_appConfig, &style);
-							ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 							FloatSliderDrag("Mouse Effect", &_mouseEffect, 0.f, 1.0f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Choose how much the mouse movement affects the tracking.", &_parent->_appConfig->_hoverTimer);
 						}
@@ -5427,7 +5413,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					{
 						ImGui::SeparatorText("Controller");
 
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 						if (ImGui::BeginCombo("Controller Axis", g_trackingAxisNames[_trackingAxis]))
 						{
 							for (int ax = 0; ax < AXIS_END; ax++)
@@ -5441,7 +5426,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 
 						AddResetButton("axisDeadzone", _axisDeadzone, 0.f, _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 						if (FloatSliderDrag("Axis Deadzone", &_axisDeadzone, 0.f, 0.99f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 							Clamp(_axisDeadzone, 0.0f, 0.99f);
 						ToolTip("The amount your joystick will have to move before doing anything", &_parent->_appConfig->_hoverTimer);
@@ -5449,7 +5433,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						if (_trackingType == TRACKING_BOTH)
 						{
 							AddResetButton("ctrlEffect", _joypadEffect, 1.f, _parent->_appConfig, &style);
-							ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 							FloatSliderDrag("Controller Effect", &_joypadEffect, 0.f, 1.0f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
 							ToolTip("Choose how much the joystick movement affects the tracking.", &_parent->_appConfig->_hoverTimer);
 						}
@@ -5458,17 +5441,14 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::SeparatorText("");
 
 					AddResetButton("trackingSmooth", _axisDeadzone, 0.2f, _parent->_appConfig, &style);
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					FloatSliderDrag("Smooth", &_trackingSmooth, 0.f, 1.f, "%.2f", ImGuiInputTextFlags_CharsNoBlank, _parent->_uiConfig->_numberEditType);
 					ToolTip("How much to smooth the movement", &_parent->_appConfig->_hoverTimer);
 
 					AddResetButton("moveLimits", _trackingMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					Float2SliderDrag("Movement Limits", &_trackingMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer, true);
 
 					AddResetButton("rotLimits", _trackingRotation, sf::Vector2f(0.f, 0.f), _parent->_appConfig, &style);
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
 					Float2SliderDrag("Rotation Limits", &_trackingRotation.x, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The maximum rotation applied to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_parent->_appConfig->_hoverTimer, true);
 
