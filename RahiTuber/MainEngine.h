@@ -448,12 +448,14 @@ public:
 
 	void menuHelp(ImGuiStyle& style)
 	{
-		if (ImGui::Button("Help", { -1, ImGui::GetFrameHeight() }))
-		{
-			sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
-			dotpos -= {style.ItemSpacing.x * 3, style.ItemSpacing.y * 6};
-			uiConfig->_helpBtnPosition = dotpos;
+		bool helpPressed = ImGui::Button("Help", { -1, ImGui::GetFrameHeight() });
 
+		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
+		dotpos -= sf::Vector2f(ImGui::GetFrameHeight()*0.52, ImGui::GetFrameHeight());
+		uiConfig->_helpBtnPosition = dotpos;
+
+		if(helpPressed)
+		{
 			float h = ImGui::GetWindowHeight();
 			ImGui::SetNextWindowSize({ 400 * appConfig->scalingFactor, h });
 
@@ -467,12 +469,6 @@ public:
 				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 6 });
 			}
 			ImGui::OpenPopup("Help");
-		}
-		else
-		{
-			sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
-			dotpos -= {style.ItemSpacing.x * 3, style.ItemSpacing.y * 6};
-			uiConfig->_helpBtnPosition = dotpos;
 		}
 
 		ImGui::SetNextWindowSize({ 400 * appConfig->scalingFactor,-1 });
@@ -1415,14 +1411,14 @@ public:
 		if (appConfig->_updateAvailable && !popupOpen)
 		{
 			sf::Color pulseColor(255u, 255u, 255u, 128u + 127u * pulse);
-			sf::CircleShape dotShape(style.FrameRounding, 12);
+			sf::CircleShape dotShape(ImGui::GetFrameHeight()*0.26, 10);
 			dotShape.setFillColor(toSFColor(style.Colors[ImGuiCol_ButtonActive]) * pulseColor);
 			dotShape.setOutlineThickness(0.5);
 			dotShape.setOutlineColor(toSFColor(style.Colors[ImGuiCol_ButtonHovered]) * pulseColor);
 
 			if (appConfig->_menuPopped)
 			{
-				dotShape.setPosition(uiConfig->_helpBtnPosition / appConfig->menuWindowScaling);
+				dotShape.setPosition(uiConfig->_helpBtnPosition);// / appConfig->menuWindowScaling);
 				appConfig->_menuWindow.draw(dotShape);
 			}
 			else
@@ -2484,6 +2480,8 @@ If you accept, please click the Accept button.
 					logToFile(appConfig, "Checking for Updates");
 					CheckUpdates();
 				}
+
+				verFile.close();
 			}
 		}
 
