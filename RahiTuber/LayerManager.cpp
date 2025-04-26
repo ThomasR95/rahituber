@@ -4374,33 +4374,36 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mp
 					}
 				}
 			}
-			
-			sf::Vector2f axisPos;
-			switch (_trackingAxis)
+
+			if (_trackingJoystick != -1)
 			{
-			case AXIS_XY:
-				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
-				axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
-				break;
-			case AXIS_UV:
-				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
-				axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
-				break;
-			case AXIS_POV:
-				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
-				axisPos.y = -0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
-				break;
+				sf::Vector2f axisPos;
+				switch (_trackingAxis)
+				{
+				case AXIS_XY:
+					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
+					axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
+					break;
+				case AXIS_UV:
+					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
+					axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
+					break;
+				case AXIS_POV:
+					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
+					axisPos.y = -0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
+					break;
+				}
+
+				const sf::Vector2f deadspot(_axisDeadzone, _axisDeadzone);
+				const sf::Vector2f signAxis(axisPos.x >= 0 ? 1.f : -1.f, axisPos.y >= 0 ? 1.f : -1.f);
+				float axisLength = Length(axisPos);
+				const sf::Vector2f axisDir = axisLength > 0 ? axisPos / axisLength : sf::Vector2f(0.f, 0.f);
+				sf::Vector2f axisAmount;
+				axisAmount.x = (Clamp(Abs(axisPos.x) - _axisDeadzone * Abs(axisDir.x), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.x))) * signAxis.x;
+				axisAmount.y = (Clamp(Abs(axisPos.y) - _axisDeadzone * Abs(axisDir.y), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.y))) * signAxis.y;
+
+				newTrackingAmount = Clamp(newTrackingAmount + axisAmount * axisEffect, -1.f, 1.f);
 			}
-
-			const sf::Vector2f deadspot(_axisDeadzone, _axisDeadzone);
-			const sf::Vector2f signAxis(axisPos.x >= 0 ? 1.f : -1.f, axisPos.y >= 0 ? 1.f : -1.f);
-			float axisLength = Length(axisPos);
-			const sf::Vector2f axisDir = axisLength > 0 ? axisPos / axisLength : sf::Vector2f(0.f, 0.f);
-			sf::Vector2f axisAmount;
-			axisAmount.x = (Clamp(Abs(axisPos.x) - _axisDeadzone * Abs(axisDir.x), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.x))) * signAxis.x;
-			axisAmount.y = (Clamp(Abs(axisPos.y) - _axisDeadzone * Abs(axisDir.y), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.y))) * signAxis.y;
-
-			newTrackingAmount = Clamp(newTrackingAmount + axisAmount*axisEffect, -1.f, 1.f);
 		}
 		
 	}
