@@ -57,6 +57,14 @@ static const char* const g_motionStretchNames[MotionStretch_End] = {
 	"None", "Linear", "Preserve Volume"//, "Circular"
 };
 
+static const char* const g_trackingNames[4] = {
+	"None", "Mouse", "Controller Axis", "Combined"
+};
+
+static const char* const g_trackingAxisNames[3] = {
+	"X/Y (Left stick)", "U/V (Right stick)", "POV (DPad)",
+};
+
 class LayerManager
 {
 public:
@@ -232,7 +240,7 @@ public:
 
 		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount);
 
-		void AddMouseMovement(sf::Vector2f& mpPos);
+		void AddTrackingMovement(sf::Vector2f& mpPos, float& mpRot);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
@@ -305,13 +313,40 @@ public:
 
 		bool _passRotationToChildLayers = false;
 
-		bool _followMouse = false;
+		enum TrackingMode {
+			TRACKING_NONE = 0,
+			TRACKING_MOUSE = 1,
+			TRACKING_CONTROLLER = 2,
+			TRACKING_BOTH = 3
+		};
+
+		enum TrackingAxis {
+			AXIS_XY,
+			AXIS_UV,
+			AXIS_POV,
+
+			AXIS_END
+		};
+
+		bool _trackingEnabled = false;
+		TrackingMode _trackingType = TRACKING_MOUSE;
 		bool _followElliptical = false;
-		bool _mouseUntrackedWhenHidden = true;
+		bool _trackingOffWhenHidden = true;
 
 		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
-		sf::Vector2f _mouseMoveLimits = { 50.f, 50.f };
+		float _mouseEffect = 1.0;
+
+		TrackingAxis _trackingAxis;
+		float _axisDeadzone = { 0.f };
+
+		sf::Vector2f _trackingAmount = { 0.f, 0.f };
+		float _trackingSmooth = 0.2;
+		sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
+		int _trackingJoystick = -1;
+		float _joypadEffect = 1.0;
+
+		sf::Vector2f _trackingRotation = { 0.0,0.0 };
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 

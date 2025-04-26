@@ -1288,6 +1288,7 @@ public:
 			appConfig->_menuRT.draw(backdrop);
 
 			ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+
 		}
 		else
 		{
@@ -1296,7 +1297,9 @@ public:
 			windowHeight = windSize.y;
 			ImGui::SetNextWindowPos(ImVec2(0, 0));
 			ImGui::SetNextWindowSize(ImVec2(windSize.x, windSize.y));
+			
 			ImGui::Begin("RahiTuber", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+
 		}
 
 		ImDrawList* dList = ImGui::GetWindowDrawList();
@@ -1345,11 +1348,11 @@ public:
 		ImGui::EndTable();
 		ImGui::PopStyleVar();
 
-		float fontFrameHeight = style.FramePadding.y * 2 + uiConfig->_fontSize / 2 + style.ItemSpacing.y / 2;
+		float fontFrameHeight = style.FramePadding.y * 2 + uiConfig->_fontSize*appConfig->scalingFactor / 2 + style.ItemSpacing.y / 2;
 
 		ImGui::Separator();
 		float separatorPos = ImGui::GetCursorPosY();
-		float nextSectionPos = windowHeight - fontFrameHeight * 7.5;
+		float nextSectionPos = windowHeight - fontFrameHeight * 7.4;
 		if (!uiConfig->_audioExpanded)
 			nextSectionPos = windowHeight - fontFrameHeight * 5.2;
 

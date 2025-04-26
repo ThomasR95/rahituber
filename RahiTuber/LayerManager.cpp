@@ -386,7 +386,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				float targetLineW = 2 * _appConfig->mainWindowScaling;
 
 				// Draw Crosshair for mouse tracking
-				if (layerHovered && layer._followMouse)
+				if (layerHovered && layer._trackingType)
 				{
 					auto targetColor = toSFColor(theme.second * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
 					auto circle2 = sf::CircleShape(targetSize, 16);
@@ -2000,18 +2000,24 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("weightPosX", layer._weightDirection.x);
 			thisLayer->SetAttribute("weightPosY", layer._weightDirection.y);
 
-			thisLayer->SetAttribute("followMouse", layer._followMouse);
-			if (layer._followMouse)
-			{
-				thisLayer->SetAttribute("followElliptical", layer._followElliptical);
-				thisLayer->SetAttribute("mouseNeutralX", layer._mouseNeutralPos.x);
-				thisLayer->SetAttribute("mouseNeutralY", layer._mouseNeutralPos.y);
-				thisLayer->SetAttribute("mouseAreaX", layer._mouseAreaSize.x);
-				thisLayer->SetAttribute("mouseAreaY", layer._mouseAreaSize.y);
-				thisLayer->SetAttribute("mouseLimitX", layer._mouseMoveLimits.x);
-				thisLayer->SetAttribute("mouseLimitY", layer._mouseMoveLimits.y);
-				thisLayer->SetAttribute("untrackedWhenHidden", layer._mouseUntrackedWhenHidden);
-			}
+			thisLayer->SetAttribute("trackingEnabled", layer._trackingEnabled);
+			thisLayer->SetAttribute("trackingType", layer._trackingType);
+			thisLayer->SetAttribute("followElliptical", layer._followElliptical);
+			thisLayer->SetAttribute("mouseNeutralX", layer._mouseNeutralPos.x);
+			thisLayer->SetAttribute("mouseNeutralY", layer._mouseNeutralPos.y);
+			thisLayer->SetAttribute("mouseAreaX", layer._mouseAreaSize.x);
+			thisLayer->SetAttribute("mouseAreaY", layer._mouseAreaSize.y);
+			thisLayer->SetAttribute("trackingAxis", layer._trackingAxis);
+			thisLayer->SetAttribute("trackingDeadzone", layer._axisDeadzone);
+			thisLayer->SetAttribute("trackingSmooth", layer._trackingSmooth);
+			thisLayer->SetAttribute("trackingLimitX", layer._trackingMoveLimits.x);
+			thisLayer->SetAttribute("trackingLimitY", layer._trackingMoveLimits.y);
+			thisLayer->SetAttribute("untrackedWhenHidden", layer._trackingOffWhenHidden);
+			thisLayer->SetAttribute("mouseEffect", layer._mouseEffect);
+			thisLayer->SetAttribute("joypadEffect", layer._joypadEffect);
+			thisLayer->SetAttribute("trackingRotLimitX", layer._trackingRotation.x);
+			thisLayer->SetAttribute("trackingRotLimitY", layer._trackingRotation.y);
+		
 
 			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
 
@@ -2385,18 +2391,40 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
 				thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
 
-				thisLayer->QueryBoolAttribute("followMouse", &layer._followMouse);
-				if (layer._followMouse)
+				bool oldMouseTrack = false;
+				thisLayer->QueryBoolAttribute("followMouse", &oldMouseTrack);
+				if (oldMouseTrack)
 				{
-					thisLayer->QueryBoolAttribute("followElliptical", &layer._followElliptical);
-					thisLayer->QueryAttribute("mouseNeutralX", &layer._mouseNeutralPos.x);
-					thisLayer->QueryAttribute("mouseNeutralY", &layer._mouseNeutralPos.y);
-					thisLayer->QueryAttribute("mouseAreaX", &layer._mouseAreaSize.x);
-					thisLayer->QueryAttribute("mouseAreaY", &layer._mouseAreaSize.y);
-					thisLayer->QueryAttribute("mouseLimitX", &layer._mouseMoveLimits.x);
-					thisLayer->QueryAttribute("mouseLimitY", &layer._mouseMoveLimits.y);
-					thisLayer->QueryBoolAttribute("untrackedWhenHidden", &layer._mouseUntrackedWhenHidden);
+					layer._trackingType = LayerInfo::TRACKING_MOUSE;
+					layer._trackingEnabled = true;
 				}
+
+				thisLayer->QueryBoolAttribute("trackingEnabled", &layer._trackingEnabled);
+
+				thisLayer->QueryIntAttribute("trackingType", (int*)&layer._trackingType);
+
+				thisLayer->QueryBoolAttribute("followElliptical", &layer._followElliptical);
+				thisLayer->QueryAttribute("mouseNeutralX", &layer._mouseNeutralPos.x);
+				thisLayer->QueryAttribute("mouseNeutralY", &layer._mouseNeutralPos.y);
+				thisLayer->QueryAttribute("mouseAreaX", &layer._mouseAreaSize.x);
+				thisLayer->QueryAttribute("mouseAreaY", &layer._mouseAreaSize.y);
+
+				//kept for compatibility
+				thisLayer->QueryAttribute("mouseLimitX", &layer._trackingMoveLimits.x);
+				thisLayer->QueryAttribute("mouseLimitY", &layer._trackingMoveLimits.y);
+
+				thisLayer->QueryAttribute("trackingAxis", (int*) & layer._trackingAxis);
+				thisLayer->QueryAttribute("trackingDeadzone", &layer._axisDeadzone);
+
+				thisLayer->QueryAttribute("trackingSmooth", &layer._trackingSmooth);
+				thisLayer->QueryAttribute("trackingLimitX", &layer._trackingMoveLimits.x);
+				thisLayer->QueryAttribute("trackingLimitY", &layer._trackingMoveLimits.y);
+				thisLayer->QueryBoolAttribute("untrackedWhenHidden", &layer._trackingOffWhenHidden);
+				thisLayer->QueryAttribute("mouseEffect", &layer._mouseEffect);
+				thisLayer->QueryAttribute("joypadEffect", &layer._joypadEffect);
+				thisLayer->QueryAttribute("trackingRotLimitX", &layer._trackingRotation.x);
+				thisLayer->QueryAttribute("trackingRotLimitY", &layer._trackingRotation.y);
+	
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
 				if (mpguid)
@@ -4171,7 +4199,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	DoConstantMotion(frameTime, motionScale, motionPos, motionRot);
 
-	AddMouseMovement(motionPos);
+	AddTrackingMovement(motionPos, motionRot);
 
 	if (screaming && _screamVibrate)
 	{
@@ -4300,37 +4328,96 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	}
 }
 
-void LayerManager::LayerInfo::AddMouseMovement(sf::Vector2f& mpPos)
+void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mpRot)
 {
-	bool mouseTrack = _followMouse && _parent->_appConfig->_mouseTrackingEnabled;
-	if (!mouseTrack)
+	bool doTracking = _trackingEnabled && (_trackingType != TRACKING_NONE) && _parent->_appConfig->_mouseTrackingEnabled;
+	if (!doTracking)
 		return;
 
-	bool visible = EvaluateLayerVisibility();
-	if (visible || !_mouseUntrackedWhenHidden)
+	sf::Vector2f newTrackingAmount = {0, 0};
+
+	float mouseEffect = 1.f;
+	float axisEffect = 1.f;
+	if (_trackingType == TRACKING_BOTH)
 	{
-		sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
-		sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
+		mouseEffect = _mouseEffect;
+		axisEffect = _joypadEffect;
+	}
 
-		if (_followElliptical)
+	bool visible = EvaluateLayerVisibility();
+	if (visible || !_trackingOffWhenHidden)
+	{
+		if (_trackingType & TRACKING_MOUSE)
 		{
-			float moveLength = Length(mouseMove);
-			sf::Vector2f mouseDir = mouseMove / moveLength;
-			float angle = atan2(mouseDir.y, -mouseDir.x);
-			float maxLength = EllipseRadius(angle, _mouseAreaSize);
+			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
+			sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
 
-			if (moveLength > maxLength)
-			{
-				mouseMove = mouseDir * maxLength;
-			}
+			const sf::Vector2f mouseMult = Clamp(mouseMove / _mouseAreaSize, -1.f, 1.f);
 
+			newTrackingAmount += mouseMult*mouseEffect;
 		}
 
-		const sf::Vector2f mouseMult = Clamp(mouseMove / _mouseAreaSize, -1.f, 1.f);
-		sf::Vector2f mouseDiff = _mouseMoveLimits * mouseMult;
+		if (_trackingType & TRACKING_CONTROLLER)
+		{
+			if (_trackingJoystick == -1)
+			{
+				for (int jStick = 0; jStick < sf::Joystick::Count; jStick++)
+				{
+					if (sf::Joystick::isConnected(jStick))
+					{
+						_trackingJoystick = jStick;
+						break;
+					}
+				}
+			}
+			
+			sf::Vector2f axisPos;
+			switch (_trackingAxis)
+			{
+			case AXIS_XY:
+				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
+				axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
+				break;
+			case AXIS_UV:
+				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
+				axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
+				break;
+			case AXIS_POV:
+				axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
+				axisPos.y = -0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
+				break;
+			}
 
-		mpPos += mouseDiff;
+			const sf::Vector2f deadspot(_axisDeadzone, _axisDeadzone);
+			const sf::Vector2f signAxis(axisPos.x >= 0 ? 1.f : -1.f, axisPos.y >= 0 ? 1.f : -1.f);
+			float axisLength = Length(axisPos);
+			const sf::Vector2f axisDir = axisLength > 0 ? axisPos / axisLength : sf::Vector2f(0.f, 0.f);
+			sf::Vector2f axisAmount;
+			axisAmount.x = (Clamp(Abs(axisPos.x) - _axisDeadzone * Abs(axisDir.x), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.x))) * signAxis.x;
+			axisAmount.y = (Clamp(Abs(axisPos.y) - _axisDeadzone * Abs(axisDir.y), 0.f, 1.f) / (1.f - _axisDeadzone * Abs(axisDir.y))) * signAxis.y;
+
+			newTrackingAmount = Clamp(newTrackingAmount + axisAmount*axisEffect, -1.f, 1.f);
+		}
+		
 	}
+
+	float smooth = 1 + _trackingSmooth * 10;
+	_trackingAmount -= _trackingAmount / smooth;
+	_trackingAmount += newTrackingAmount / smooth;
+
+	if (_followElliptical)
+	{
+		// limit the vector length to 1
+		float moveLength = Length(_trackingAmount);
+		if(moveLength > 1.0)
+			_trackingAmount = _trackingAmount / moveLength;
+	}
+
+	sf::Vector2f newTrackingPos = _trackingAmount * _trackingMoveLimits;
+	sf::Vector2f newTrackingRot = _trackingAmount * _trackingRotation;
+
+	mpPos += newTrackingPos;
+	mpRot = mpRot + newTrackingRot.x + newTrackingRot.y;
 }
 
 bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
@@ -4363,7 +4450,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}
 
 
-	ImGui::PushID((_id + _name).c_str()); {
+	ImGui::PushID((_id).c_str()); {
 
 #ifdef DEBUG
 		std::string name = "[" + std::to_string(layerID) + "] " + _name;
@@ -4372,6 +4459,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 #endif
 		if (_isFolder)
 			name = "[" + _name + "]";
+
+		name += "##0";
 
 		sf::Vector2f headerBtnSize(UIUnit - 2, UIUnit - 2);
 		ImVec2 headerButtonsPos = { ImGui::GetWindowWidth() - UIUnit * 7, ImGui::GetCursorPosY() };
@@ -4396,6 +4485,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		if (_layerColor.w != 0)
 			ImGui::PushStyleColor(ImGuiCol_Header, _layerColor);
+		ImGui::SetNextItemStorageID(ImGui::GetID(_id.c_str()));
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowOverlap))
 		{
 			if (_scrollToHere)
@@ -5272,6 +5362,127 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::SetCursorPos(curpos);
 				}
 
+				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
+				if (ImGui::CollapsingHeader("Tracking", ImGuiTreeNodeFlags_AllowOverlap))
+				{
+					const sf::Vector2f halfFullscreen(_parent->_appConfig->_fullScrW / 2, _parent->_appConfig->_fullScrH / 2);
+					if (_mouseNeutralPos == sf::Vector2f(-1.f, -1.f))
+					{
+						_mouseNeutralPos = halfFullscreen;
+					}
+
+					if (_mouseAreaSize == sf::Vector2f(-1.f, -1.f))
+					{
+						_mouseAreaSize = halfFullscreen;
+					}
+
+					BetterIndent(indentSize, "tracking" + _id);
+
+
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+					if (ImGui::BeginCombo("Tracking Type", g_trackingNames[_trackingType]))
+					{
+
+						if (ImGui::Selectable("Mouse", _trackingType == TRACKING_MOUSE))
+							_trackingType = TRACKING_MOUSE;
+						ToolTip("Track the mouse movement", &_parent->_appConfig->_hoverTimer);
+						if (ImGui::Selectable("Controller Axis", _trackingType == TRACKING_CONTROLLER))
+							_trackingType = TRACKING_CONTROLLER;
+						ToolTip("Track the movement of a controller analog stick", &_parent->_appConfig->_hoverTimer);
+						if (ImGui::Selectable("Combined", _trackingType == TRACKING_BOTH))
+							_trackingType = TRACKING_BOTH;
+						ToolTip("Combine the first two options", &_parent->_appConfig->_hoverTimer);
+						ImGui::EndCombo();
+					}
+
+					if (_trackingType & TRACKING_MOUSE)
+					{
+						ImGui::SeparatorText("Mouse");
+
+						AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
+						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+						ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
+						ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
+
+						AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
+						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+						ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
+						ToolTip("The maximum mouse distance from the Neutral position.\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
+					
+						if (_trackingType == TRACKING_BOTH)
+						{
+							AddResetButton("mouseEffect", _mouseEffect, 1.f, _parent->_appConfig, &style);
+							ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+							FloatSliderDrag("Mouse Effect", &_mouseEffect, 0.f, 1.0f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
+							ToolTip("Choose how much the mouse movement affects the tracking.", &_parent->_appConfig->_hoverTimer);
+						}
+
+					}
+
+					if (_trackingType & TRACKING_CONTROLLER)
+					{
+						ImGui::SeparatorText("Controller");
+
+						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+						if (ImGui::BeginCombo("Controller Axis", g_trackingAxisNames[_trackingAxis]))
+						{
+							for (int ax = 0; ax < AXIS_END; ax++)
+							{
+								if (ImGui::Selectable(g_trackingAxisNames[ax]))
+								{
+									_trackingAxis = (TrackingAxis)ax;
+								}
+							}
+							ImGui::EndCombo();
+						}
+
+						AddResetButton("axisDeadzone", _axisDeadzone, 0.f, _parent->_appConfig, &style);
+						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+						if (FloatSliderDrag("Axis Deadzone", &_axisDeadzone, 0.f, 0.99f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+							Clamp(_axisDeadzone, 0.0f, 0.99f);
+						ToolTip("The amount your joystick will have to move before doing anything", &_parent->_appConfig->_hoverTimer);
+
+						if (_trackingType == TRACKING_BOTH)
+						{
+							AddResetButton("ctrlEffect", _joypadEffect, 1.f, _parent->_appConfig, &style);
+							ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+							FloatSliderDrag("Controller Effect", &_joypadEffect, 0.f, 1.0f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
+							ToolTip("Choose how much the joystick movement affects the tracking.", &_parent->_appConfig->_hoverTimer);
+						}
+					}
+
+					ImGui::SeparatorText("");
+
+					AddResetButton("trackingSmooth", _axisDeadzone, 0.2f, _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+					FloatSliderDrag("Smooth", &_trackingSmooth, 0.f, 1.f, "%.2f", ImGuiInputTextFlags_CharsNoBlank, _parent->_uiConfig->_numberEditType);
+					ToolTip("How much to smooth the movement", &_parent->_appConfig->_hoverTimer);
+
+					AddResetButton("moveLimits", _trackingMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+					Float2SliderDrag("Movement Limits", &_trackingMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
+					ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer, true);
+
+					AddResetButton("rotLimits", _trackingRotation, sf::Vector2f(0.f, 0.f), _parent->_appConfig, &style);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+					Float2SliderDrag("Rotation Limits", &_trackingRotation.x, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
+					ToolTip("The maximum rotation applied to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_parent->_appConfig->_hoverTimer, true);
+
+					ImGui::Checkbox("Elliptical", &_followElliptical);
+					ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::Checkbox("Only When Visible", &_trackingOffWhenHidden);
+					ToolTip("Stops moving the layer with the mouse if it's invisible.", &_parent->_appConfig->_hoverTimer);
+					
+
+					BetterUnindent("tracking" + _id);
+				}
+				oldCursorPos = ImGui::GetCursorPos();
+				ImGui::SetCursorPos(subHeaderBtnPos);
+				ImGui::Checkbox("##trackingEnabled", &_trackingEnabled);
+				ToolTip("Move this layer with a mouse or controller.", &_parent->_appConfig->_hoverTimer);
+				ImGui::SetCursorPos(oldCursorPos);
+
 
 				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowOverlap))
 				{
@@ -5373,50 +5584,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 					ImGui::Checkbox("Preserve Position", &_parent->_pivotPreservePosition);
 					ToolTip("Preserve the layer position while moving the pivot point.", &_parent->_appConfig->_hoverTimer);
-
-					const sf::Vector2f halfFullscreen(_parent->_appConfig->_fullScrW / 2, _parent->_appConfig->_fullScrH / 2);
-
-					if (ImGui::Checkbox("Track Mouse", &_followMouse))
-					{
-						if (_followMouse)
-						{
-							if (_mouseNeutralPos == sf::Vector2f(-1.f, -1.f))
-							{
-								_mouseNeutralPos = halfFullscreen;
-							}
-
-							if (_mouseAreaSize == sf::Vector2f(-1.f, -1.f))
-							{
-								_mouseAreaSize = halfFullscreen;
-							}
-						}
-					}
-					ToolTip("Move this layer to follow mouse movement.", &_parent->_appConfig->_hoverTimer);
-
-					if (_followMouse)
-					{
-						AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-						ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
-						ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-						ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
-						ToolTip("The maximum mouse distance from the Neutral position.\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
-
-						AddResetButton("moveLimits", _mouseMoveLimits, sf::Vector2f(50.f, 50.f), _parent->_appConfig, &style);
-						ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-						Float2SliderDrag("Movement Limits", &_mouseMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
-						ToolTip("The maximum offset applied to the layer position.", &_parent->_appConfig->_hoverTimer, true);
-
-						ImGui::Checkbox("Elliptical", &_followElliptical);
-						ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);
-
-						ImGui::Checkbox("Only When Visible", &_mouseUntrackedWhenHidden);
-						ToolTip("Stops moving the layer with the mouse if it's invisible.", &_parent->_appConfig->_hoverTimer);
-					}
-
 
 					BetterUnindent("transforms" + _id);
 				}
