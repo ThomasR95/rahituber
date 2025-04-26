@@ -197,6 +197,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			if (layer._blendMode == g_blendmodes["Multiply"]
 				|| layer._blendMode == g_blendmodes["Lighten"]
 				|| layer._blendMode == g_blendmodes["Darken"]
+				|| layer._blendMode == g_blendmodes["Clip to Backdrop"]
 				)
 			{
 				if (_blendingShaderLoaded == false)
