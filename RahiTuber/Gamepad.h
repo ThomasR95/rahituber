@@ -327,6 +327,9 @@ public:
 	}
 
 private:
+
+
+#ifdef _WIN32
 	void storeRawInputData(RAWINPUT* input)
 	{
 		RID_DEVICE_INFO devInfo;
@@ -401,7 +404,6 @@ private:
 	}
 
 
-#ifdef _WIN32
 	GamepadAPI inputAPI = GAMEPAD_API_RAWINPUT;
 
 	std::map<int, XINPUT_STATE> xStates = {};

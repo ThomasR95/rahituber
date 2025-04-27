@@ -245,7 +245,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>mongoose-7.16;D:\OneDrive\SFML-2.6.1\lib64;portaudio\build\msvc\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>sfml-graphics-s.lib;sfml-system-s.lib;sfml-window-s.lib;sfml-main.lib;portaudio_x64.lib;opengl32.lib;freetype.lib;winmm.lib;gdi32.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies);Ws2_32.lib; Shcore.lib</AdditionalDependencies>
+      <AdditionalDependencies>sfml-graphics-s.lib;sfml-system-s.lib;sfml-window-s.lib;sfml-main.lib;portaudio_x64.lib;opengl32.lib;freetype.lib;winmm.lib;gdi32.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies);Ws2_32.lib;Shcore.lib;Xinput.lib;hid.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
