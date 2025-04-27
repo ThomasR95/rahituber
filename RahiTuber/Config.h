@@ -129,6 +129,8 @@ struct AppConfig
 	int _unloadTimeoutSetting = 10;
 	int _unloadTimeout = 0;
 	bool _unloadTimeoutEnabled = false;
+
+	int _gamepadAPI = 0;
 };
 
 typedef struct

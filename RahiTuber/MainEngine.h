@@ -36,6 +36,8 @@
 
 #include "LayerManager.h"
 
+#include "Gamepad.h"
+
 // must be last
 #include "websocket.h"
 
@@ -869,6 +871,25 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
 				ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit*2);
+				if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
+				{
+					for (int api = 0; api < GAMEPAD_API_END; api++)
+						if (api != GAMEPAD_API_XINPUT)
+						{
+							if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_gamepadAPI == api))
+							{
+								appConfig->_gamepadAPI = api;
+								GamePad::setAPI(GamepadAPI(api));
+							}
+							ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
+						}
+
+					ImGui::EndCombo();
+				}
+				ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
 #endif
 
 				ImGui::EndTable();
@@ -1732,6 +1753,9 @@ public:
 
 	void handleEvents()
 	{
+		GamePad::update();
+
+
 		sf::Event menuEvt;
 		if (appConfig->_menuWindow.isOpen())
 		{
@@ -1815,7 +1839,6 @@ public:
 			appConfig->_window.requestFocus();
 		}
 
-		sf::Joystick::update();
 		layerMan->CheckHotkeys();
 
 		sf::Event evt;
@@ -1982,14 +2005,14 @@ public:
 						layerMan->SetHotkeys(posn.second);
 
 					// update it in case it's been released and didn't trigger an event
-					jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
+					jMove.position = GamePad::getAxisPosition(jMove.joystickId, jMove.axis);
 				}
 				else
 				{
 					jMove.position = 0.f;
 					// released
 					// update it in case it's been released and didn't trigger an event
-					jMove.position = sf::Joystick::getAxisPosition(jMove.joystickId, jMove.axis);
+					jMove.position = GamePad::getAxisPosition(jMove.joystickId, jMove.axis);
 				}
 			}
 		}
@@ -2656,6 +2679,8 @@ If you accept, please click the Accept button.
 		appConfig->_webSocket = new WebSocket();
 		if (appConfig->_listenHTTP)
 			appConfig->_webSocket->Start(appConfig->_httpPort);
+
+		GamePad::init(appConfig->_window.getSystemHandle(), (GamepadAPI)appConfig->_gamepadAPI);
 
 		logToFile(appConfig, "Setup Complete!");
 

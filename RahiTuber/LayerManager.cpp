@@ -11,6 +11,8 @@
 
 #include "imgui/misc/single_file/imgui_single_file.h"
 
+#include "Gamepad.h"
+
 #ifdef _WIN32
 #include <windows.h>
 
@@ -2972,7 +2974,7 @@ void LayerManager::CheckHotkeys()
 				changed = true;
 			keyDown = true;
 		}
-		else if (stateInfo._jPadID != -1 && stateInfo._jButton != -1 && sf::Joystick::isButtonPressed(stateInfo._jPadID, stateInfo._jButton))
+		else if (stateInfo._jPadID != -1 && stateInfo._jButton != -1 && GamePad::isButtonPressed(stateInfo._jPadID, stateInfo._jButton))
 		{
 			if (stateInfo._wasTriggered == false)
 				changed = true;
@@ -2989,7 +2991,7 @@ void LayerManager::CheckHotkeys()
 		}
 		else if (stateInfo._jPadID != -1 && _statesIgnoreStick == false && stateInfo._jAxis != -1)
 		{
-			float jDir = sf::Joystick::getAxisPosition(stateInfo._jPadID, (sf::Joystick::Axis)stateInfo._jAxis);
+			float jDir = GamePad::getAxisPosition(stateInfo._jPadID, (sf::Joystick::Axis)stateInfo._jAxis);
 			if (Abs(jDir) > 30 && std::signbit(jDir) == std::signbit(stateInfo._jDir))
 			{
 				if (stateInfo._wasTriggered == false)
@@ -4381,16 +4383,16 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mp
 				switch (_trackingAxis)
 				{
 				case AXIS_XY:
-					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
-					axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
+					axisPos.y = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
 					break;
 				case AXIS_UV:
-					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
-					axisPos.y = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
+					axisPos.y = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
 					break;
 				case AXIS_POV:
-					axisPos.x = 0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
-					axisPos.y = -0.01f * sf::Joystick::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
+					axisPos.y = -0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
 					break;
 				}
 

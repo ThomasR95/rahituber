@@ -122,6 +122,8 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("vsync", &_appConfig->_enableVSync);
 	common->QueryAttribute("fpsLimit", &_appConfig->_fpsLimit);
 
+	common->QueryAttribute("gamepadAPI", &_appConfig->_gamepadAPI);
+
 	auto themeElmt = common->FirstChildElement("Theme");
 
 	while(themeElmt)
@@ -229,6 +231,8 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("vsync", _appConfig->_enableVSync);
 			common->SetAttribute("fpsLimit", _appConfig->_fpsLimit);
+
+			common->SetAttribute("gamepadAPI", _appConfig->_gamepadAPI);
 
 			auto themeElmt = common->FirstChildElement("Theme");
 

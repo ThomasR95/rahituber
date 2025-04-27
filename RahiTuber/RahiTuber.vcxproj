@@ -205,7 +205,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>mongoose-7.16;D:\OneDrive\SFML-2.6.1\lib64;portaudio\build\msvc\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>sfml-graphics-s-d.lib;sfml-system-s-d.lib;sfml-window-s-d.lib;sfml-main-d.lib;portaudio_x64_d.lib;opengl32.lib;freetype.lib;winmm.lib;gdi32.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies);Ws2_32.lib; Shcore.lib</AdditionalDependencies>
+      <AdditionalDependencies>sfml-graphics-s-d.lib;sfml-system-s-d.lib;sfml-window-s-d.lib;sfml-main-d.lib;portaudio_x64_d.lib;opengl32.lib;freetype.lib;winmm.lib;gdi32.lib;legacy_stdio_definitions.lib;%(AdditionalDependencies);Ws2_32.lib;Shcore.lib;Xinput.lib;hid.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_DLL|x64'">
@@ -302,6 +302,7 @@
     <ClInclude Include="CrashHandler.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="file_browser_modal.h" />
+    <ClInclude Include="Gamepad.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="imgui\backends\imgui_impl_win32.h" />
