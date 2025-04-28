@@ -24,7 +24,7 @@ static const char* const g_gamepadAPINames[3] = {
 };
 
 static const char* const g_gamepadAPITooltips[3] = {
-	"Most likely to work when the window is out of focus", "XInput (Only compatible with XBOX GamePads)", "The default method before version 13.68"
+	"Most likely to work when the window is out of focus", "XInput (Only compatible with XBOX GamePads)", "The default method before version 13.8"
 };
 
 enum GamepadAPI {
