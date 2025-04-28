@@ -5445,7 +5445,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::SeparatorText("");
 
-					AddResetButton("trackingSmooth", _axisDeadzone, 0.2f, _parent->_appConfig, &style);
+					AddResetButton("trackingSmooth", _trackingSmooth, 0.2f, _parent->_appConfig, &style);
 					FloatSliderDrag("Smooth", &_trackingSmooth, 0.f, 1.f, "%.2f", ImGuiInputTextFlags_CharsNoBlank, _parent->_uiConfig->_numberEditType);
 					ToolTip("How much to smooth the movement", &_parent->_appConfig->_hoverTimer);
 

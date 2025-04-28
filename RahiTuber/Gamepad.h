@@ -422,7 +422,7 @@ private:
 
 	HWND windowHandle;
 #else
-	GamepadAPI inputAPI = SFML;
+    GamepadAPI inputAPI = GAMEPAD_API_SFML;
 #endif
 
 	int reConnectCountdown = 50;

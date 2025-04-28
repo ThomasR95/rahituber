@@ -2680,7 +2680,7 @@ If you accept, please click the Accept button.
 		if (appConfig->_listenHTTP)
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
-		GamePad::init(appConfig->_window.getSystemHandle(), (GamepadAPI)appConfig->_gamepadAPI);
+        GamePad::init((void*)appConfig->_window.getSystemHandle(), (GamepadAPI)appConfig->_gamepadAPI);
 
 		logToFile(appConfig, "Setup Complete!");
 
