@@ -25,7 +25,7 @@ namespace fs = std::filesystem;
 #include <thread>
 
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
-	{"Normal", sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+	{"Normal", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 	{"Lighten", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Max,
 												sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add)},
@@ -182,6 +182,7 @@ public:
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
 		int _scaleFiltering = 0;
+		float _alphaClip = 0.01;
 
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;

@@ -196,17 +196,34 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 			LayerInfo* clipLayer = GetLayer(layer._clipID);
 
-			if (layer._blendMode == g_blendmodes["Multiply"]
-				|| layer._blendMode == g_blendmodes["Lighten"]
-				|| layer._blendMode == g_blendmodes["Darken"]
-				|| layer._blendMode == g_blendmodes["Clip to Backdrop"]
-				)
+			
 			{
 				if (_blendingShaderLoaded == false)
 					_blendingShader.loadFromMemory(SFML_DefaultVert, SFML_PremultFrag);
 
+				if (layer._blendMode == g_blendmodes["Multiply"]
+					|| layer._blendMode == g_blendmodes["Lighten"]
+					|| layer._blendMode == g_blendmodes["Darken"]
+					|| layer._blendMode == g_blendmodes["Normal"]
+					|| layer._blendMode == g_blendmodes["Clip to Backdrop"]
+					)
+				{
+					_blendingShader.setUniform("premult", true);
+				}
+				else
+				{
+					_blendingShader.setUniform("premult", false);
+				}
+				
+
 				if (layer._blendMode == g_blendmodes["Darken"])
 					_blendingShader.setUniform("invert", true);
+				else
+					_blendingShader.setUniform("invert", false);
+
+				_blendingShader.setUniform("sharpEdge", true);// l == 0);
+
+				_blendingShader.setUniform("alphaClip", layer._alphaClip);
 
 				useBlendShader = true;
 
@@ -219,10 +236,20 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				if (useBlendShader)
 					state.shader = &_blendingShader;
 
+				if (useBlendShader && layer._idleSprite->getTexture())
+					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._idleSprite->getTexture()->getSize().x, layer._idleSprite->getTexture()->getSize().y));
 				layer._idleSprite->Draw(target, state);
+				if (useBlendShader && layer._talkSprite->getTexture())
+					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._talkSprite->getTexture()->getSize().x, layer._talkSprite->getTexture()->getSize().y));
 				layer._talkSprite->Draw(target, state);
+				if (useBlendShader && layer._blinkSprite->getTexture())
+					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._blinkSprite->getTexture()->getSize().x, layer._blinkSprite->getTexture()->getSize().y));
 				layer._blinkSprite->Draw(target, state);
+				if (useBlendShader && layer._talkBlinkSprite->getTexture())
+					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._talkBlinkSprite->getTexture()->getSize().x, layer._talkBlinkSprite->getTexture()->getSize().y));
 				layer._talkBlinkSprite->Draw(target, state);
+				if (useBlendShader && layer._screamSprite->getTexture())
+					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._screamSprite->getTexture()->getSize().x, layer._screamSprite->getTexture()->getSize().y));
 				layer._screamSprite->Draw(target, state);
 			}
 			else
@@ -4721,6 +4748,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (_talkBlinkSprite) _talkBlinkSprite->setSmooth(_scaleFiltering);
 							if (_screamSprite) _screamSprite->setSmooth(_scaleFiltering);
 						}
+
+						FloatSliderDrag("Alpha Cutoff", &_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, _parent->_uiConfig->_numberEditType);
 
 						sf::BlendMode oldBlendMode = _blendMode;
 						std::string bmName = "";

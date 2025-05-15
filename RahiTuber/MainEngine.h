@@ -345,11 +345,10 @@ public:
 			if (appConfig->_wasFullScreen || firstStart)
 			{
 				std::string name = "RahiTuber";
-				appConfig->_nameLock.lock();
 				{
+					std::scoped_lock nameLock(appConfig->_nameLock);
 					name = appConfig->windowName;
 				}
-				appConfig->_nameLock.unlock();
 
 				auto beforeCreate = std::chrono::system_clock::now();
 				appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), name, 0);
@@ -2322,6 +2321,8 @@ If you accept, please click the Accept button.
 		}
 
 		ImGui::SFML::Shutdown();
+
+		uiConfig->_lastTheme = "";
 	}
 
 	void Init()

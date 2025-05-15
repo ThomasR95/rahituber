@@ -194,7 +194,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>PROGRAM_NAME=L"$(ProjectName)_debug64";IMGUI_DISABLE_WIN32_FUNCTIONS;SFML_STATIC;_DEBUG;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PROGRAM_NAME=L"$(ProjectName)_debug64";IMGUI_DISABLE_WIN32_FUNCTIONS;SFML_STATIC;_DEBUG;NOMINMAX;_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\OneDrive\SFML-2.6.1\include;portaudio\include;portaudio\src\common;imgui;imgui-sfml;mongoose-7.16;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -232,7 +232,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>PROGRAM_NAME=L"$(ProjectName)_64";IMGUI_DISABLE_WIN32_FUNCTIONS;SFML_STATIC;NDEBUG;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PROGRAM_NAME=L"$(ProjectName)_64";IMGUI_DISABLE_WIN32_FUNCTIONS;SFML_STATIC;NDEBUG;NOMINMAX;_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\OneDrive\SFML-2.6.1\include;portaudio\include;portaudio\src\common;imgui;imgui-sfml;mongoose-7.16;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>

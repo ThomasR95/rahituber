@@ -764,7 +764,12 @@ inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_ma
 	else if (type == 1)
 		return ImGui::DragFloat(label, v, speed, v_min, v_max, format, flags);
 	else if (type == 2)
-		return ImGui::InputFloat(label, v, speed, speed*4, format, 0);
+	{
+		bool res = ImGui::InputFloat(label, v, speed, speed * 4, format, 0);
+		if (ImGuiSliderFlags_ClampOnInput)
+			*v = Clamp(*v, v_min, v_max);
+		return res;
+	}
 
 	return false;
 }
@@ -787,7 +792,15 @@ inline bool Float2SliderDrag(const char* label, float* v, float v_min, float v_m
 	else if (type == 1)
 		return ImGui::DragFloat2(label, v, speed, v_min, v_max, format, flags);
 	else if (type == 2)
-		return ImGui::InputFloat2(label, v, format, 0);
+	{
+		bool res = ImGui::InputFloat2(label, v, format, 0);
+		if (ImGuiSliderFlags_ClampOnInput)
+		{
+			v[0] = Clamp(*v, v_min, v_max);
+			v[1] = Clamp(*v, v_min, v_max);
+		}
+		return res;
+	}
 
 	return false;
 }
