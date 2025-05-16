@@ -2054,7 +2054,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("joypadEffect", layer._joypadEffect);
 			thisLayer->SetAttribute("trackingRotLimitX", layer._trackingRotation.x);
 			thisLayer->SetAttribute("trackingRotLimitY", layer._trackingRotation.y);
-		
+			thisLayer->SetAttribute("trackingSelect", layer._trackingSelect);
+			if(layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+				thisLayer->SetAttribute("trackingControllerID", layer._trackingJoystick);
 
 			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
 
@@ -2462,6 +2464,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("joypadEffect", &layer._joypadEffect);
 				thisLayer->QueryAttribute("trackingRotLimitX", &layer._trackingRotation.x);
 				thisLayer->QueryAttribute("trackingRotLimitY", &layer._trackingRotation.y);
+
+				thisLayer->QueryAttribute("trackingSelect", (int*) & layer._trackingSelect);
+				if (layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+					thisLayer->QueryAttribute("trackingControllerID", &layer._trackingJoystick);
 	
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
@@ -4400,17 +4406,20 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mp
 		{
 			if (_trackingJoystick == -1)
 			{
-				for (int jStick = 0; jStick < sf::Joystick::Count; jStick++)
+				if (_trackingSelect == TRACKINGSELECT_FIRST)
 				{
-					if (sf::Joystick::isConnected(jStick))
+					for (int jStick = 0; jStick < sf::Joystick::Count; jStick++)
 					{
-						_trackingJoystick = jStick;
-						break;
+						if (sf::Joystick::isConnected(jStick))
+						{
+							_trackingJoystick = jStick;
+							break;
+						}
 					}
-				}
+				}			
 			}
 
-			if (_trackingJoystick != -1)
+			if (_trackingJoystick != -1 && sf::Joystick::isConnected(_trackingJoystick))
 			{
 				sf::Vector2f axisPos;
 				switch (_trackingAxis)
@@ -5455,6 +5464,42 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					{
 						ImGui::SeparatorText("Controller");
 
+						if (ImGui::BeginCombo("Controller Select", g_trackingSelectNames[_trackingSelect]))
+						{
+							for (int csel = 0; csel < TRACKINGSELECT_END; csel++)
+							{
+								if (ImGui::Selectable(g_trackingSelectNames[csel]))
+								{
+									_trackingSelect = (TrackingControllerSelect)csel;
+									if (_trackingSelect == TRACKINGSELECT_FIRST)
+										_trackingJoystick = -1;
+								}
+							}
+							ImGui::EndCombo();
+						}
+						ToolTip("Choose how RahiTuber selects a controller to use.", &_parent->_appConfig->_hoverTimer);
+
+						if (_trackingSelect == TRACKINGSELECT_SPECIFIC)
+						{
+							if (ImGui::BeginCombo("Controller Index", std::to_string(_trackingJoystick).c_str()))
+							{
+								for (int ctrlr = 0; ctrlr < 8; ctrlr++)
+								{
+									if (sf::Joystick::isConnected(ctrlr))
+									{
+										std::stringstream name;
+										name << "[" << ctrlr << "] " << (std::string)sf::Joystick::getIdentification(ctrlr).name;
+										if (ImGui::Selectable(name.str().c_str()))
+										{
+											_trackingJoystick = (TrackingControllerSelect)ctrlr;
+										}
+									}
+								}
+								ImGui::EndCombo();
+							}
+							ToolTip("Choose which controller this layer tracks.\nThis is chosen by connection order (by design).\nThe name is just for your reference.", &_parent->_appConfig->_hoverTimer);
+						}
+
 						if (ImGui::BeginCombo("Controller Axis", g_trackingAxisNames[_trackingAxis]))
 						{
 							for (int ax = 0; ax < AXIS_END; ax++)
@@ -5466,6 +5511,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}
 							ImGui::EndCombo();
 						}
+						ToolTip("Choose which axis this layer will track.", &_parent->_appConfig->_hoverTimer);
 
 						AddResetButton("axisDeadzone", _axisDeadzone, 0.f, _parent->_appConfig, &style);
 						if (FloatSliderDrag("Axis Deadzone", &_axisDeadzone, 0.f, 0.99f, "%.2f", 0, _parent->_uiConfig->_numberEditType))

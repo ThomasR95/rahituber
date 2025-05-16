@@ -65,6 +65,10 @@ static const char* const g_trackingAxisNames[3] = {
 	"X/Y (Left stick)", "U/V (Right stick)", "POV (DPad)",
 };
 
+static const char* const g_trackingSelectNames[2] = {
+	"First Available", "Specific"
+};
+
 class LayerManager
 {
 public:
@@ -329,8 +333,16 @@ public:
 			AXIS_END
 		};
 
+		enum TrackingControllerSelect {
+			TRACKINGSELECT_FIRST,
+			TRACKINGSELECT_SPECIFIC,
+
+			TRACKINGSELECT_END
+		};
+
 		bool _trackingEnabled = false;
 		TrackingMode _trackingType = TRACKING_MOUSE;
+		TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
 		bool _followElliptical = false;
 		bool _trackingOffWhenHidden = true;
 

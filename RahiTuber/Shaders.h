@@ -134,14 +134,13 @@ void main()
 
       if(sharp == 1)
       {
-        pixel.xyz = opaquePixel.xyz;
+        pixel.xyz = gl_Color.xyz * opaquePixel.xyz;
       }
 
       if(sharp == 2)
       { 
-        
         if(pixel.a > 0.6)
-          pixel = opaquePixel;
+          pixel = gl_Color * opaquePixel;
       }
     }
     else
