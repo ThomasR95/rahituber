@@ -82,6 +82,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryIntAttribute("numberEditType", &_uiConfig->_numberEditType);
 
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
+	common->QueryBoolAttribute("trackController", &_appConfig->_controllerTrackingEnabled);
 
 	common->QueryBoolAttribute("unloadTimeoutEnabled", &_appConfig->_unloadTimeoutEnabled);
 	common->QueryIntAttribute("unloadTimeout", &_appConfig->_unloadTimeoutSetting);
@@ -207,6 +208,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("unloadTimeout", _appConfig->_unloadTimeoutSetting);
 
 			common->SetAttribute("trackMouse", _appConfig->_mouseTrackingEnabled);
+			common->SetAttribute("trackController", _appConfig->_controllerTrackingEnabled);
 
 			common->SetAttribute("checkForUpdates", _appConfig->_checkForUpdates);
 

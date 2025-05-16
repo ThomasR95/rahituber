@@ -802,6 +802,12 @@ public:
 				ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
 				ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
 
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
+				ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
+
+				
+
 
 				ImGui::EndTable();
 
@@ -1843,7 +1849,7 @@ public:
 		layerMan->CheckHotkeys();
 
 		sf::Event evt;
-		while (appConfig->_window.pollEvent(evt))
+		while (appConfig->_window.isOpen() && appConfig->_window.pollEvent(evt))
 		{
 			if (evt.type == evt.KeyPressed || evt.type == evt.MouseButtonPressed)
 			{

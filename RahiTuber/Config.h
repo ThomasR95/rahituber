@@ -117,6 +117,7 @@ struct AppConfig
 	bool _undoRotationEffectFix = false;
 
 	bool _mouseTrackingEnabled = true;
+	bool _controllerTrackingEnabled = true;
 
 	float _versionNumber = 0.0;
 	bool _checkForUpdates = true;

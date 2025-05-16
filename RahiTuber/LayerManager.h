@@ -185,7 +185,7 @@ public:
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
-		int _scaleFiltering = 0;
+		int _scaleFiltering = 1;
 		float _alphaClip = 0.0;
 
 		bool _importIdleOpen = false;

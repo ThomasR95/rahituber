@@ -4277,7 +4277,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	for (auto& frame : _motionLinkData)
 		totalMotionStoredTime += frame._frameTime;
 
-	while (totalMotionStoredTime > sf::seconds(1.1))
+	while (totalMotionStoredTime > sf::seconds(1.1) && _motionLinkData.size() > 0)
 	{
 		totalMotionStoredTime -= _motionLinkData.back()._frameTime;
 		_motionLinkData.pop_back();
@@ -4375,7 +4375,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mpRot)
 {
-	bool doTracking = _trackingEnabled && (_trackingType != TRACKING_NONE) && _parent->_appConfig->_mouseTrackingEnabled;
+	bool doTracking = _trackingEnabled && (_trackingType != TRACKING_NONE);
 	if (!doTracking)
 		return;
 
@@ -4392,7 +4392,7 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mp
 	bool visible = EvaluateLayerVisibility();
 	if (visible || !_trackingOffWhenHidden)
 	{
-		if (_trackingType & TRACKING_MOUSE)
+		if ((_trackingType & TRACKING_MOUSE) && _parent->_appConfig->_mouseTrackingEnabled)
 		{
 			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
 			sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
@@ -4402,7 +4402,7 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2f& mpPos, float& mp
 			newTrackingAmount += mouseMult*mouseEffect;
 		}
 
-		if (_trackingType & TRACKING_CONTROLLER)
+		if ((_trackingType & TRACKING_CONTROLLER) && _parent->_appConfig->_controllerTrackingEnabled)
 		{
 			if (_trackingJoystick == -1)
 			{
