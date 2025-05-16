@@ -50,6 +50,7 @@ struct AppConfig
 	WebSocket* _webSocket;
 
 	bool _transparent = false;
+	float _alphaClip = 0.001;
 
 	sf::Color _bgColor = sf::Color(128,110,128);
 
@@ -68,7 +69,6 @@ struct AppConfig
 	float customScaling = 1.0;
 
 	bool _enableVSync = false;
-
 
 	sf::RenderWindow _window;
 	sf::RenderWindow _menuWindow;

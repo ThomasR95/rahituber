@@ -223,7 +223,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				_blendingShader.setUniform("sharpEdge", true);// l == 0);
 
-				_blendingShader.setUniform("alphaClip", layer._alphaClip);
+				float alphaClip = layer._alphaClip;
+				if (alphaClip == 0.0)
+					alphaClip = _appConfig->_alphaClip;
+
+				_blendingShader.setUniform("alphaClip", alphaClip);
 
 				useBlendShader = true;
 
@@ -2062,6 +2066,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("blendMode", bmName.c_str());
 
 			thisLayer->SetAttribute("scaleFilter", (bool)layer._scaleFiltering);
+			thisLayer->SetAttribute("alphaCutoff", layer._alphaClip);
 
 			thisLayer->SetAttribute("clipID", layer._clipID.c_str());
 		}
@@ -2512,6 +2517,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (thisLayer->QueryBoolAttribute("scaleFilter", &scalefilter) == tinyxml2::XML_SUCCESS)
 					layer._scaleFiltering = scalefilter;
 
+				thisLayer->QueryAttribute("alphaCutoff", &layer._alphaClip);
 
 				const char* clipGuid = thisLayer->Attribute("clipID");
 				if (clipGuid)
@@ -4749,7 +4755,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (_screamSprite) _screamSprite->setSmooth(_scaleFiltering);
 						}
 
-						FloatSliderDrag("Alpha Cutoff", &_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, _parent->_uiConfig->_numberEditType);
+						AddResetButton("alphaCutoff", _alphaClip, 0.0f, _parent->_appConfig, &style);
+						FloatSliderDrag("Alpha Cutoff", &_alphaClip, 0.0, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, _parent->_uiConfig->_numberEditType);
+						ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.\nSet to 0.0 to use the default from Advanced Settings.", &_parent->_appConfig->_hoverTimer);
 
 						sf::BlendMode oldBlendMode = _blendMode;
 						std::string bmName = "";

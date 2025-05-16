@@ -182,7 +182,7 @@ public:
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
 
 		int _scaleFiltering = 0;
-		float _alphaClip = 0.01;
+		float _alphaClip = 0.0;
 
 		bool _importIdleOpen = false;
 		bool _importTalkOpen = false;

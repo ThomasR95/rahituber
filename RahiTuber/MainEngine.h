@@ -783,6 +783,8 @@ public:
 
 				ImGui::EndTable();
 			}
+			FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
+			ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.", &appConfig->_hoverTimer);
 
 			ImGui::SeparatorText("Behaviour");
 

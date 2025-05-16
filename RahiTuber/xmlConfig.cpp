@@ -73,6 +73,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("highlightHovered", &_uiConfig->_hilightHovered);
 	common->QueryBoolAttribute("compositeBackground", &_appConfig->_compositeOntoBackground);
 	common->QueryBoolAttribute("alphaPremultiplied", &_appConfig->_alphaPremultiplied);
+	common->QueryAttribute("alphaCutoff", &_appConfig->_alphaClip);
 
 	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
 	common->QueryBoolAttribute("nameWindowsSeperately", &_appConfig->_nameWindowWithSet);
@@ -194,6 +195,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("highlightHovered", _uiConfig->_hilightHovered);
 			common->SetAttribute("compositeBackground", _appConfig->_compositeOntoBackground);
 			common->SetAttribute("alphaPremultiplied", _appConfig->_alphaPremultiplied);
+			common->SetAttribute("alphaCutoff", _appConfig->_alphaClip);
 
 			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);
 			common->SetAttribute("nameWindowsSeperately", _appConfig->_nameWindowWithSet);
