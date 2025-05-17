@@ -781,6 +781,10 @@ public:
 				ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
 				ToolTip("Multiply the output color by the alpha value.\nUseful for glow effects etc.", &appConfig->_hoverTimer);
 
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Hard Edges", &appConfig->_sharpEdge);
+				ToolTip("When using the Linear Scale Filter, restore sharp edges on textures\nCosts GPU rendering performance.", &appConfig->_hoverTimer);
+
 				ImGui::EndTable();
 			}
 			FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);

@@ -43,7 +43,7 @@ uniform bool premult = true;
 uniform bool sharpEdge = true;
 uniform float alphaClip = 0.001;
 
-int isTransparentEdge(vec2 texCoord, out vec4 opaquePixel)
+int isTransparentEdge(vec2 texCoord, vec4 origPixel, out vec4 opaquePixel)
 {
     if(alphaClip <= 0.0)
       return 0;
@@ -54,6 +54,9 @@ int isTransparentEdge(vec2 texCoord, out vec4 opaquePixel)
     vec2 sharpPixelCoord = vec2(floor(pixelCoord.x) + 0.5, floor(pixelCoord.y) + 0.5);
 
     vec4 sharpPixel = texture2D(texture, invSize * sharpPixelCoord);
+
+    if(length(origPixel - sharpPixel) < 0.05)
+      return 0;
     
     bool sharp = false;
     bool transparent = false;
@@ -121,7 +124,7 @@ void main()
     if(sharpEdge)
     {
       vec4 opaquePixel;
-      int sharp = isTransparentEdge(texCoord, opaquePixel);
+      int sharp = isTransparentEdge(texCoord, pixel, opaquePixel);
 
       // trim to keep hard edge
       if(sharp > 0 && pixel.a < 0.6)

@@ -221,7 +221,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				else
 					_blendingShader.setUniform("invert", false);
 
-				_blendingShader.setUniform("sharpEdge", true);// l == 0);
+				_blendingShader.setUniform("sharpEdge", _appConfig->_sharpEdge && layer._scaleFiltering == 1);
 
 				float alphaClip = layer._alphaClip;
 				if (alphaClip == 0.0)
