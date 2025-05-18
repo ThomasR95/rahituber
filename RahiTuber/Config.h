@@ -51,7 +51,7 @@ struct AppConfig
 
 	bool _transparent = false;
 	float _alphaClip = 0.001;
-	bool _sharpEdge = false;
+	bool _sharpEdge = true;
 
 	sf::Color _bgColor = sf::Color(128,110,128);
 
