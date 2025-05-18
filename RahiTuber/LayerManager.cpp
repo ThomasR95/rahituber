@@ -192,21 +192,32 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state.transform.rotate(_globalRot);
 			state.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
 
-			bool useBlendShader = false;
+			auto usingBlendmode = layer._blendMode;
+
+			bool blendModeNeedsPremult = 
+				usingBlendmode == g_blendmodes["Multiply"]
+				|| usingBlendmode == g_blendmodes["Normal"]
+				|| usingBlendmode == g_blendmodes["Lighten"]
+				|| usingBlendmode == g_blendmodes["Darken"]
+				|| usingBlendmode == g_blendmodes["Clip to Backdrop"];
+
 
 			LayerInfo* clipLayer = GetLayer(layer._clipID);
 
-			
+			bool sharpEdge = _appConfig->_sharpEdge && layer._scaleFiltering == 1;
+
+
+			bool useBlendShader = false;
+
+			//if (sharpEdge || blendModeNeedsPremult)
 			{
 				if (_blendingShaderLoaded == false)
+				{
 					_blendingShader.loadFromMemory(SFML_DefaultVert, SFML_PremultFrag);
+					_blendingShaderLoaded = true;
+				}
 
-				if (layer._blendMode == g_blendmodes["Multiply"]
-					|| layer._blendMode == g_blendmodes["Lighten"]
-					|| layer._blendMode == g_blendmodes["Darken"]
-					|| layer._blendMode == g_blendmodes["Normal"]
-					|| layer._blendMode == g_blendmodes["Clip to Backdrop"]
-					)
+				if (blendModeNeedsPremult)
 				{
 					_blendingShader.setUniform("premult", true);
 				}
@@ -214,46 +225,34 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				{
 					_blendingShader.setUniform("premult", false);
 				}
-				
 
-				if (layer._blendMode == g_blendmodes["Darken"])
+				if (usingBlendmode == g_blendmodes["Darken"])
 					_blendingShader.setUniform("invert", true);
 				else
 					_blendingShader.setUniform("invert", false);
 
-				_blendingShader.setUniform("sharpEdge", _appConfig->_sharpEdge && layer._scaleFiltering == 1);
+				_blendingShader.setUniform("sharpEdge", sharpEdge);
 
 				float alphaClip = layer._alphaClip;
 				if (alphaClip == 0.0)
 					alphaClip = _appConfig->_alphaClip;
 
-				_blendingShader.setUniform("alphaClip", alphaClip);
+				_blendingShader.setUniform("alphaClip", alphaClip );
 
 				useBlendShader = true;
-
 			}
 
 			if (clipLayer == nullptr)
 			{
-				state.blendMode = layer._blendMode;
+				state.blendMode = usingBlendmode;
 
 				if (useBlendShader)
-					state.shader = &_blendingShader;
+					state.shader = _blendingShader.get();
 
-				if (useBlendShader && layer._idleSprite->getTexture())
-					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._idleSprite->getTexture()->getSize().x, layer._idleSprite->getTexture()->getSize().y));
 				layer._idleSprite->Draw(target, state);
-				if (useBlendShader && layer._talkSprite->getTexture())
-					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._talkSprite->getTexture()->getSize().x, layer._talkSprite->getTexture()->getSize().y));
 				layer._talkSprite->Draw(target, state);
-				if (useBlendShader && layer._blinkSprite->getTexture())
-					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._blinkSprite->getTexture()->getSize().x, layer._blinkSprite->getTexture()->getSize().y));
 				layer._blinkSprite->Draw(target, state);
-				if (useBlendShader && layer._talkBlinkSprite->getTexture())
-					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._talkBlinkSprite->getTexture()->getSize().x, layer._talkBlinkSprite->getTexture()->getSize().y));
 				layer._talkBlinkSprite->Draw(target, state);
-				if (useBlendShader && layer._screamSprite->getTexture())
-					_blendingShader.setUniform("texSize", sf::Glsl::Vec2(layer._screamSprite->getTexture()->getSize().x, layer._screamSprite->getTexture()->getSize().y));
 				layer._screamSprite->Draw(target, state);
 			}
 			else
@@ -317,10 +316,12 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				layer._clipRect.setTexture(&clipRTs._clipRT.getTexture(), true);
 
 				sf::RenderStates RTState = sf::RenderStates::Default;
-				RTState.blendMode = layer._blendMode;
+				RTState.blendMode = usingBlendmode;
 
 				if (useBlendShader)
-					RTState.shader = &_blendingShader;
+				{
+					RTState.shader = _blendingShader.get();
+				}
 
 				target->draw(layer._clipRect, RTState);
 			}

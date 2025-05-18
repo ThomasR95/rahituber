@@ -783,7 +783,7 @@ public:
 
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Hard Edges", &appConfig->_sharpEdge);
-				ToolTip("When using the Linear Scale Filter, restore sharp edges on textures\nCosts GPU rendering performance.", &appConfig->_hoverTimer);
+				ToolTip("When using the Linear Scale Filter, restore sharp edges on textures.\nSlight GPU performance cost.", &appConfig->_hoverTimer);
 
 				ImGui::EndTable();
 			}

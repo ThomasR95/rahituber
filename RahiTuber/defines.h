@@ -456,6 +456,12 @@ inline sf::Vector2<T> Clamp(sf::Vector2<T> in, sf::Vector2<T> min, sf::Vector2<T
 	return in;
 }
 
+template<typename T>
+inline sf::Vector2<T> Max(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
+{
+	return { Max(a.x, b.x), Max(a.y, b.y) };
+}
+
 inline float Abs(float in)
 {
 	if (in < 0)
@@ -477,12 +483,6 @@ inline float Max(T a, T b)
 		return a;
 
 	return b;
-}
-
-template<typename T>
-inline sf::Vector2<T> Max(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
-{
-	return { Max(a.x, b.x), Max(a.y, b.y)};
 }
 
 template<typename T>

@@ -19,6 +19,8 @@
 
 #include "TextureManager.h"
 
+#include "Shaders.h"
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -184,6 +186,8 @@ public:
 		bool _pivotPx = false;
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
+		/*Shader _blendingShader;
+		bool _blendingShaderLoaded = false;*/
 
 		int _scaleFiltering = 1;
 		float _alphaClip = 0.0;
@@ -600,7 +604,7 @@ private:
 	std::map<std::string, ClipRenderTextures> _clipRenderTextures;
 
 	sf::RenderTexture _blendingRT;
-	sf::Shader _blendingShader;
+	Shader _blendingShader;
 	bool _blendingShaderLoaded = false;
 
 	ChatReader _chatReader;
