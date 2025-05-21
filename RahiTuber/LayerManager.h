@@ -179,10 +179,10 @@ public:
 
 		sf::Vector2f _scale = { 1.f, 1.f };
 		sf::Vector2f _pos;
-		float _rot = 0.0;
+		double _rot = 0.0;
 		bool _keepAspect = true;
 
-		sf::Vector2f _pivot = { 0.5f, 0.5f };
+		sf::Vector2<double> _pivot = { 0.5, 0.5 };
 		bool _pivotPx = false;
 
 		sf::BlendMode _blendMode = g_blendmodes["Normal"];
@@ -239,17 +239,17 @@ public:
 
 		bool EvaluateLayerVisibility();
 
-		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, float& rot, sf::Vector2f& motionScale, ImVec4& activeSpriteCol, sf::Vector2f& motionPos);
+		void DoIndividualMotion(bool talking, bool screaming, float talkAmount, double& rot, sf::Vector2<double>& motionScale, ImVec4& activeSpriteCol, sf::Vector2<double>& motionPos);
 
-		void CalculateInheritedMotion(sf::Vector2f& motionScale, sf::Vector2f& motionPos, float& motionRot, float& motionParentRot, ImVec4& motionTint, sf::Vector2f& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite, float timeMult);
+		void CalculateInheritedMotion(sf::Vector2<double>& motionScale, sf::Vector2<double>& motionPos, double& motionRot, double& motionParentRot, ImVec4& motionTint, sf::Vector2<double>& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite, float timeMult);
 
-		void DoConstantMotion(sf::Time& frameTime, sf::Vector2f& mpScale, sf::Vector2f& mpPos, float& mpRot);
+		void DoConstantMotion(sf::Time& frameTime, sf::Vector2<double>& mpScale, sf::Vector2<double>& mpPos, double& mpRot);
 
 		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
 
 		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount);
 
-		void AddTrackingMovement(sf::Vector2f& mpPos, float& mpRot);
+		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
@@ -276,13 +276,13 @@ public:
 		struct MotionLinkData
 		{
 			sf::Time _frameTime;
-			sf::Vector2f _scale = { 1.f, 1.f };
-			sf::Vector2f _pos = { 0,0 };
-			sf::Vector2f _physicsPos = { 0,0 };
+			sf::Vector2<double>  _scale = { 1.f, 1.f };
+			sf::Vector2<double>  _pos = { 0,0 };
+			sf::Vector2<double>  _physicsPos = { 0,0 };
 			ImVec4 _tint;
-			float _rot = 0.0;
-			float _parentRot = 0.0;
-			sf::Vector2f _parentPos = { 0,0 };
+			double _rot = 0.0;
+			double _parentRot = 0.0;
+			sf::Vector2<double>  _parentPos = { 0,0 };
 		};
 		bool _hideWithParent = true;
 		bool _inheritTint = false;
@@ -290,7 +290,7 @@ public:
 		float _motionSpring = 0.f;
 		float _distanceLimit = -1.f;
 		float _rotationEffect = 0.f;
-		sf::Vector2f _lastAccel = { 0.f, 0.f };
+		sf::Vector2<double> _lastAccel = { 0.f, 0.f };
 		bool _allowIndividualMotion = false;
 		bool _physicsIgnorePivots = false;
 		MotionStretchType _motionStretch = MS_None;
@@ -315,7 +315,7 @@ public:
 
 		sf::Vector2f _constantScale = { 1.f, 1.f };
 		sf::Vector2f _constantPos = { 0,0 };
-		float _constantRot = 0;
+		double _constantRot = 0;
 		sf::Vector2f _storedConstantScale = { 1.f, 1.f };
 		sf::Vector2f _storedConstantPos = { 0,0 };
 		float _storedConstantRot = 0;

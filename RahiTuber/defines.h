@@ -392,11 +392,11 @@ inline sf::Vector2<T> operator /(const sf::Vector2<T>& left, const sf::Vector2<T
 	return sf::Vector2<T>(left.x / right.x, left.y / right.y);
 }
 
-template <typename T, typename T2>
-inline sf::Vector2<T> operator *(const sf::Vector2<T>& left, const T2& right)
+inline sf::Vector2<double> operator *(const sf::Vector2<double>& left, const double& right)
 {
-	return sf::Vector2<T>(left.x * (T)right, left.y * (T)right);
+	return sf::Vector2<double>(left.x * right, left.y * right);
 }
+
 
 inline bool operator ==(const ImVec4& left, const ImVec4& right)
 {
@@ -920,39 +920,55 @@ inline float Length(const sf::Vector2f& v)
     return sqrt(pow(v.x, 2.f) + pow(v.y, 2.f));
 }
 
+inline double Length(const sf::Vector2<double>& v)
+{
+	return sqrt(pow(v.x, 2.0) + pow(v.y, 2.0));
+}
+
 inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)
 {
 	return a.x * b.y + b.x * a.y;
 }
 
-inline double Deg2Rad(const float& a)
+inline double Dot(const sf::Vector2<double>& a, const sf::Vector2<double>& b)
+{
+	return a.x * b.y + b.x * a.y;
+}
+
+inline double Deg2Rad(const double& a)
 {
 	return (a / 180.0) * PI;
 }
-inline double Rad2Deg(const float& a)
+inline double Rad2Deg(const double& a)
 {
 	return (a / PI) * 180.0;
 }
 
-inline sf::Vector2f Rotate(const sf::Vector2f& point, float angle, sf::Vector2f pivot = { 0.f, 0.f })
+inline sf::Vector2<double> Rotate(const sf::Vector2<double>& point, double angle, sf::Vector2f pivot = { 0.f, 0.f })
 {
-	sf::Vector2f p = point;
+	sf::Vector2<double> p(point);
 
-	float s = sin(angle);
-	float c = cos(angle);
+	double s = sin(angle);
+	double c = cos(angle);
 
 	// translate point back to origin:
 	p.x -= pivot.x;
 	p.y -= pivot.y;
 
 	// rotate point
-	float xnew = p.x * c - p.y * s;
-	float ynew = p.x * s + p.y * c;
+	double xnew = p.x * c - p.y * s;
+	double ynew = p.x * s + p.y * c;
 
 	// translate point back:
 	p.x = xnew + pivot.x;
 	p.y = ynew + pivot.y;
 	return p;
+}
+
+inline sf::Vector2f Rotate(const sf::Vector2f& point, double angle, sf::Vector2f pivot = { 0.f, 0.f })
+{
+	sf::Vector2<double> res = Rotate(sf::Vector2<double>(point.x, point.y), angle, pivot);
+	return { (float)res.x, (float)res.y };
 }
 
 inline float EllipseRadius(float angle, const sf::Vector2f& axes)
