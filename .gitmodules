@@ -16,3 +16,6 @@
 [submodule "Libraries/freetype"]
 	path = Libraries/freetype
 	url = https://github.com/freetype/freetype/
+[submodule "Libraries/SFML"]
+	path = Libraries/SFML
+	url = https://github.com/SFML/SFML/
