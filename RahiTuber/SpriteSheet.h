@@ -4,7 +4,7 @@
 #include "SFML/Main.hpp"
 #include "SFML/System.hpp"
 
-#include "imgui/imgui.h"
+#include "imgui.h"
 #include "TextureManager.h"
 #include <thread>
 

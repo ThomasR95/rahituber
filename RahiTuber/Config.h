@@ -1,7 +1,5 @@
 #pragma once
 
-#include "pa_util.h"
-#include "pa_ringbuffer.h"
 #include "portaudio.h"
 
 #include "SFML/Graphics.hpp"

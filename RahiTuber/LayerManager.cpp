@@ -1,7 +1,7 @@
 
 #include "LayerManager.h"
 #include "file_browser_modal.h"
-#include "tinyxml2/tinyxml2.h"
+#include "tinyxml2.h"
 #include <sstream>
 
 #include "defines.h"
@@ -9,7 +9,7 @@
 
 #include <iostream>
 
-#include "imgui/misc/single_file/imgui_single_file.h"
+#include "misc/single_file/imgui_single_file.h"
 
 #include "Gamepad.h"
 

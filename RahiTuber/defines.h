@@ -4,7 +4,7 @@
 #include "SFML/Window/Keyboard.hpp"
 #include "SFML/Window/Joystick.hpp"
 #include "SFML/Graphics/Color.hpp"
-#include "imgui/imgui.h"
+#include "imgui.h"
 #include <string>
 #include <iostream>
 
@@ -497,7 +497,7 @@ inline float Min(T a, T b)
 static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
 
-	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip(true))
+	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
 	{
 		if (title != nullptr)
 		{
