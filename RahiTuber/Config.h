@@ -2,6 +2,7 @@
 
 #include "portaudio.h"
 
+#undef None // X11 causes compile to fail if we don't undef this
 #include "SFML/Graphics.hpp"
 #include "SFML/Main.hpp"
 #include "SFML/System.hpp"

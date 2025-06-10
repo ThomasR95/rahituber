@@ -161,7 +161,7 @@ inline void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 
 			webSocket->_logFunction("State change added to queue: " + stateID + " = " + std::to_string(stateActive));
 
-			webSocket->AddQueueItem({ stateID, stateActive });
+			webSocket->AddQueueItem({ stateID, int(stateActive) });
 		}
 		else
 		{

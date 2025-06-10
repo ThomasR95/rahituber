@@ -28,6 +28,9 @@ add_subdirectory(Libraries/tinyxml2)
 include(imgui) # imgui doesn't ship with a standard CMakeLists.txt
 include(mongoose) # mongoose doesn't ship with a standard CMakeLists.txt
 
+target_include_directories(sfml-graphics PRIVATE ${CMAKE_SOURCE_DIR}/Libraries/freetype/include)
+target_include_directories(freetype PRIVATE ${PROJECT_BINARY_DIR}/include/freetype/config)
+
 #
 # External dependencies
 #
