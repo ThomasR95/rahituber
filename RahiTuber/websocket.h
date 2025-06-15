@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <string>
+#include <functional>
 
 inline void ev_handler(struct mg_connection* c, int ev, void* ev_data);
 
@@ -100,6 +101,8 @@ public:
 		return _msgQueue.size() > 0;
 	}
 
+	std::function<void(const std::string&)> _logFunction;
+
 private:
 
 	struct mg_mgr _eventManager = {};
@@ -122,6 +125,8 @@ inline void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 
 		//std::cout << hm->message.buf << std::endl;
 
+		webSocket->_logFunction("HTTP Message received: " + std::string(hm->message.buf));
+
 		if (mg_match(hm->uri, mg_str("/state"), NULL))
 		{
 			std::string decodedQuery;
@@ -139,16 +144,35 @@ inline void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 				stateID = stringRet;
 
 			long stateActive = mg_json_get_long(query, "$[1]", -1);
-			mg_http_reply(c, 200, "Content-Type: application/json\r\n",
-				"{%m:%d, %m:%d}\n", MG_ESC("state"), stateID, MG_ESC("active"), stateActive);
+
+			try
+			{
+				mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+					"{%m:%d, %m:%d}\n", MG_ESC("state"), stateID, MG_ESC("active"), stateActive);
+
+			}
+			catch (...)
+			{
+				webSocket->_logFunction("HTTP reply failed");
+			}
+			
 
 			std::cout << "Recieved: State " << stateID << " active " << stateActive << std::endl;
+
+			webSocket->_logFunction("State change added to queue: " + stateID + " = " + std::to_string(stateActive));
 
 			webSocket->AddQueueItem({ stateID, stateActive });
 		}
 		else
 		{
-			mg_http_reply(c, 400, "", "");
+			try
+			{
+				mg_http_reply(c, 400, "", "");
+			}
+			catch (...)
+			{
+				webSocket->_logFunction("HTTP reply failed");
+			}
 		}
 	}
 }

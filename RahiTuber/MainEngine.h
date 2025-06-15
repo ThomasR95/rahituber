@@ -949,6 +949,7 @@ public:
 			for (auto& dev : audioConfig->_deviceList)
 			{
 				bool active = audioConfig->_devIdx == dev.second;
+				ImGui::PushID(dev.second);
 				if (ImGui::Selectable(dev.first.c_str(), &active))
 				{
 					Pa_StopStream(audioConfig->_audioStr);
@@ -984,6 +985,7 @@ public:
 					audioConfig->_trebleAverage = 0;
 
 				}
+				ImGui::PopID();
 			}
 			ImGui::EndCombo();
 		}
@@ -2690,6 +2692,7 @@ If you accept, please click the Accept button.
 		audioConfig->_quietTimer.restart();
 
 		appConfig->_webSocket = new WebSocket();
+		appConfig->_webSocket->_logFunction = [&](const std::string& msg) { logToFile(appConfig, msg); };
 		if (appConfig->_listenHTTP)
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
