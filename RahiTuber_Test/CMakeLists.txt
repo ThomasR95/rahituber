@@ -1,21 +1,27 @@
- # If this minimum version is an issue then lower to 3.15 and remove the "DOWNLOAD_EXTRACT_TIMESTAMP true" line
+ # If this minimum version is an issue then lower to 3.15 and remove the "DOWNLOAD_EXTRACT_TIMESTAMP TRUE" line
 cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #
-# Pull in Google Test
+# Pull in GoogleTest
 #
 include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/release-1.8.1.zip
-  DOWNLOAD_EXTRACT_TIMESTAMP true
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+
+# Set folder of GoogleTest projects (for IDEs which support them)
+set_target_properties("gtest" PROPERTIES FOLDER "GoogleTest")
+set_target_properties("gtest_main" PROPERTIES FOLDER "GoogleTest")
+set_target_properties("gmock" PROPERTIES FOLDER "GoogleTest")
+set_target_properties("gmock_main" PROPERTIES FOLDER "GoogleTest")
 
 # Enable testing
 enable_testing()
@@ -78,7 +84,7 @@ if(WIN32)
 endif()
 
 #
-# Include Google Test and do test discovery
+# Include GoogleTest and do test discovery
 #
 include(GoogleTest)
 gtest_discover_tests(RahiTuber_Test)
