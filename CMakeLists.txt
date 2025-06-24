@@ -46,3 +46,10 @@ endif()
 # Add main project
 #
 add_subdirectory(RahiTuber)
+
+#
+# Add test project
+#
+if(MSVC)
+    add_subdirectory(RahiTuber_Test)
+endif()
