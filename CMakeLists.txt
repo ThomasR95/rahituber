@@ -5,6 +5,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "RahiTuber")
 
+if(${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+   message(FATAL_ERROR "In-tree builds are NOT supported.")
+endif()
+
 #
 # Option prep
 #

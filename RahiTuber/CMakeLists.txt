@@ -32,7 +32,6 @@ target_sources(RahiTuber PRIVATE
     LayerManager.cpp
     LayerManager.h
     main.cpp
-    resource.h
     SpriteSheet.cpp
     SpriteSheet.h
     TextureManager.cpp
@@ -41,6 +40,13 @@ target_sources(RahiTuber PRIVATE
     xmlConfig.h
     websocket.h
 )
+
+if(WIN32)
+    target_sources(RahiTuber PRIVATE
+        resource.h
+        RahiTuber.rc
+    )
+endif()
 
 if(NOT MSVC)
     target_compile_options(RahiTuber PRIVATE -Wl,-rpath./lib/)
