@@ -43,12 +43,20 @@ target_sources(RahiTuber PRIVATE
 )
 
 if(NOT MSVC)
-    add_compile_options(-Wl,-rpath./lib/)
+    target_compile_options(RahiTuber PRIVATE -Wl,-rpath./lib/)
 endif()
 
 if(MSVC)
     target_compile_definitions(RahiTuber PRIVATE
         -DUNICODE -D_UNICODE
+    )
+
+    target_compile_definitions(RahiTuber PRIVATE
+        $<IF:$<CONFIG:Debug>, PROGRAM_NAME=L"$(ProjectName)_debug64", PROGRAM_NAME=L"$(ProjectName)_64">
+        IMGUI_DISABLE_WIN32_FUNCTIONS
+        SFML_STATIC
+        NOMINMAX
+        _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
     )
 endif()
 
