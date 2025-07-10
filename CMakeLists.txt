@@ -30,9 +30,11 @@ endif()
 add_subdirectory(Libraries/tinyxml2)
 
 # Set folder of Spout projects (for IDEs which support them)
-set_target_properties("Spout" PROPERTIES FOLDER "Spout")
-set_target_properties("Spout_static" PROPERTIES FOLDER "Spout")
-set_target_properties("SpoutLibrary" PROPERTIES FOLDER "Spout")
+if(WIN32)
+    set_target_properties("Spout" PROPERTIES FOLDER "Spout")
+    set_target_properties("Spout_static" PROPERTIES FOLDER "Spout")
+    set_target_properties("SpoutLibrary" PROPERTIES FOLDER "Spout")
+endif()
 
 include(imgui) # imgui doesn't ship with a standard CMakeLists.txt
 include(mongoose) # mongoose doesn't ship with a standard CMakeLists.txt
