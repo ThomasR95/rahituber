@@ -163,7 +163,12 @@ public:
 		fontpath.append(uiConfig->_fontName);
 		std::error_code ec;
 		if (!fs::exists(fontpath, ec))
-			return;
+        {
+            if(io.FontDefault == nullptr)
+                io.FontDefault = io.Fonts->AddFontDefault();
+
+            return;
+        }
 
 		io.Fonts->Clear();
 
@@ -393,9 +398,7 @@ public:
 		uiConfig->_outlineBox.setOutlineColor(sf::Color(255, 255, 0, 100));
 
 		appConfig->_wasFullScreen = appConfig->_isFullScreen;
-
-		appConfig->_window.setVerticalSyncEnabled(appConfig->_enableVSync);
-
+        appConfig->_window.setVerticalSyncEnabled(appConfig->_enableVSync);
 		appConfig->_window.setFramerateLimit(appConfig->_enableVSync ? 0 : appConfig->_fpsLimit);
 
 #ifdef _WIN32

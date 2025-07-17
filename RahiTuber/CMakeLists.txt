@@ -41,6 +41,7 @@ target_sources(RahiTuber PRIVATE
     xmlConfig.cpp
     xmlConfig.h
     websocket.h
+    MainEngine.h
 )
 
 if(WIN32)
