@@ -18,6 +18,8 @@ if(WIN32)
     target_include_directories(RahiTuber PRIVATE ${CMAKE_SOURCE_DIR}/Libraries/Spout2/SPOUTSDK)
 endif()
 
+
+
 target_sources(RahiTuber PRIVATE
     imgui-sfml/GL/glext.h
     imgui-sfml/KHR/khrplatform.h
@@ -56,9 +58,10 @@ if(MSVC)
     target_compile_definitions(RahiTuber PRIVATE
         -DUNICODE -D_UNICODE
     )
+	
+	set_target_properties( RahiTuber PROPERTIES OUTPUT_NAME "$(ProjectName)_64")
 
     target_compile_definitions(RahiTuber PRIVATE
-        $<IF:$<CONFIG:Debug>, PROGRAM_NAME=L"$(ProjectName)_debug64", PROGRAM_NAME=L"$(ProjectName)_64">
         IMGUI_DISABLE_WIN32_FUNCTIONS
         SFML_STATIC
         NOMINMAX
@@ -80,6 +83,16 @@ target_link_libraries(RahiTuber PRIVATE ${OPENGL_LIBRARY}
 if(WIN32)
     target_link_libraries(RahiTuber PRIVATE Spout_static)
     target_link_libraries(RahiTuber PRIVATE Shcore Xinput hid)
+	
+	set(sourceResDir ${CMAKE_CURRENT_LIST_DIR}/res)
+	cmake_path(NATIVE_PATH sourceResDir sourceResDirWin)
+		
+	add_custom_command(
+		TARGET RahiTuber POST_BUILD
+		COMMENT "Adding symlink for resource directory"
+		COMMAND IF EXIST \"$<SHELL_PATH:$<TARGET_FILE_DIR:RahiTuber>/res/>\" (ECHO ...already exists)  ELSE (mklink /J \"$<SHELL_PATH:$<TARGET_FILE_DIR:RahiTuber>/res>\" \"${sourceResDirWin}\" )
+		USES_TERMINAL
+		)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
