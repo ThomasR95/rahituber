@@ -5,6 +5,7 @@
 #include "SFML/Window/Joystick.hpp"
 #include "SFML/Graphics/Color.hpp"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include <string>
 #include <iostream>
 
@@ -494,10 +495,18 @@ inline float Min(T a, T b)
 	return b;
 }
 
+namespace ImGui
+{
+	inline bool BeginTooltip(bool overwrite)
+	{
+		return BeginTooltipEx(overwrite ? ImGuiTooltipFlags_OverridePrevious : ImGuiTooltipFlags_None, ImGuiWindowFlags_None);
+	}
+}
+
 static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
 
-	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip())
+	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip(true))
 	{
 		if (title != nullptr)
 		{
