@@ -3,7 +3,7 @@
 For info, please see the itch.io page: https://rahisaurus.itch.io/rahituber
 
 This project resolves many dependencies via submodule. When cloning you should use `git clone --recurse-submodules`.
-Otherwise use `git submodule update --remote`, as without this the project will not build correctly.
+Otherwise use `git submodule update --init`, as without this the project will not build correctly.
 
 
 To build create a directory in the project root to build from (`build` is the convention)
