@@ -403,15 +403,12 @@ Delivery/
 Delivery-linux/
 debug_dist/
 build-gcc/
+build/
 
-imgui/
 imgui-sfml/
 lib/
 lib-linux/
 lib_old/
-mongoose-7.16/
-portaudio/
-tinyxml2/
 
 #configs
 *.dmp

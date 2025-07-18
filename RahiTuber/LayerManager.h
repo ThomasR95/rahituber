@@ -9,13 +9,11 @@
 
 #include "SpriteSheet.h"
 
-#include "tinyxml2/tinyxml2.h"
+#include "tinyxml2.h"
 
 #include <deque>
 
 #include "Config.h"
-
-#include "ChatReader.h"
 
 #include "TextureManager.h"
 
@@ -606,8 +604,6 @@ private:
 	sf::RenderTexture _blendingRT;
 	Shader _blendingShader;
 	bool _blendingShaderLoaded = false;
-
-	ChatReader _chatReader;
 
 	TextureManager* _textureMan = nullptr;
 

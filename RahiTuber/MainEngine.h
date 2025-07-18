@@ -8,7 +8,7 @@
 #define IMGUI_DISABLE_WIN32_FUNCTIONS
 #define IMGUI_ENABLE_FREETYPE
 #include "imgui.h"
-#include "imgui/misc/freetype/imgui_freetype.h"
+#include "misc/freetype/imgui_freetype.h"
 #include "imgui-SFML.h"
 
 #include "imgui_internal.h"
@@ -18,7 +18,7 @@
 #include <fstream>
 
 #ifdef _WIN32
-#include "spout2/SpoutSender.h"
+#include "SpoutGL/SpoutSender.h"
 
 #include "wtypes.h"
 #include <Windows.h>

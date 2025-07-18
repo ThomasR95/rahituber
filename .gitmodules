@@ -1,0 +1,21 @@
+[submodule "Libraries/Spout2"]
+	path = Libraries/Spout2
+	url = https://github.com/leadedge/Spout2/
+[submodule "Libraries/tinyxml2"]
+	path = Libraries/tinyxml2
+	url = https://github.com/leethomason/tinyxml2/
+[submodule "Libraries/mongoose"]
+	path = Libraries/mongoose
+	url = https://github.com/cesanta/mongoose/
+[submodule "Libraries/portaudio"]
+	path = Libraries/portaudio
+	url = https://github.com/PortAudio/portaudio/
+[submodule "Libraries/imgui"]
+	path = Libraries/imgui
+	url = https://github.com/ocornut/imgui/
+[submodule "Libraries/freetype"]
+	path = Libraries/freetype
+	url = https://github.com/freetype/freetype/
+[submodule "Libraries/SFML"]
+	path = Libraries/SFML
+	url = https://github.com/SFML/SFML/
