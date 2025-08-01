@@ -4244,7 +4244,10 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	double motionRot = 0;
 	double motionParentRot = 0;
 	ImVec4 mpTint;
-	sf::Vector2<double> pivot = { _pivot.x * _idleSprite->Size().x, _pivot.y * _idleSprite->Size().y };
+
+	sf::Vector2<double> centerToPivot = _pivot - sf::Vector2<double>(0.5, 0.5);
+
+	sf::Vector2<double> pivot = { 0.5*_activeSprite->Size().x + centerToPivot.x * _idleSprite->Size().x, 0.5 * _activeSprite->Size().y + centerToPivot.y * _idleSprite->Size().y };
 
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 	if (hasParent)
@@ -6035,7 +6038,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			_animFCount = anim.FrameCount();
 			_animFPS = anim.FPS();
 			_animLoop = anim._loop;
-			_animFrameSize = { anim.Size().x, anim.Size().y };
+			anim._frameSizeSetting = { anim.Size().x, anim.Size().y };
 		}
 		else
 		{
@@ -6071,7 +6074,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			if (_animGrid[0] != anim.GridSize().x || _animGrid[1] != anim.GridSize().y)
 			{
 				_animFCount = _animGrid[0] * _animGrid[1];
-				_animFrameSize = { -1,-1 };
+				anim._frameSizeSetting = { -1,-1 };
 			}
 		}
 		ToolTip("The number of rows & columns in the spritesheet", &_parent->_appConfig->_hoverTimer);
@@ -6092,8 +6095,8 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			ImGui::PopStyleColor();
 		}
 
-		AddResetButton("framereset", _animFrameSize, { -1, -1 }, _parent->_appConfig);
-		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", _animFrameSize.data());
+		AddResetButton("framereset", anim._frameSizeSetting, { -1, -1 }, _parent->_appConfig);
+		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", &anim._frameSizeSetting.x);
 		ToolTip("The size of each animation frame (set to -1,-1 to calculate automatically)", &_parent->_appConfig->_hoverTimer);
 
 		bool sync = _animsSynced;
@@ -6121,7 +6124,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		if (ImGui::Button("Save"))
 		{
-			anim.SetAttributes(_animFCount, _animGrid[0], _animGrid[1], _animFPS, { _animFrameSize[0], _animFrameSize[1] });
+			anim.SetAttributes(_animFCount, _animGrid[0], _animGrid[1], _animFPS, anim._frameSizeSetting );
 			anim._loop = _animLoop;
 			open = false;
 			ImGui::CloseCurrentPopup();

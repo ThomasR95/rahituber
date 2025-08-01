@@ -45,6 +45,8 @@ public:
 	inline int FrameCount() const { return _frameRects.size(); }
 	inline float FPS() const { return _fps; }
 
+	sf::Vector2f _frameSizeSetting;
+
 	inline void Play() { _playing = true; }
 	inline void Pause() { _playing = false; }
 	inline void Stop() 

@@ -1,7 +1,14 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
 add_executable(RahiTuber)
+if(WIN32)
+	target_link_options(RahiTuber PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+else()
+	target_link_options(RahiTuber PRIVATE -mwindows)
+endif()
+
 
 target_include_directories(RahiTuber PRIVATE
     ./
@@ -17,6 +24,7 @@ target_include_directories(RahiTuber PRIVATE
 if(WIN32)
     target_include_directories(RahiTuber PRIVATE ${CMAKE_SOURCE_DIR}/Libraries/Spout2/SPOUTSDK)
 endif()
+
 
 
 
