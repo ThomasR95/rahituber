@@ -5,8 +5,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(RahiTuber)
 if(WIN32)
 	target_link_options(RahiTuber PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
-else()
-	target_link_options(RahiTuber PRIVATE -mwindows)
 endif()
 
 

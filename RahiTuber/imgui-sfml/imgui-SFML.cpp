@@ -299,7 +299,11 @@ bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultF
 
     // tell ImGui which features we support
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
+
+#ifdef _WIN32
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
+#endif
+
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
     io.BackendPlatformName = "imgui_impl_sfml";
 
@@ -314,6 +318,7 @@ bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultF
     io.SetClipboardTextFn = setClipboardText;
     io.GetClipboardTextFn = getClipboardText;
 
+#ifdef _WIN32
     // load mouse cursors
     loadMouseCursor(ImGuiMouseCursor_Arrow, sf::Cursor::Arrow);
     loadMouseCursor(ImGuiMouseCursor_TextInput, sf::Cursor::Text);
@@ -323,6 +328,7 @@ bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultF
     loadMouseCursor(ImGuiMouseCursor_ResizeNESW, sf::Cursor::SizeBottomLeftTopRight);
     loadMouseCursor(ImGuiMouseCursor_ResizeNWSE, sf::Cursor::SizeTopLeftBottomRight);
     loadMouseCursor(ImGuiMouseCursor_Hand, sf::Cursor::Hand);
+#endif
 
     if (loadDefaultFont) {
         // this will load default font automatically
