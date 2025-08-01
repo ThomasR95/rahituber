@@ -75,6 +75,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryBoolAttribute("alphaPremultiplied", &_appConfig->_alphaPremultiplied);
 	common->QueryAttribute("alphaCutoff", &_appConfig->_alphaClip);
 	common->QueryAttribute("hardEdges", &_appConfig->_sharpEdge);
+	common->QueryAttribute("FXAA", &_appConfig->_FXAA);
 
 	common->QueryBoolAttribute("useSpout2", &_appConfig->_useSpout2Sender);
 	common->QueryBoolAttribute("nameWindowsSeperately", &_appConfig->_nameWindowWithSet);
@@ -199,6 +200,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("alphaPremultiplied", _appConfig->_alphaPremultiplied);
 			common->SetAttribute("alphaCutoff", _appConfig->_alphaClip);
 			common->SetAttribute("hardEdges", _appConfig->_sharpEdge);
+			common->SetAttribute("FXAA", _appConfig->_FXAA);
 
 			common->SetAttribute("useSpout2", _appConfig->_useSpout2Sender);
 			common->SetAttribute("nameWindowsSeperately", _appConfig->_nameWindowWithSet);

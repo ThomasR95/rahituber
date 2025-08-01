@@ -155,6 +155,8 @@ public:
 	Spout* spout = nullptr;
 #endif
 
+	Shader _FXAAShader;
+
 	void LoadCustomFont()
 	{
 		ImGuiIO& io = ImGui::GetIO();
@@ -787,6 +789,10 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Hard Edges", &appConfig->_sharpEdge);
 				ToolTip("When using the Linear Scale Filter, restore sharp edges on textures.\nSlight GPU performance cost.", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("FXAA", &appConfig->_FXAA);
+				ToolTip("Use Fast approXimate Anti Aliasing.", &appConfig->_hoverTimer);
 
 				ImGui::EndTable();
 			}
@@ -1653,6 +1659,10 @@ public:
 				sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
 		}
 
+		auto oldShader = states.shader;
+		_FXAAShader.setUniform("u_fxaaOn", (int)appConfig->_FXAA);
+		_FXAAShader.setUniform("u_texelStep", sf::Glsl::Vec2(1.0 / appConfig->_layersRT.getSize().x, 1.0 / appConfig->_layersRT.getSize().y));
+		states.shader = _FXAAShader.get();
 		appConfig->_window.draw(appConfig->_RTPlane, states);
 
 #ifdef _WIN32
@@ -1709,6 +1719,7 @@ public:
 		appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
 		states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 			sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
+		states.shader = oldShader;
 		appConfig->_window.draw(appConfig->_RTPlane, states);
 
 		appConfig->_window.display();
@@ -2700,6 +2711,8 @@ If you accept, please click the Accept button.
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
         GamePad::init((void*)appConfig->_window.getSystemHandle(), (GamepadAPI)appConfig->_gamepadAPI);
+
+		_FXAAShader.loadFromMemory(SFML_DefaultVert, SFML_FXAAFrag);
 
 		logToFile(appConfig, "Setup Complete!");
 
