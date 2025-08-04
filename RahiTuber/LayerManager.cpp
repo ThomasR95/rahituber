@@ -2569,12 +2569,13 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
 
+			_globalPresets.clear();
+
 			auto canvasPresets = root->FirstChildElement("CanvasPresets");
 			if (canvasPresets)
 			{
 				canvasPresets->QueryAttribute("currentPreset", &_currentGlobalPreset);
 
-				_globalPresets.clear();
 				auto thisPresetElmt = canvasPresets->FirstChildElement("Preset");
 				while (thisPresetElmt)
 				{
