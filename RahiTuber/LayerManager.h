@@ -151,6 +151,8 @@ public:
 		bool _screamVibrate = true;
 		float _screamVibrateAmount = 5;
 		float _screamVibrateSpeed = 1;
+		float _minScreamTime = 0.2;
+		sf::Clock _screamTimer;
 
 		std::string _idleImagePath = u8"";
 		ImVec4 _idleTint = { 1,1,1,1 };

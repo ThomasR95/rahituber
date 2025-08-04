@@ -1955,6 +1955,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("screamVibrate", layer._screamVibrate);
 			thisLayer->SetAttribute("screamVibrateAmount", layer._screamVibrateAmount);
 			thisLayer->SetAttribute("screamVibrateSpeed", layer._screamVibrateSpeed);
+			thisLayer->SetAttribute("minScreamTime", layer._minScreamTime);
 
 			thisLayer->SetAttribute("constantHeight", layer._constantPos.y);
 			thisLayer->SetAttribute("constantMoveX", layer._constantPos.x);
@@ -2365,6 +2366,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("screamVibrate", &layer._screamVibrate);
 				thisLayer->QueryAttribute("screamVibrateAmount", &layer._screamVibrateAmount);
 				thisLayer->QueryAttribute("screamVibrateSpeed", &layer._screamVibrateSpeed);
+				thisLayer->QueryAttribute("minScreamTime", &layer._minScreamTime);
 
 				thisLayer->QueryAttribute("constantHeight", &layer._constantPos.y);
 				thisLayer->QueryAttribute("constantMoveX", &layer._constantPos.x);
@@ -4234,6 +4236,10 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	_oldVisible = reallyVisible;
 
 	bool screaming = _scream && talkFactor > _screamThreshold;
+
+	if (_screamTimer.getElapsedTime().asSeconds() < _minScreamTime)
+		screaming = true;
+
 	bool talking = !screaming && talkFactor > _talkThreshold;
 	DetermineVisibleSprites(talking, screaming, activeSpriteCol, talkAmount);
 
@@ -4264,17 +4270,20 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	AddTrackingMovement(motionPos, motionRot);
 
-	if (screaming && _screamVibrate)
+	if (screaming)
 	{
 		if (!_isScreaming)
 		{
-			_motionTimer.restart();
+			_screamTimer.restart();
 			_isScreaming = true;
 		}
 
-		float motionTime = _motionTimer.getElapsedTime().asSeconds();
-		motionPos.y += sin(motionTime / 0.02 * _screamVibrateSpeed) * _screamVibrateAmount;
-		motionPos.x += sin(motionTime / 0.05 * _screamVibrateSpeed) * _screamVibrateAmount;
+		if (_screamVibrate)
+		{
+			float motionTime = _screamTimer.getElapsedTime().asSeconds();
+			motionPos.y += sin(motionTime / 0.02 * _screamVibrateSpeed) * _screamVibrateAmount;
+			motionPos.x += sin(motionTime / 0.05 * _screamVibrateSpeed) * _screamVibrateAmount;
+		}
 	}
 	else
 	{
@@ -4943,6 +4952,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::NewLine();
 
 					DrawThresholdBar(_lastTalkFactor, _screamThreshold, barPos, uiScale, barWidth);
+
+					AddResetButton("minscream", _minScreamTime, 0.2f, _parent->_appConfig, &style);
+					FloatSliderDrag("Min Time", &_minScreamTime, 0.0, 5.0, "%.1f s", 0, _parent->_uiConfig->_numberEditType);
+					ToolTip("The minimum time the scream sprite should appear for\n(To eliminate flickering at the threshold)", &_parent->_appConfig->_hoverTimer, true);
 
 					ImGui::Checkbox("Vibrate", &_screamVibrate);
 					ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
