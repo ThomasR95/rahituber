@@ -23,6 +23,8 @@ public:
 	void ReloadTexture();
 	bool HasTexture();
 
+	void Clear();
+
 	inline void setPosition(const sf::Vector2f& pos) { _sprite.setPosition(pos); }
 	inline void setOrigin(const sf::Vector2f& origin) { _sprite.setOrigin(origin); }
 	inline void setRotation(const float& rot) { _sprite.setRotation(rot); }

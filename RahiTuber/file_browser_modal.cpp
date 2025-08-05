@@ -349,6 +349,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
   bool isOpen = true;
   if (ImGui::BeginPopupModal(m_title, &isOpen, modal_flags)) {
 
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { ceil(4 * uiScale), ceil(2 * uiScale) });
 
     ImGui::SetWindowSize({ m_width * uiScale, -1 });
 
@@ -425,13 +426,14 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     std::string filepath = "";
 
-    std::string selectBtn = "Select";
+    std::string selectBtn = "Confirm";
     if (saving)
     {
         if (!fs::is_directory(m_currentPath))
             filepath = m_currentPath.string();
         else if (m_savingName != "")
             filepath = fs::path(m_currentPath).append(m_savingName).replace_extension(".xml").string();
+
       ImGui::TextWrapped(ANSIToUTF8(filepath).data());
 
       std::string editName = m_savingName;
@@ -468,10 +470,20 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     }
     else
     {
-      
+      float pathYPos = ImGui::GetCursorPosY();
+
       if (!fs::is_directory(m_currentPath))
         filepath = m_currentPath.filename().u8string();
       ImGui::TextWrapped(filepath.data());
+
+      float clearBtnWidth = ImGui::CalcTextSize("Clear Current").x + style.FramePadding.x * 2;
+      ImGui::SetCursorPos({ ImGui::GetContentRegionAvail().x - (clearBtnWidth), pathYPos });
+
+      if (LesserButton("Clear Current"))
+      {
+        m_currentPath = "";
+        result = true;
+      }
     }
 
     float buttonsYPos = ImGui::GetCursorPosY();
@@ -502,8 +514,9 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     }
     ImGui::EndDisabled();
 
-    ImGui::EndPopup();
+    ImGui::PopStyleVar();
 
+    ImGui::EndPopup();
   }
 
   return result;

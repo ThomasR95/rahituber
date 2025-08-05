@@ -173,3 +173,13 @@ bool SpriteSheet::HasTexture()
 
 	return false;
 }
+
+void SpriteSheet::Clear()
+{
+	_texPath = "";
+	_tex = nullptr;
+	_spriteSize = { 0,0 };
+	_gridSize = { 1,1 };
+	
+	_sprite = sf::Sprite();
+}

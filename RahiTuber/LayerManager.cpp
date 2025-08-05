@@ -4626,8 +4626,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (ImGui::InputText("", idlebuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 							{
 								_idleImagePath = UTF8ToANSI(idlebuf);
-								_idleSprite->LoadFromTexture(_parent->_textureMan, _idleImagePath, 1, 1, 1, 1, {-1,-1}, &_parent->_errorMessage);
-								_idleSprite->setSmooth(_scaleFiltering);
+								if (_idleImagePath == "")
+									_idleSprite->Clear();
+								else
+								{
+									_idleSprite->LoadFromTexture(_parent->_textureMan, _idleImagePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+									_idleSprite->setSmooth(_scaleFiltering);
+								}
 
 							}
 						}ImGui::PopID();
@@ -4664,8 +4669,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								if (ImGui::InputText("", talkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_talkSpritePath = UTF8ToANSI(talkbuf);
-									_talkSprite->LoadFromTexture(_parent->_textureMan, _talkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-									_talkSprite->setSmooth(_scaleFiltering);
+									if (_talkSpritePath == "")
+										_talkSprite->Clear();
+									else
+									{
+										_talkSprite->LoadFromTexture(_parent->_textureMan, _talkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+										_talkSprite->setSmooth(_scaleFiltering);
+									}
 								}
 							}ImGui::PopID();
 							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4705,8 +4715,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								if (ImGui::InputText("", blinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
 									_blinkSpritePath = UTF8ToANSI(blinkbuf);
-									_blinkSprite->LoadFromTexture(_parent->_textureMan, _blinkSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
-									_blinkSprite->setSmooth(_scaleFiltering);
+									if (_blinkSpritePath == "")
+										_blinkSprite->Clear();
+									else
+									{
+										_blinkSprite->LoadFromTexture(_parent->_textureMan, _blinkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+										_blinkSprite->setSmooth(_scaleFiltering);
+									}
 								}
 							}ImGui::PopID();
 							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -4745,8 +4760,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									if (ImGui::InputText("", talkblinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 									{
 										_talkBlinkSpritePath = UTF8ToANSI(talkblinkbuf);
-										_talkBlinkSprite->LoadFromTexture(_parent->_textureMan, _talkBlinkSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
-										_talkBlinkSprite->setSmooth(_scaleFiltering);
+										if (_talkBlinkSpritePath == "")
+											_talkBlinkSprite->Clear();
+										else
+										{
+											_talkBlinkSprite->LoadFromTexture(_parent->_textureMan, _talkBlinkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+											_talkBlinkSprite->setSmooth(_scaleFiltering);
+										}
 									}
 								}ImGui::PopID();//talkblinkimportfile
 								ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
@@ -5999,8 +6019,13 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 		fileBrowserIdle.SetStartingDir(path);
 	if (fileBrowserIdle.render(openFlag, path))
 	{
-		sprite->LoadFromTexture(_parent->_textureMan, path, 1, 1, 1, 1, {-1, -1}, &_parent->_errorMessage);
-		sprite->setSmooth(_scaleFiltering);
+		if (path == "")
+			sprite->Clear();
+		else
+		{
+			sprite->LoadFromTexture(_parent->_textureMan, path, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
+			sprite->setSmooth(_scaleFiltering);
+		}
 	}
 	ImGui::EndDisabled();
 }
