@@ -39,6 +39,8 @@ target_sources(RahiTuber PRIVATE
     file_browser_modal.h
     LayerManager.cpp
     LayerManager.h
+    EffectManager.cpp
+    EffectManager.h
     main.cpp
     SpriteSheet.cpp
     SpriteSheet.h

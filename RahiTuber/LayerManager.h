@@ -24,6 +24,8 @@ namespace fs = std::filesystem;
 
 #include <thread>
 
+class EffectManager;
+
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Normal", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
@@ -629,6 +631,8 @@ private:
 	bool _blendingShaderLoaded = false;
 
 	TextureManager* _textureMan = nullptr;
+
+	EffectManager* _effectMan = nullptr;
 
 	bool _statesPassThrough = false;
 	bool _statesHideUnaffected = false;

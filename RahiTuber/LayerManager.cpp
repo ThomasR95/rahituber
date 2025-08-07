@@ -7,6 +7,8 @@
 #include "defines.h"
 #include "Shaders.h"
 
+#include "EffectManager.h"
+
 #include <iostream>
 
 #include "misc/single_file/imgui_single_file.h"
@@ -141,6 +143,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 		++stateIdx;
 	}
+
+	_effectMan->UpdateEffects(_layers);
 
 	std::vector<LayerInfo*> calculateOrder;
 	for (int l = _layers.size() - 1; l >= 0; l--)
