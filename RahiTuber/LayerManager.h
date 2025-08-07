@@ -384,6 +384,7 @@ public:
 		sf::Vector2f _trackingScaleVertical = { 0.0,0.0 };
 		bool _clampTrackingScale = false;
 		sf::Vector2f _trackingScaleClamp = { -1.0f, 1.0f };
+		int _trackingScaleAbsolute = 0;
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 

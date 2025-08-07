@@ -292,7 +292,7 @@ struct UIConfig
 
 	std::map<int, std::string> _numbertooltips = {
 		{0, "(CTRL + Click to type a value.)"},
-		{1, "(Drag, or double-click to type.\Hold Alt for fine adjustment.)"},
+		{1, "(Drag, or double-click to type.\nHold Alt for fine adjustment.)"},
 		{2, ""}
 	};
 

@@ -2067,7 +2067,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("clampTrackingScale", layer._clampTrackingScale);
 			thisLayer->SetAttribute("trackingScaleClampX", layer._trackingScaleClamp.x);
 			thisLayer->SetAttribute("trackingScaleClampY", layer._trackingScaleClamp.y);
-
+			thisLayer->SetAttribute("trackingScaleAbsolute", layer._trackingScaleAbsolute);
 
 			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
 
@@ -2489,6 +2489,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryBoolAttribute("clampTrackingScale", &layer._clampTrackingScale);
 				thisLayer->QueryAttribute("trackingScaleClampX", &layer._trackingScaleClamp.x);
 				thisLayer->QueryAttribute("trackingScaleClampY", &layer._trackingScaleClamp.y);
+				thisLayer->QueryAttribute("trackingScaleAbsolute", &layer._trackingScaleAbsolute);
 	
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
@@ -4537,6 +4538,9 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 	else
 	{
 		trackingAmountScale.y *= -1;
+
+		if (_trackingScaleAbsolute == 1)
+			trackingAmountScale = Abs(trackingAmountScale);
 	}
 
 	sf::Vector2<double> newTrackingScaleY = sf::Vector2<double>(trackingAmountScale.y, trackingAmountScale.y) * sf::Vector2<double>(_trackingScaleVertical);
@@ -5646,6 +5650,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					Float2SliderDrag("Rotation Limits", &_trackingRotation.x, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The maximum rotation applied to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_parent->_appConfig->_hoverTimer, true);
 
+					ImGui::Separator();
+
 					if (ImGui::BeginCombo("Scale type", g_trackingScaleNames[_trackingScaleMode]))
 					{
 						for (int sm = 0; sm < TRACKINGSCALE_END; sm++)
@@ -5690,6 +5696,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ToolTip("The scale added to the layer from\nvertical mouse/controller movement", &_parent->_appConfig->_hoverTimer, true);
 
 					}
+
+					std::vector<SwapButtonDef> magBtns = {
+						{"Directional", "Scale is reversed when below/behind the Neutral Position", 0},
+						{"Absolute", "Scale is based on the absolute distance from the Neutral Position", 1}
+					};
+
+					SwapButtons("Magnitude", magBtns, _trackingScaleAbsolute, &_parent->_appConfig->_hoverTimer, true);
 
 					ImGui::Checkbox("Clamp Scale", &_clampTrackingScale);
 					ToolTip("Clamp the tracking scale to within a certain range.", &_parent->_appConfig->_hoverTimer);

@@ -838,11 +838,14 @@ inline bool SwapButtons(const char* label, const std::vector<SwapButtonDef>& opt
 
 	float topLine = ImGui::GetCursorScreenPos().y;
 
+	float btnsWidth = ImGui::CalcItemWidth();
+
 	if (ImGui::BeginTable("##tableOuter", outerTableCols, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_PreciseWidths))
 	{
 		if (useLabel)
 		{
-			ImGui::TableSetupColumn("##buttons", 0, 1.9);
+			//ImGui::TableSetupColumn("##buttons", 0, 1.927);
+			ImGui::TableSetupColumn("##buttons", ImGuiTableColumnFlags_WidthFixed, btnsWidth + 2);
 			ImGui::TableSetupColumn("##spacer", ImGuiTableColumnFlags_WidthFixed, ImGui::GetStyle().ItemInnerSpacing.x - 1);
 			ImGui::TableSetupColumn("##label", 0, 1);
 		}
