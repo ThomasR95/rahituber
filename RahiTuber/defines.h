@@ -503,7 +503,15 @@ namespace ImGui
 	}
 }
 
-static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
+
+extern const char* g_toolTipNumberHint;
+
+static void UpdateToolTipHint(const char* newHint)
+{
+	g_toolTipNumberHint = newHint;
+}
+
+static bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
 {
 
 	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip(true))
@@ -515,7 +523,7 @@ static inline bool ToolTip(const char* title, const char* txt, sf::Clock* hoverT
 		ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Separator), txt);
 		if (forSlider)
 		{
-			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), "(CTRL + Click to type a value)");
+			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), g_toolTipNumberHint);
 		}
 		ImGui::EndTooltip();
 		return true;

@@ -1,5 +1,7 @@
 #include "xmlConfig.h"
 
+#include "defines.h"
+
 using namespace tinyxml2;
 
 xmlConfigLoader::xmlConfigLoader(AppConfig* appConfig, UIConfig* uiConfig, AudioConfig* audioConfig, const std::string& settingsXMLFile) :
@@ -82,6 +84,7 @@ bool xmlConfigLoader::loadCommon()
 
 	common->QueryBoolAttribute("createMinimal", &_appConfig->_createMinimalLayers);
 	common->QueryIntAttribute("numberEditType", &_uiConfig->_numberEditType);
+	UpdateToolTipHint(_uiConfig->_numbertooltips[_uiConfig->_numberEditType].c_str());
 
 	common->QueryBoolAttribute("trackMouse", &_appConfig->_mouseTrackingEnabled);
 	common->QueryBoolAttribute("trackController", &_appConfig->_controllerTrackingEnabled);

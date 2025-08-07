@@ -1,6 +1,8 @@
 ﻿
 #include "MainEngine.h"
 
+const char* g_toolTipNumberHint = "";
+
 MainEngine* engine;
 
 void createEngine()

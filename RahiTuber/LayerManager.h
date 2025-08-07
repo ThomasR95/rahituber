@@ -65,6 +65,10 @@ static const char* const g_trackingAxisNames[3] = {
 	"X/Y (Left stick)", "U/V (Right stick)", "POV (DPad)",
 };
 
+static const char* const g_trackingScaleNames[4] = {
+	"Uniform (around Neutral posn.)", "Split (around Neutral posn.)", "Uniform (from bottom-left)", "Split (from bottom-left)",
+};
+
 static const char* const g_trackingSelectNames[2] = {
 	"First Available", "Specific"
 };
@@ -249,7 +253,7 @@ public:
 
 		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount);
 
-		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot);
+		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
@@ -344,6 +348,16 @@ public:
 			TRACKINGSELECT_END
 		};
 
+		enum TrackingScaleMode {
+			TRACKINGSCALE_SIMPLE,
+			TRACKINGSCALE_SPLIT,
+
+			TRACKINGSCALE_SIMPLE_BOTTOMLEFT,
+			TRACKINGSCALE_SPLIT_BOTTOMLEFT,
+
+			TRACKINGSCALE_END
+		};
+
 		bool _trackingEnabled = false;
 		TrackingMode _trackingType = TRACKING_MOUSE;
 		TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
@@ -364,6 +378,12 @@ public:
 		float _joypadEffect = 1.0;
 
 		sf::Vector2f _trackingRotation = { 0.0,0.0 };
+
+		TrackingScaleMode _trackingScaleMode = TRACKINGSCALE_SIMPLE;
+		sf::Vector2f _trackingScaleHorizontal = { 0.0,0.0 };
+		sf::Vector2f _trackingScaleVertical = { 0.0,0.0 };
+		bool _clampTrackingScale = false;
+		sf::Vector2f _trackingScaleClamp = { -1.0f, 1.0f };
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 
@@ -845,8 +865,9 @@ static sf::Texture* _pinOffIcon = nullptr;
 
 
 template <typename T>
-inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
+inline bool AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
 {
+	bool pressed = false;
 	auto curPos = ImGui::GetCursorPos();
 
 	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
@@ -860,7 +881,10 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 	ImGui::PushID(id);
 	if (ImGui::ImageButton(id, *_resetIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
 		if (enabled)
+		{
+			pressed = true;
 			value = resetValue;
+		}
 	ImGui::PopID();
 	float btnIndent = ImGui::GetItemRectSize().x + (style ? style->ItemSpacing.x : 0);
 
@@ -871,7 +895,10 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 		ImGui::PushID(id + 1);
 		if (ImGui::Button("0"))
 			if (enabled)
+			{
+				pressed = true;
 				value = {};
+			}
 		ImGui::PopID();
 
 		curPos.x += btnIndent;
@@ -891,6 +918,8 @@ inline void AddResetButton(const char* id, T& value, T resetValue, AppConfig* ap
 
 	float w = ImGui::CalcItemWidth();
 	ImGui::SetNextItemWidth(w - btnIndent);
+
+	return pressed;
 
 }
 

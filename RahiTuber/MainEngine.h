@@ -819,20 +819,20 @@ public:
 				ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
 				ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
 
-				
-
-
 				ImGui::EndTable();
 
 				if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
 				{
 					for (auto& numType : uiConfig->_numbertypes)
 						if (ImGui::Selectable(numType.second.c_str(), numType.first == uiConfig->_numberEditType))
+						{
 							uiConfig->_numberEditType = numType.first;
+							UpdateToolTipHint(uiConfig->_numbertooltips[uiConfig->_numberEditType].c_str());
+						}
 
 					ImGui::EndCombo();
 				}
-				ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
+				ToolTip("Change the input method for most number fields", &appConfig->_hoverTimer);
 
 				if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
 				{

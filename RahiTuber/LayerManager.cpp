@@ -2059,6 +2059,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("trackingSelect", layer._trackingSelect);
 			if(layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 				thisLayer->SetAttribute("trackingControllerID", layer._trackingJoystick);
+			thisLayer->SetAttribute("trackingScaleMode", layer._trackingScaleMode);
+			thisLayer->SetAttribute("trackingScaleHorizontalX", layer._trackingScaleHorizontal.x);
+			thisLayer->SetAttribute("trackingScaleHorizontalY", layer._trackingScaleHorizontal.y);
+			thisLayer->SetAttribute("trackingScaleVerticalX", layer._trackingScaleVertical.x);
+			thisLayer->SetAttribute("trackingScaleVerticalY", layer._trackingScaleVertical.y);
+			thisLayer->SetAttribute("clampTrackingScale", layer._clampTrackingScale);
+			thisLayer->SetAttribute("trackingScaleClampX", layer._trackingScaleClamp.x);
+			thisLayer->SetAttribute("trackingScaleClampY", layer._trackingScaleClamp.y);
+
 
 			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
 
@@ -2471,6 +2480,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("trackingSelect", (int*) & layer._trackingSelect);
 				if (layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 					thisLayer->QueryAttribute("trackingControllerID", &layer._trackingJoystick);
+
+				thisLayer->QueryAttribute("trackingScaleMode", (int*)&layer._trackingScaleMode);
+				thisLayer->QueryAttribute("trackingScaleHorizontalX", &layer._trackingScaleHorizontal.x);
+				thisLayer->QueryAttribute("trackingScaleHorizontalY", &layer._trackingScaleHorizontal.y);
+				thisLayer->QueryAttribute("trackingScaleVerticalX", &layer._trackingScaleVertical.x);
+				thisLayer->QueryAttribute("trackingScaleVerticalY", &layer._trackingScaleVertical.y);
+				thisLayer->QueryBoolAttribute("clampTrackingScale", &layer._clampTrackingScale);
+				thisLayer->QueryAttribute("trackingScaleClampX", &layer._trackingScaleClamp.x);
+				thisLayer->QueryAttribute("trackingScaleClampY", &layer._trackingScaleClamp.y);
 	
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
@@ -4280,7 +4298,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	DoConstantMotion(frameTime, motionScale, motionPos, motionRot);
 
-	AddTrackingMovement(motionPos, motionRot);
+	AddTrackingMovement(motionPos, motionRot, motionScale);
 
 	if (screaming)
 	{
@@ -4413,7 +4431,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	}
 }
 
-void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot)
+void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale)
 {
 	bool doTracking = _trackingEnabled && (_trackingType != TRACKING_NONE);
 	if (!doTracking)
@@ -4507,8 +4525,30 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 	sf::Vector2<double> newTrackingPos = sf::Vector2<double>(_trackingAmount) * sf::Vector2<double>(_trackingMoveLimits);
 	sf::Vector2<double> newTrackingRot = sf::Vector2<double>(_trackingAmount) * sf::Vector2<double>(_trackingRotation);
 
+	auto trackingAmountScale = _trackingAmount;
+
+	if (_trackingScaleMode >= TRACKINGSCALE_SIMPLE_BOTTOMLEFT)
+	{
+		// remap track amount to range 0,1 from -1,1
+
+		trackingAmountScale = (_trackingAmount + sf::Vector2f(1.f, 1.f)) * 0.5f;
+		trackingAmountScale.y = 1.0 - trackingAmountScale.y;
+	}
+	else
+	{
+		trackingAmountScale.y *= -1;
+	}
+
+	sf::Vector2<double> newTrackingScaleY = sf::Vector2<double>(trackingAmountScale.y, trackingAmountScale.y) * sf::Vector2<double>(_trackingScaleVertical);
+	sf::Vector2<double> newTrackingScaleX = sf::Vector2<double>(trackingAmountScale.x, trackingAmountScale.x) * sf::Vector2<double>(_trackingScaleHorizontal);
+
+	sf::Vector2<double> newTrackingScale = newTrackingScaleX + newTrackingScaleY;
+	if(_clampTrackingScale)
+		newTrackingScale = Clamp(newTrackingScale, sf::Vector2<double>(_trackingScaleClamp.x, _trackingScaleClamp.x), sf::Vector2<double>(_trackingScaleClamp.y, _trackingScaleClamp.y));
+
 	mpPos += newTrackingPos;
 	mpRot = mpRot + newTrackingRot.x + newTrackingRot.y;
+	mpScale = mpScale + newTrackingScale;
 }
 
 bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
@@ -5605,6 +5645,63 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					AddResetButton("rotLimits", _trackingRotation, sf::Vector2f(0.f, 0.f), _parent->_appConfig, &style);
 					Float2SliderDrag("Rotation Limits", &_trackingRotation.x, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The maximum rotation applied to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_parent->_appConfig->_hoverTimer, true);
+
+					if (ImGui::BeginCombo("Scale type", g_trackingScaleNames[_trackingScaleMode]))
+					{
+						for (int sm = 0; sm < TRACKINGSCALE_END; sm++)
+						{
+							if (ImGui::Selectable(g_trackingScaleNames[sm]))
+							{
+								_trackingScaleMode = (TrackingScaleMode)sm;
+
+								if ((_trackingScaleMode & TRACKINGSCALE_SPLIT) == 0)
+								{
+									_trackingScaleHorizontal = { _trackingScaleHorizontal.x, _trackingScaleHorizontal.x };
+									_trackingScaleVertical = { _trackingScaleVertical.y, _trackingScaleVertical.y };
+								}
+							}
+						}
+						ImGui::EndCombo();
+					}
+					ToolTip("Choose the type of scaling", &_parent->_appConfig->_hoverTimer);
+
+					if ((_trackingScaleMode & TRACKINGSCALE_SPLIT) == 0)
+					{
+						sf::Vector2f uniformScale = { _trackingScaleHorizontal.x, _trackingScaleVertical.x };
+						sf::Vector2f reset = { 0.f,0.f };
+
+						bool scalereset = AddResetButton("scaleLimits", uniformScale, reset, _parent->_appConfig, &style);
+						if (Float2SliderDrag("Scale", &uniformScale.x, -2.f, 2.f, "%.3f", 0, _parent->_uiConfig->_numberEditType) || scalereset)
+						{
+							_trackingScaleHorizontal = { uniformScale.x, uniformScale.x };
+							_trackingScaleVertical = { uniformScale.y, uniformScale.y };
+						}
+						ToolTip("The scale added to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_parent->_appConfig->_hoverTimer, true);
+					}
+					else
+					{
+						AddResetButton("scaleLimitsHoriz", _trackingScaleHorizontal, sf::Vector2f(0.f, 0.f), _parent->_appConfig, &style);
+						Float2SliderDrag("Horizontal Scale", &_trackingScaleHorizontal.x, -2.f, 2.f, "%.3f", 0, _parent->_uiConfig->_numberEditType);
+						ToolTip("The scale added to the layer from\nhorizontal mouse/controller movement", &_parent->_appConfig->_hoverTimer, true);
+
+
+						AddResetButton("scaleLimitsVert", _trackingScaleVertical, sf::Vector2f(0.f, 0.f), _parent->_appConfig, &style);
+						Float2SliderDrag("Vertical Scale", &_trackingScaleVertical.x, -2.f, 2.f, "%.3f", 0, _parent->_uiConfig->_numberEditType);
+						ToolTip("The scale added to the layer from\nvertical mouse/controller movement", &_parent->_appConfig->_hoverTimer, true);
+
+					}
+
+					ImGui::Checkbox("Clamp Scale", &_clampTrackingScale);
+					ToolTip("Clamp the tracking scale to within a certain range.", &_parent->_appConfig->_hoverTimer);
+
+					if (_clampTrackingScale)
+					{
+						AddResetButton("scaleClamp", _trackingScaleClamp, sf::Vector2f(-1.f, 1.f), _parent->_appConfig, &style);
+						Float2SliderDrag("Scale Clamp", &_trackingScaleClamp.x, -2.f, 2.f, "%.3f", 0, _parent->_uiConfig->_numberEditType);
+						ToolTip("The minimum and maximum scale that can be added to the layer.\nSet min to 0.0 to avoid shrinking\nSet min to -1.0 to avoid flipping", &_parent->_appConfig->_hoverTimer, true);
+					}
+
+					ImGui::Separator();
 
 					ImGui::Checkbox("Elliptical", &_followElliptical);
 					ToolTip("Limits the movement to an ellipse based on the Movement Limits.", &_parent->_appConfig->_hoverTimer);
