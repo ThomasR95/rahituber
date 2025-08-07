@@ -3298,8 +3298,10 @@ void LayerManager::DrawStatesGUI()
 
 			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 6 * style.ItemSpacing.x, ImGui::GetCursorPosY() + 3 };
 			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth - 20 * style.ItemSpacing.x), ImGui::GetCursorPosY() };
-			ImVec2 enableButtonPos = { delButtonPos.x - 10 * style.ItemSpacing.x, delButtonPos.y };
-			ImVec2 renameButtonPos = { enableButtonPos.x - 10 * style.ItemSpacing.x, enableButtonPos.y };
+			ImVec2 dupeButtonPos = { delButtonPos.x - 10 * style.ItemSpacing.x, delButtonPos.y };
+			ImVec2 renameButtonPos = { dupeButtonPos.x - 10 * style.ItemSpacing.x, dupeButtonPos.y };
+			ImVec2 enableButtonPos = { renameButtonPos.x - 10 * style.ItemSpacing.x, renameButtonPos.y };
+
 
 			ImGui::PushID('id' + stateIdx); {
 
@@ -3641,6 +3643,16 @@ void LayerManager::DrawStatesGUI()
 				ImGui::SetCursorPos(enableButtonPos);
 				ImGui::Checkbox("##enableState", &state._enabled);
 				ToolTip("Enable this state to be triggered", &_appConfig->_hoverTimer);
+
+				ImGui::SetCursorPos(dupeButtonPos);
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+				if (ImGui::ImageButton("dupeBtn", *_dupeIcon, toSFVector(btnSize), sf::Color::Transparent, btnColor))
+				{
+					_states.push_back(state);
+					if(_states.back()._name != "")
+						_states.back()._name += " copy";
+				}
+				ImGui::PopStyleVar();
 
 				ImGui::SetCursorPos(renameButtonPos);
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
