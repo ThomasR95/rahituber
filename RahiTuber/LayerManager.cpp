@@ -286,6 +286,17 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				clipState.transform.scale(_globalScale * _appConfig->mainWindowScaling);
 				clipState.transform.rotate(_globalRot);
 				clipState.transform.translate(-0.5 * target->getSize().x, -0.5 * target->getSize().y);
+
+				if (useBlendShader)
+				{
+					float alphaClip = clipLayer->_alphaClip;
+					if (alphaClip == 0.0)
+						alphaClip = _appConfig->_alphaClip;
+					_blendingShader.setUniform("sharpEdge", sharpEdge);
+					_blendingShader.setUniform("alphaClip", alphaClip);
+					clipState.shader = _blendingShader.get();
+				}
+
 				clipLayer->_idleSprite->Draw(&clipRTs._clipRT, clipState);
 				clipLayer->_talkSprite->Draw(&clipRTs._clipRT, clipState);
 				clipLayer->_blinkSprite->Draw(&clipRTs._clipRT, clipState);
@@ -297,6 +308,16 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				// Do not premultiply alpha here
 				state.blendMode.colorSrcFactor = sf::BlendMode::One;
+
+				if (useBlendShader)
+				{
+					float alphaClip = layer._alphaClip;
+					if (alphaClip == 0.0)
+						alphaClip = _appConfig->_alphaClip;
+					_blendingShader.setUniform("sharpEdge", sharpEdge);
+					_blendingShader.setUniform("alphaClip", alphaClip);
+					state.shader = _blendingShader.get();
+				}
 
 				// Draw layer to be clipped onto an empty canvas
 				layer._idleSprite->Draw(&clipRTs._soloLayerRT, state);
