@@ -625,9 +625,25 @@ void LayerManager::DoMenuBarLogic()
 		static imgui_ext::file_browser_modal newFolderSelect("New Layer Set");
 		newFolderSelect._acceptedExt = { ".xml" };
 		//_newXMLOpen = ImGui::Button("New", { -1, ImGui::GetFrameHeight() });
-		if (_newXMLOpen)
+
+		bool showOpenWindow = _newXMLOpen;
+
+		switch (ConfirmModal("Start new Layer Set", &_newXMLOpen, _newXMLOpen,
+			"This will start a new layer set, discarding any unsaved changes.\nContinue?"))
+		{
+		case -1:
+		case 0:
+			showOpenWindow = false;
+			break;
+		case 1:
+			showOpenWindow = true;
+			break;
+		}
+
+
+		if (showOpenWindow)
 			newFolderSelect.SetStartingDir(appFolder);
-		if (newFolderSelect.render(_newXMLOpen, _savingXMLPath, true))
+		if (newFolderSelect.render(showOpenWindow, _savingXMLPath, true))
 		{
 			ResetStates();
 			_statesOrder.clear();
@@ -769,7 +785,9 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 	}
 
 	//////////////////////////////// RELOAD ///////////////////////////////////
-	if (_reloadXMLOpen)
+
+	if (ConfirmModal("Reload Layer Set", &_reloadXMLOpen, _reloadXMLOpen,
+		"This will reload the current layer set, discarding any unsaved changes. Continue?") == 1)
 	{
 		_reloadXMLOpen = false;
 		if (_loadedXMLExists)
@@ -791,7 +809,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		_newFolderOpen = false;
 	}
 
-	if (_clearLayersOpen)
+	if(ConfirmModal("Remove All Layers", &_clearLayersOpen, _clearLayersOpen) == 1)
 	{
 		_layers.clear();
 		_clearLayersOpen = false;
@@ -803,7 +821,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		_editStatesOpen = false;
 	}
 
-	if (_clearStatesOpen)
+	if (ConfirmModal("Remove All States", &_clearStatesOpen, _clearStatesOpen) == 1)
 	{
 		ResetStates();
 		_states.clear();

@@ -763,6 +763,49 @@ inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags =
 
 }
 
+
+static inline int ConfirmModal(const std::string& title, bool* value, bool openNow, const std::string& extraMsg = "")
+{
+
+	if(openNow)
+		ImGui::OpenPopup(title.c_str(), ImGuiPopupFlags_NoReopen);
+
+	int result = -1;
+
+	ImGui::SetNextWindowFocus();
+	ImGui::SetNextWindowSizeConstraints({ 300, 100 }, {450, 500});
+	if (ImGui::BeginPopupModal(title.c_str(), 0, ImGuiWindowFlags_NoScrollbar))
+	{
+
+		if (extraMsg != "")
+			ImGui::TextWrapped(extraMsg.c_str());
+		else
+			ImGui::Text("Are you sure?");
+		
+		ImGui::Columns(2, 0, false);
+
+		if (LesserButton("No", { -1,ImGui::GetFrameHeight() }))
+			result = 0;
+
+		ImGui::NextColumn();
+
+		if (ImGui::Button("Yes", { -1,ImGui::GetFrameHeight() }))
+			result = 1;
+
+		ImGui::Columns(1);
+
+		if (result != -1)
+		{
+			ImGui::CloseCurrentPopup();
+			*value = result == 1;
+		}
+
+		ImGui::EndPopup();
+	}
+
+	return result;
+}
+
 inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
 {
 	float diff = (v_max - v_min);
