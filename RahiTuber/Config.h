@@ -178,12 +178,15 @@ struct AudioConfig
 	PaStream* _audioStr = nullptr;
 	bool _leftChannel = true;
 	int _numChannels = 2;
+	float _currentSampleRate = 44100;
 
 	SAMPLE _fixedMax = 1.0;
 	bool _softMaximum = false;
 
 	sf::Clock _quietTimer;
 	sf::Clock _recordTimer;
+	bool _muted = false;
+	float _muteWaitSeconds = 5;
 
 	bool _doFiltering = false;
 

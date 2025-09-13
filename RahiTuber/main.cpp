@@ -19,7 +19,7 @@ int main()
 	__try
 	{
 #endif
-		engine->Init();
+		engine->InitializeEngine();
 
 		////////////////////////////////////// MAIN LOOP /////////////////////////////////////
 		engine->MainLoop();

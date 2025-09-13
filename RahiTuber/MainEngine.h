@@ -97,7 +97,7 @@ void four1(float* data, unsigned long nn)
 	}
 }
 
-static int recordCallback(const void* inputBuffer, void* outputBuffer,
+int recordCallback(const void* inputBuffer, void* outputBuffer,
 	unsigned long framesPerBuffer,
 	const PaStreamCallbackTimeInfo* timeInfo,
 	PaStreamCallbackFlags statusFlags,
@@ -938,14 +938,7 @@ public:
 
 		if (uiConfig->_firstMenu)
 		{
-			audioConfig->_nDevices = Pa_GetDeviceCount();
-			audioConfig->_deviceList.clear();
-			for (int dI = 0; dI < audioConfig->_nDevices; dI++)
-			{
-				auto info = Pa_GetDeviceInfo(dI);
-				if (info->hostApi == 0 && info->maxInputChannels > 0)
-					audioConfig->_deviceList.push_back({ info->name, dI });
-			}
+			ListAudioDevices();
 		}
 
 		ImGui::PushID("AudImpCombo");
@@ -961,37 +954,7 @@ public:
 				ImGui::PushID(dev.second);
 				if (ImGui::Selectable(dev.first.c_str(), &active))
 				{
-					Pa_StopStream(audioConfig->_audioStr);
-					Pa_CloseStream(audioConfig->_audioStr);
-
-					auto info = Pa_GetDeviceInfo(dev.second);
-					float sRate;
-
-					audioConfig->_devIdx = dev.second;
-					audioConfig->_params.device = audioConfig->_devIdx;
-					audioConfig->_params.channelCount = Min(2, info->maxInputChannels);
-					audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
-					audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
-					sRate = info->defaultSampleRate;
-
-					Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
-					Pa_StartStream(audioConfig->_audioStr);
-
-					audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
-					audioConfig->_frameHi = 0;
-					audioConfig->_runningAverage = 0;
-
-					audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-					audioConfig->_midHi = 0;
-					audioConfig->_midAverage = 0;
-
-					audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-					audioConfig->_bassHi = 0;
-					audioConfig->_bassAverage = 0;
-
-					audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
-					audioConfig->_trebleHi = 0;
-					audioConfig->_trebleAverage = 0;
+					SwitchAudioDevice(dev);
 
 				}
 				ImGui::PopID();
@@ -1043,6 +1006,61 @@ public:
 			ToolTip("Use a compression curve for audio levels\n(the difference in effect reduces as the volume nears maximum).", &appConfig->_hoverTimer);
 
 			ImGui::EndTable();
+		}
+	}
+
+	void SwitchAudioDevice(std::pair<std::string, int>& dev)
+	{
+		logToFile(appConfig, "Switching to audio device: " + dev.first);
+
+		StopAudioStream();
+
+		auto info = Pa_GetDeviceInfo(dev.second);
+		float sRate;
+
+		audioConfig->_devIdx = dev.second;
+		audioConfig->_params.device = audioConfig->_devIdx;
+		audioConfig->_params.channelCount = Min(2, info->maxInputChannels);
+		audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
+		audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
+		audioConfig->_currentSampleRate = info->defaultSampleRate;
+
+		PaError err = paNoError;
+
+		StartAudioStream(err);
+
+		audioConfig->_frameMax = audioConfig->_fixedMax; //audioConfig->_cutoff;
+		audioConfig->_frameHi = 0;
+		audioConfig->_runningAverage = 0;
+
+		audioConfig->_midMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_midHi = 0;
+		audioConfig->_midAverage = 0;
+
+		audioConfig->_bassMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_bassHi = 0;
+		audioConfig->_bassAverage = 0;
+
+		audioConfig->_trebleMax = audioConfig->_fixedMax; // audioConfig->_cutoff;
+		audioConfig->_trebleHi = 0;
+		audioConfig->_trebleAverage = 0;
+	}
+
+	void StopAudioStream()
+	{
+		Pa_StopStream(audioConfig->_audioStr);
+		Pa_CloseStream(audioConfig->_audioStr);
+	}
+
+	void ListAudioDevices()
+	{
+		audioConfig->_nDevices = Pa_GetDeviceCount();
+		audioConfig->_deviceList.clear();
+		for (int dI = 0; dI < audioConfig->_nDevices; dI++)
+		{
+			auto info = Pa_GetDeviceInfo(dI);
+			if (info->hostApi == 0 && info->maxInputChannels > 0)
+				audioConfig->_deviceList.push_back({ info->name, dI });
 		}
 	}
 
@@ -2051,6 +2069,8 @@ public:
 		{
 			audioConfig->_recordTimer.restart();
 			audioConfig->_processedNew = false;
+			audioConfig->_muted = false;
+			audioConfig->_muteWaitSeconds = 0.2;
 
 			audioConfig->_bassHi = 0;
 			audioConfig->_midHi = 0;
@@ -2098,13 +2118,37 @@ public:
 					audioConfig->_frameHi = magnitude;
 			}
 		}
-		else if (audioConfig->_recordTimer.getElapsedTime().asSeconds() > (0.1))
+		else if (audioConfig->_muted == false && audioConfig->_recordTimer.getElapsedTime().asSeconds() > audioConfig->_muteWaitSeconds)
 		{
-			// 0.1s without any audio input, clear the data
+			// 0.2s without any audio input, clear the data
 			audioConfig->_bassHi = 0;
 			audioConfig->_midHi = 0;
 			audioConfig->_trebleHi = 0;
 			audioConfig->_frameHi = 0;
+
+			audioConfig->_muted = true;
+
+			logToFile(appConfig, "No audio input data. Device muted?");
+		}
+
+		if (audioConfig->_muted && audioConfig->_recordTimer.getElapsedTime().asSeconds() > 1)
+		{
+			PaError err = paNoError;
+			// if muted, attempt to restart the stream each second in case it got disconnected
+			logToFile(appConfig, "Attempting reconnection of audio device...");
+			
+			audioConfig->_recordTimer.restart();
+			StopAudioStream();
+
+			Pa_Terminate();
+			err = Pa_Initialize();
+			if (err != paNoError)
+			{
+				logToFile(appConfig, Pa_GetErrorText(err));
+				exit(1);
+			}
+
+			StartAudioStream(err);
 		}
 
 
@@ -2353,10 +2397,106 @@ If you accept, please click the Accept button.
 		uiConfig->_lastTheme = "";
 	}
 
-	void Init()
+	void InitializePortAudio()
 	{
 		PaError err = paNoError;
+		logToFile(appConfig, "Initializing PortAudio");
+		//initialise PortAudio
+		err = Pa_Initialize();
+		if (err != paNoError)
+		{
+			printf(Pa_GetErrorText(err));
+			exit(1);
+		}
 
+		int apiCount = Pa_GetHostApiCount();
+		if (apiCount <= 0)
+		{
+			logToFile(appConfig, "PortAudio found no host APIs");
+			std::cout << "PortAudio found no host APIs" << std::endl;
+		}
+		for (int api = 0; api < apiCount; api++)
+		{
+			const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo(api);
+			std::cout << hostInfo->name << std::endl;
+		}
+
+		audioConfig->_nDevices = Pa_GetDeviceCount();
+		audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
+		int defInputIdx = Pa_GetDefaultInputDevice();
+
+		logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
+
+		if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
+		{
+			//find an audio input
+			for (PaDeviceIndex dI = 0; dI < audioConfig->_nDevices; dI++)
+			{
+				auto info = Pa_GetDeviceInfo(dI);
+				std::string name = info->name;
+				if (dI == defInputIdx)
+				{
+					logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
+					audioConfig->_devIdx = dI;
+					break;
+				}
+			}
+
+			if (audioConfig->_devIdx == -1)
+				audioConfig->_devIdx = 0;
+		}
+
+		if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
+		{
+			auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
+			audioConfig->_params.device = audioConfig->_devIdx;
+			audioConfig->_params.channelCount = Min(1, info->maxInputChannels);
+			audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
+			audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
+			audioConfig->_currentSampleRate = info->defaultSampleRate;
+
+			std::string devName = info->name;
+
+			logToFile(appConfig, "PortAudio: Using device read from config.xml: " + devName);
+		}
+
+		StartAudioStream(err);
+	}
+
+	void StartAudioStream(PaError& err)
+	{
+		auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
+
+		// check that the name of the device still matches the one we expect
+		if (audioConfig->_deviceList.size() > audioConfig->_devIdx)
+		{
+			std::string deviceName = audioConfig->_deviceList[audioConfig->_devIdx].first;
+
+			if (deviceName != info->name)
+				return;
+		}
+		else
+		{
+			// idx is outside known list, return
+		}
+
+		logToFile(appConfig, "PortAudio opening stream on device " + std::to_string(audioConfig->_params.device) + ": " + info->name);
+		err = Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, audioConfig->_currentSampleRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
+		if (err != paNoError)
+		{
+			std::string errorMsg = Pa_GetErrorText(err);
+			logToFile(appConfig, "PortAudio: Error opening stream: " + errorMsg);
+		}
+		err = Pa_StartStream(audioConfig->_audioStr);
+		if (err != paNoError)
+		{
+			std::string errorMsg = Pa_GetErrorText(err);
+			logToFile(appConfig, "PortAudio: Error starting stream: " + errorMsg);
+		}
+	}
+
+	inline void MainEngine::InitializeEngine()
+	{
 		time_t current_time = time(nullptr);
 
 #ifdef _WIN32
@@ -2505,6 +2645,8 @@ If you accept, please click the Accept button.
 			}
 		}
 
+		InitializePortAudio();
+
 		if (appConfig->_unloadTimeoutEnabled)
 			appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
 		else
@@ -2521,7 +2663,7 @@ If you accept, please click the Accept button.
 				verFile.seekg(0, verFile.beg);
 
 				std::string buf;
-				buf.resize(length + 1, 0);
+				buf.resize(length, 0);
 				verFile.read(buf.data(), length);
 				appConfig->_versionNumber = std::stod(buf, nullptr);
 
@@ -2589,76 +2731,7 @@ If you accept, please click the Accept button.
 			appConfig->bars[b].setFillColor({ 255, 255, 255, 50 });
 		}
 
-		logToFile(appConfig, "Initializing PortAudio");
-		//initialise PortAudio
-		err = Pa_Initialize();
-		if (err != paNoError)
-		{
-			printf(Pa_GetErrorText(err));
-			exit(1);
-		}
 
-		int apiCount = Pa_GetHostApiCount();
-		if (apiCount <= 0)
-		{
-			logToFile(appConfig, "PortAudio found no host APIs");
-			std::cout << "PortAudio found no host APIs" << std::endl;
-		}
-		for (int api = 0; api < apiCount; api++)
-		{
-			const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo(api);
-			std::cout << hostInfo->name << std::endl;
-		}
-
-		audioConfig->_nDevices = Pa_GetDeviceCount();
-		audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
-		double sRate = 44100;
-		int defInputIdx = Pa_GetDefaultInputDevice();
-
-		logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
-
-		if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
-		{
-			//find an audio input
-			for (PaDeviceIndex dI = 0; dI < audioConfig->_nDevices; dI++)
-			{
-				auto info = Pa_GetDeviceInfo(dI);
-				std::string name = info->name;
-				if (dI == defInputIdx)
-				{
-					logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
-					audioConfig->_devIdx = dI;
-					break;
-				}
-			}
-
-			if (audioConfig->_devIdx == -1)
-				audioConfig->_devIdx = 0;
-		}
-
-		if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
-		{
-			auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
-			audioConfig->_params.device = audioConfig->_devIdx;
-			audioConfig->_params.channelCount = Min(1, info->maxInputChannels);
-			audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
-			audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
-			sRate = info->defaultSampleRate;
-		}
-
-		logToFile(appConfig, "PortAudio opening stream");
-		err = Pa_OpenStream(&audioConfig->_audioStr, &audioConfig->_params, nullptr, sRate, FRAMES_PER_BUFFER, paClipOff, recordCallback, audioConfig->_streamData);
-		if (err != paNoError)
-		{
-			auto errorMsg = Pa_GetErrorText(err);
-			logToFile(appConfig, errorMsg);
-		}
-		err = Pa_StartStream(audioConfig->_audioStr);
-		if (err != paNoError)
-		{
-			auto errorMsg = Pa_GetErrorText(err);
-			logToFile(appConfig, errorMsg);
-		}
 
 		logToFile(appConfig, "Focusing main window");
 		//request focus and start the game loop
