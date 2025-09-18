@@ -1677,7 +1677,6 @@ public:
 				sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
 		}
 
-		auto oldShader = states.shader;
 		_FXAAShader.setUniform("u_fxaaOn", (int)appConfig->_FXAA);
 		_FXAAShader.setUniform("u_texelStep", sf::Glsl::Vec2(1.0 / appConfig->_layersRT.getSize().x, 1.0 / appConfig->_layersRT.getSize().y));
 		states.shader = _FXAAShader.get();
@@ -1737,7 +1736,7 @@ public:
 		appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
 		states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 			sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
-		states.shader = oldShader;
+		states.shader = states.Default.shader;
 		appConfig->_window.draw(appConfig->_RTPlane, states);
 
 		appConfig->_window.display();
