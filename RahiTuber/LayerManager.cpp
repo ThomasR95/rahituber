@@ -4942,6 +4942,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
 							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
 
+							int btnIdx = 0;
+
 							if (ImGui::Selectable("Off", (_clipID == "")))
 								_clipID = "";
 							for (auto& layer : _parent->GetLayers())
@@ -4952,11 +4954,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									if (customColor)
 										ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
 
+									ImGui::PushID(btnIdx++);
+
 									bool clicked = false;
 									if (_clipID == layer._id)
 										clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
 									else
 										clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+									ImGui::PopID();
 
 									if (customColor)
 										ImGui::PopStyleColor();
@@ -5264,6 +5270,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					if (ImGui::Selectable("Off", !hasParent))
 						_motionParent = "-1";
 
+					int btnIdx = 0;
+
 					for (auto& layer : _parent->_layers)
 					{
 						if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
@@ -5285,11 +5293,16 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (customColor)
 								ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
 
+							ImGui::PushID(btnIdx);
+
 							bool clicked = false;
 							if (_motionParent == layer._id)
 								clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit });
 							else
 								clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit }, false);
+
+							ImGui::PopID();
+							btnIdx++;
 
 							if (customColor)
 								ImGui::PopStyleColor();
