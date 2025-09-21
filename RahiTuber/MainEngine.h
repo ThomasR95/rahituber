@@ -305,8 +305,8 @@ public:
 		{
 			if (appConfig->_window.isOpen())
 			{
-				appConfig->_minScrW = appConfig->_window.getSize().x;
-				appConfig->_minScrH = appConfig->_window.getSize().y;
+				appConfig->_minScrW = appConfig->_window.getSize().x / appConfig->mainWindowScaling;
+				appConfig->_minScrH = appConfig->_window.getSize().y / appConfig->mainWindowScaling;
 				auto pos = appConfig->_window.getPosition();
 				appConfig->_scrX = pos.x;
 				appConfig->_scrY = pos.y;
@@ -2027,8 +2027,8 @@ public:
 					appConfig->_scrX = windowPos.x;
 					appConfig->_scrY = windowPos.y;
 					appConfig->_window.setPosition(windowPos);
-					appConfig->_minScrH = uiConfig->_resizeBox.getGlobalBounds().height;
-					appConfig->_minScrW = uiConfig->_resizeBox.getGlobalBounds().width;
+					appConfig->_minScrH = uiConfig->_resizeBox.getGlobalBounds().height / appConfig->mainWindowScaling;
+					appConfig->_minScrW = uiConfig->_resizeBox.getGlobalBounds().width / appConfig->mainWindowScaling;
 					uiConfig->_cornerGrabbed = { false, false };
 
 					initWindow();
