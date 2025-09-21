@@ -76,6 +76,9 @@ struct AppConfig
 	sf::RenderTexture _layersRT;
 	sf::RenderTexture _menuRT;
 	sf::RectangleShape _RTPlane;
+	sf::RectangleShape _menuPlane;
+
+	sf::Texture _captureTex;
 
 	sf::Shader _shader;
 	float _minOpacity = 0.25f;

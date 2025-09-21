@@ -1,5 +1,6 @@
 #pragma once
 
+#define _DEBUGRENDER 0
 #include <string>
 #include <iostream>
 #include <random>
@@ -398,6 +399,8 @@ public:
 		uiConfig->_outlineBox.setOutlineThickness(2);
 		uiConfig->_outlineBox.setFillColor({ 0,0,0,0 });
 		uiConfig->_outlineBox.setOutlineColor(sf::Color(255, 255, 0, 100));
+
+		appConfig->_menuPlane.setSize({ appConfig->_scrW, appConfig->_scrH });
 
 		appConfig->_wasFullScreen = appConfig->_isFullScreen;
         appConfig->_window.setVerticalSyncEnabled(appConfig->_enableVSync);
@@ -1612,6 +1615,26 @@ public:
 			ImGui::SFML::Render(appConfig->_menuRT);
 		}
 
+#if _DEBUGRENDER
+		static int frameNo = 0;
+		std::string frameNoStr;
+		frameNoStr.resize(4, '0');
+
+		bool outputMenuDbg = frameNo < 20 && uiConfig->_menuShowing && !layerMan->IsLoading();
+		if (outputMenuDbg)
+		{
+			if (frameNo == 0)
+			{
+				_mkdir((appConfig->_appLocation + "debugOut/").c_str());
+				appConfig->_captureTex.create(appConfig->_window.getSize().x, appConfig->_window.getSize().y);
+			}
+
+			frameNo++;
+			sprintf(frameNoStr.data(), "%03d", frameNo);
+			frameNoStr.resize(3);
+		}
+#endif
+
 		if (uiConfig->_showFPS && (!uiConfig->_menuShowing || appConfig->_menuPopped))
 		{
 			if (dt <= sf::Time::Zero)
@@ -1659,6 +1682,13 @@ public:
 		}
 
 		appConfig->_layersRT.display();
+
+#if _DEBUGRENDER
+		if (outputMenuDbg)
+			if (!appConfig->_layersRT.getTexture().copyToImage().saveToFile(appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_1_layersRTRaw.png"))
+				logToFile(appConfig, "Failed to save image to " + appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_1_layersRTRaw.png");
+#endif
+
 		appConfig->_RTPlane.setTexture(&appConfig->_layersRT.getTexture(), true);
 		sf::RenderStates states = sf::RenderStates::Default;
 
@@ -1681,6 +1711,16 @@ public:
 		_FXAAShader.setUniform("u_texelStep", sf::Glsl::Vec2(1.0 / appConfig->_layersRT.getSize().x, 1.0 / appConfig->_layersRT.getSize().y));
 		states.shader = _FXAAShader.get();
 		appConfig->_window.draw(appConfig->_RTPlane, states);
+
+#if _DEBUGRENDER
+		if (outputMenuDbg)
+		{
+			//appConfig->_window.display();
+			appConfig->_captureTex.update(appConfig->_window);
+			if (!appConfig->_captureTex.copyToImage().saveToFile(appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_2_layersRTRendered.png"))
+				logToFile(appConfig, "Failed to save image to " + appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_2_layersRTRendered.png");
+		}
+#endif
 
 #ifdef _WIN32
 		if (appConfig->_useSpout2Sender)
@@ -1733,13 +1773,30 @@ public:
 #endif
 
 		appConfig->_menuRT.display();
-		appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
-		states.blendMode = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
-			sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add);
-		states.shader = states.Default.shader;
-		appConfig->_window.draw(appConfig->_RTPlane, states);
+#if _DEBUGRENDER
+		if (outputMenuDbg)
+			if(!appConfig->_menuRT.getTexture().copyToImage().saveToFile(appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_3_menuRTRaw.png"))
+				logToFile(appConfig, "Failed to save image to " + appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_3_menuRTRaw.png");
+#endif
+
+		//appConfig->_RTPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
+		//appConfig->_window.draw(appConfig->_RTPlane, sf::RenderStates::Default);
+
+		appConfig->_menuPlane.setTexture(&appConfig->_menuRT.getTexture(), true);
+
+		appConfig->_window.draw(appConfig->_menuPlane);
+
+#if _DEBUGRENDER
+		if (outputMenuDbg)
+		{
+			appConfig->_captureTex.update(appConfig->_window);
+			if (!appConfig->_captureTex.copyToImage().saveToFile(appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_4_menuRTRendered.png"))
+				logToFile(appConfig, "Failed to save image to " + appConfig->_appLocation + "debugOut/frame" + frameNoStr + "_4_menuRTRendered.png");
+		}
+#endif
 
 		appConfig->_window.display();
+		
 		if (appConfig->_menuWindow.isOpen())
 		{
 			appConfig->_menuWindow.display();

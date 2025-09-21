@@ -5,7 +5,7 @@
 class MainEngineTest : public testing::Test {
 protected:
 	MainEngineTest() {
-		engine.Init();
+		engine.InitializeEngine();
 	}
 
 	~MainEngineTest()
@@ -20,7 +20,7 @@ protected:
 class LayerSetTest : public testing::Test {
 protected:
 	LayerSetTest() {
-		engine.Init();
+		engine.InitializeEngine();
 		engine.layerMan->LoadLayers("LayersForTesting");
 	}
 
