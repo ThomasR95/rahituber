@@ -2551,7 +2551,7 @@ If you accept, please click the Accept button.
 		}
 	}
 
-	inline void MainEngine::InitializeEngine()
+    inline void InitializeEngine()
 	{
 		time_t current_time = time(nullptr);
 
