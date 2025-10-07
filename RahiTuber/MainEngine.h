@@ -301,6 +301,13 @@ public:
 
 	void initWindow(bool firstStart = false, bool ignoreScaleForResize = false)
 	{
+
+		sf::ContextSettings settings;
+		settings.depthBits = 24;
+		settings.majorVersion = 1;
+		settings.minorVersion = 1;
+		settings.attributeFlags = sf::ContextSettings::Core;
+
 		if (appConfig->_isFullScreen)
 		{
 			if (appConfig->_window.isOpen())
@@ -320,7 +327,7 @@ public:
 					appConfig->_nameLock.lock();
 					{
 						auto beforeCreate = std::chrono::system_clock::now();
-						appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32U), appConfig->windowName, 0);
+						appConfig->_window.create(sf::VideoMode(appConfig->_fullScrW, appConfig->_fullScrH, 32U), appConfig->windowName, 0, settings);
 						logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
 						appConfig->_pendingNameChange = false;
 					}
@@ -359,7 +366,7 @@ public:
 				}
 
 				auto beforeCreate = std::chrono::system_clock::now();
-				appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), name, 0);
+				appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH, 32U), name, 0, settings);
 				logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
 				appConfig->_pendingNameChange = false;
 				appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
@@ -381,8 +388,8 @@ public:
 			}
 		}
 
-		appConfig->_menuRT.create(appConfig->_scrW, appConfig->_scrH);
-		appConfig->_layersRT.create(appConfig->_scrW, appConfig->_scrH);
+		appConfig->_menuRT.create(appConfig->_scrW, appConfig->_scrH, settings);
+		appConfig->_layersRT.create(appConfig->_scrW, appConfig->_scrH, settings);
 
 		float cornerGrabSize = 20 * appConfig->mainWindowScaling;
 
@@ -787,11 +794,7 @@ public:
 
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
-				ToolTip("Multiply the output color by the alpha value.\nUseful for glow effects etc.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Hard Edges", &appConfig->_sharpEdge);
-				ToolTip("When using the Linear Scale Filter, restore sharp edges on textures.\nSlight GPU performance cost.", &appConfig->_hoverTimer);
+				ToolTip("Multiply the output (captured) color by the alpha value.\nDisabling is useful for glow effects etc.", &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("FXAA", &appConfig->_FXAA);

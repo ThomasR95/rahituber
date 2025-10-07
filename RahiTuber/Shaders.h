@@ -123,137 +123,29 @@ uniform bool premult = true;
 uniform bool sharpEdge = true;
 uniform float alphaClip = 0.001;
 
-int isTransparentEdge(vec2 texCoord, vec4 origPixel, out vec4 opaquePixel)
-{
-    vec2 texSize = textureSize(texture,0);
-
-    if(alphaClip <= 0.0)
-      return 0;
-
-    vec2 invSize = vec2(1.0/texSize.x, 1.0/texSize.y);
-
-    vec2 pixelCoord = texCoord * texSize;
-    vec2 sharpPixelCoord = vec2(floor(pixelCoord.x) + 0.5, floor(pixelCoord.y) + 0.5);
-
-    vec4 sharpPixel = texture2D(texture, invSize * sharpPixelCoord);
-
-    if(length(origPixel - sharpPixel) < 0.05)
-      return 0;
-    
-    bool sharp = false;
-    bool transparent = false;
-    if(sharpPixel.a < alphaClip)
-      transparent = true;
-
-    bool opaque = false;
-    if(sharpPixel.a >= 0.96)
-    { 
-      opaque = true;
-      opaquePixel = sharpPixel;
-    }
-
-
-    if(opaque || transparent)
-    {
-      // Test if this is an edge pixel
-      vec2 sharpDiff = pixelCoord - sharpPixelCoord;
-      sharpDiff.x = sharpDiff.x / abs(sharpDiff.x);
-      sharpDiff.y = sharpDiff.y / abs(sharpDiff.y);
-
-      vec2 nextPixX = vec2(sharpPixelCoord.x + sharpDiff.x, sharpPixelCoord.y);
-      vec2 nextPixY = vec2(sharpPixelCoord.x, sharpPixelCoord.y + sharpDiff.y);
-      vec2 nextPixXY = vec2(sharpPixelCoord.x + sharpDiff.x, sharpPixelCoord.y + sharpDiff.y);
-
-      vec4 sharpPixelX = texture2D(texture, invSize * nextPixX);
-      if(transparent && sharpPixelX.a > 0.8)
-      {
-        opaquePixel = sharpPixelX;
-        return 1; // transparent and the adjacent pixel is solid
-      }
-      else if( opaque && sharpPixelX.a < max(alphaClip, 0.1)) 
-        return 2; // opaque and the adjacent pixel is transparent
-
-      vec4 sharpPixelY = texture2D(texture, invSize * nextPixY);
-      if(transparent && sharpPixelY.a > 0.8)
-      {
-        opaquePixel = sharpPixelY;
-        return 1; // transparent and the adjacent pixel is solid
-      }
-      else if(opaque && sharpPixelY.a < max(alphaClip, 0.1)) 
-        return 2; // opaque and the adjacent pixel is transparent
-
-      vec4 sharpPixelXY = texture2D(texture, invSize * nextPixXY);
-      if(transparent && sharpPixelXY.a > 0.8)
-      {
-        opaquePixel = sharpPixelXY;
-        return 1; // transparent and the adjacent pixel is solid
-      }
-      else if(opaque && sharpPixelXY.a < max(alphaClip, 0.1))
-        return 2; // opaque and the adjacent pixel is transparent
-
-    }
-
-    return 0;
-}
-
-void getSharpPixel(vec2 texCoord, inout vec4 pixel)
-{
-      vec4 opaquePixel;
-      int sharp = isTransparentEdge(texCoord, pixel, opaquePixel);
-
-      if(pixel.a < alphaClip)
-        pixel.a = 0;
-
-      pixel = gl_Color * pixel;
-
-      if(sharp == 1) // transparent and the adjacent pixel is solid
-      {
-        if(pixel.a < max(alphaClip, 0.6))
-          pixel.a = 0;
-
-        pixel.xyz = gl_Color.xyz * opaquePixel.xyz;
-      }
-
-      if(sharp == 2) // opaque and the adjacent pixel is transparent
-      { 
-        if(pixel.a > max(alphaClip, 0.6))
-          pixel = gl_Color * opaquePixel;
-        else
-          pixel.a = 0;
-      }
-}
-
 void main()
 {
-    bool multiplyAlpha = premult;
+    bool unmultiplyAlpha = !premult;
 
     vec2 texCoord = gl_TexCoord[0].xy;
 
     // lookup the pixel in the texture
     vec4 pixel = texture2D(texture, texCoord);
 
-    if(sharpEdge)
-    {
-      getSharpPixel(texCoord, pixel);
-    }
-    else
-    {
-      if(pixel.a < alphaClip)
-              pixel.a = 0;
+    if(pixel.a < alphaClip)
+        pixel = vec4(0);
 
-      pixel = gl_Color * pixel;
+    if(unmultiplyAlpha)
+    {
+       pixel.xyz = pixel.xyz / pixel.a;
     }
 
-    if(multiplyAlpha)
-    {
-        if(invert)
-        {   
-            pixel.xyz = pixel.xyz + vec3(1.0, 1.0, 1.0) * (1.0 - pixel.a);
-        }
-        else
-        {
-            pixel.xyz = pixel.xyz * pixel.a;
-        }
+    pixel = pixel * gl_Color;
+
+    if(invert)
+    {   
+        pixel.xyz = pixel.xyz + (vec3(1.0, 1.0, 1.0) * (1.0 - pixel.a));
+        //pixel.a = 1;
     }
 
     gl_FragColor = pixel;

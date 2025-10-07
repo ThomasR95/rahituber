@@ -85,7 +85,9 @@ sf::Texture* TextureManager::GetTexture(const std::string& path, void* caller, s
 
 		bool success = LoadTexture(path, caller, errString);
 		if (success)
+		{
 			out = _textures[path].tex.get();
+		}
 		else
 			_textures.erase(path);
 	}
@@ -131,7 +133,38 @@ bool TextureManager::LoadTexture(const std::string& path, void* caller, std::str
 		std::string err = "";
 		try
 		{
-			success = loadingTex->loadFromFile(path);
+			sf::Image loadingImg;
+			loadingImg.loadFromFile(path);
+			const auto imgSize = loadingImg.getSize();
+			int channels = 4;
+			const uint32_t pixelCount = imgSize.x * imgSize.y;
+
+			int x = 0, y = 0;
+			for (uint32_t i = 0u; i < pixelCount ; i++)
+			{
+				auto pix = loadingImg.getPixel(x, y);
+				if (pix.a > 0)
+				{
+					pix.r = (sf::Uint8)((float)pix.r * ((float)pix.a / 255));
+					pix.g = (sf::Uint8)((float)pix.g * ((float)pix.a / 255));
+					pix.b = (sf::Uint8)((float)pix.b * ((float)pix.a / 255));
+
+					loadingImg.setPixel(x, y, pix);
+				}
+				else
+					loadingImg.setPixel(x, y, sf::Color(0,0,0,0));
+				
+				x++;
+				if (x >= imgSize.x)
+				{
+					x = 0;
+					y++;
+				}
+
+			}
+
+			success = loadingTex->loadFromImage(loadingImg);
+			//success = loadingTex->loadFromFile(path);
 
 			if (success)
 			{

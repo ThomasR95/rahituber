@@ -221,14 +221,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					_blendingShaderLoaded = true;
 				}
 
-				if (blendModeNeedsPremult)
-				{
-					_blendingShader.setUniform("premult", true);
-				}
-				else
-				{
-					_blendingShader.setUniform("premult", false);
-				}
+				_blendingShader.setUniform("premult", blendModeNeedsPremult);
 
 				if (usingBlendmode == g_blendmodes["Darken"])
 					_blendingShader.setUniform("invert", true);
@@ -308,7 +301,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				// Do not premultiply alpha here
 				state.blendMode.colorSrcFactor = sf::BlendMode::One;
-
 				if (useBlendShader)
 				{
 					float alphaClip = layer._alphaClip;
@@ -316,6 +308,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 						alphaClip = _appConfig->_alphaClip;
 					_blendingShader.setUniform("sharpEdge", sharpEdge);
 					_blendingShader.setUniform("alphaClip", alphaClip);
+					//_blendingShader.setUniform("premult", false);
 					state.shader = _blendingShader.get();
 				}
 
@@ -331,8 +324,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				sf::RenderStates clipState2 = sf::RenderStates::Default;
 				// Draw the layer RT onto the clip RT using the fancy new blend mode
-				clipState2.blendMode = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::Zero, sf::BlendMode::Add,
-					sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Min);
+				clipState2.blendMode = sf::BlendMode(sf::BlendMode::DstAlpha, sf::BlendMode::Zero, sf::BlendMode::Add,
+					sf::BlendMode::DstAlpha, sf::BlendMode::Zero, sf::BlendMode::Add);
 
 				clipRTs._clipRT.draw(layer._clipRect, clipState2);
 				clipRTs._clipRT.display();
@@ -346,6 +339,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				if (useBlendShader)
 				{
 					RTState.shader = _blendingShader.get();
+					_blendingShader.setUniform("premult", blendModeNeedsPremult);
 				}
 
 				target->draw(layer._clipRect, RTState);
