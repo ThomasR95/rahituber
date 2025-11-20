@@ -916,6 +916,7 @@ public:
 					ImGui::EndCombo();
 				}
 				ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
+				
 #endif
 
 				ImGui::EndTable();
@@ -2554,7 +2555,7 @@ If you accept, please click the Accept button.
 		}
 	}
 
-    inline void InitializeEngine()
+	void InitializeEngine()
 	{
 		time_t current_time = time(nullptr);
 
@@ -2638,6 +2639,7 @@ If you accept, please click the Accept button.
 			if (loadValid == false)
 			{
 				logToFile(appConfig, "Failed to load config.xml");
+				bool retryResponse = false;
 #ifdef _WIN32
 				std::wstring message(L"Failed to load config.xml.");
 				std::string errMsgCopy = appConfig->_loader->_errorMessage;
@@ -2650,7 +2652,7 @@ If you accept, please click the Accept button.
 
 				int result = MessageBox(NULL, message.c_str(), L"Load failed", MB_ICONERROR | MB_OKCANCEL);
 				if (result == IDOK)
-				{
+					retryResponse = true;
 #else
 				std::string message("Failed to load config.xml.");
 				if (appConfig->_loader->_errorMessage.empty() == false)
@@ -2665,8 +2667,10 @@ If you accept, please click the Accept button.
 				std::cin >> result;
 
 				if (result == 'y')
-				{
+					retryResponse = true;
 #endif
+				if(retryResponse)
+				{
 					retry = true;
 					int ret = remove((appConfig->_appLocation + "config.xml").c_str());
 
@@ -2790,8 +2794,6 @@ If you accept, please click the Accept button.
 			appConfig->bars[b].setFillColor({ 255, 255, 255, 50 });
 		}
 
-
-
 		logToFile(appConfig, "Focusing main window");
 		//request focus and start the game loop
 
@@ -2842,7 +2844,7 @@ If you accept, please click the Accept button.
 		if (appConfig->_listenHTTP)
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
-        GamePad::init((void*)appConfig->_window.getSystemHandle(), (GamepadAPI)appConfig->_gamepadAPI);
+        GamePad::init((void*)appConfig->_window.getSystemHandle(), appConfig, (GamepadAPI)appConfig->_gamepadAPI);
 
 		_FXAAShader.loadFromMemory(SFML_DefaultVert, SFML_FXAAFrag);
 

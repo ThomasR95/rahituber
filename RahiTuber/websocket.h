@@ -103,6 +103,8 @@ public:
 
 	std::function<void(const std::string&)> _logFunction;
 
+	std::function<void(const std::string&)> _getStateFnc;
+
 private:
 
 	struct mg_mgr _eventManager = {};

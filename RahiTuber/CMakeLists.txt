@@ -50,6 +50,7 @@ target_sources(RahiTuber PRIVATE
     xmlConfig.h
     websocket.h
     MainEngine.h
+    GamePad.h
 )
 
 if(WIN32)

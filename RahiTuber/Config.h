@@ -136,6 +136,7 @@ struct AppConfig
 	bool _unloadTimeoutEnabled = false;
 
 	int _gamepadAPI = 0;
+	int _gamepadModel = 0;
 };
 
 typedef struct
@@ -305,7 +306,6 @@ struct UIConfig
 	int _numberEditType = 1;
 };
 
-
 static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = false)
 {
 	if (appCfg != nullptr)
@@ -346,4 +346,15 @@ static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = fa
 		}
 			
 	}
+}
+
+static void logFmtToFile(AppConfig* appCfg, const char* fmt, ...)
+{
+	char buf[512];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(buf, 512, fmt, args);
+	va_end(args);
+	logToFile(appCfg, std::string(buf), false);
+
 }
