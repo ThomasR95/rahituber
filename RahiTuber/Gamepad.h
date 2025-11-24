@@ -111,6 +111,15 @@ private:
 		return info.dwVendorId == vjoyVendorID && (info.dwProductId == vjoyProductID);
 	}
 
+	bool isXBX(RID_DEVICE_INFO_HID info)
+	{
+		const DWORD xbxVendorID = 767;
+		const DWORD xbxProductID = 1118;
+
+		return info.dwVendorId == xbxVendorID && (info.dwProductId == xbxProductID);
+
+	}
+
 
 #ifdef _WIN32
 	void storeRawInputData(RAWINPUT* input);
@@ -122,8 +131,8 @@ private:
 	struct RawState {
 		HANDLE hDevice;
 		int productID = 0;
-		float maxValue = (float)INT32_MAX;
 		GamePadModel model = GAMEPAD_MODEL_XB360;
+		std::map<int, ULONG> maxAxes;
 		std::map<int, float> axes;
 		std::map<int, bool> buttons;
 	};
