@@ -552,7 +552,10 @@ public:
 		else
 			_pendingJButton = -1;
 	}
+
+	/* Event-based hotkey handling, less reliable
 	void HandleHotkey(const sf::Event& key, bool keyDown);
+	*/
 
 	void CheckHotkeys();
 

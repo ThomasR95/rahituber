@@ -108,6 +108,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				_statesOrder.push_back(&_states[stateIdx]);
 			}
 		}
+
+		if (state._activeType == StatesInfo::Held && state._keyIsHeld)
+			state._timer.restart();
 	}
 
 	// progressively display the states in order of activation
@@ -116,7 +119,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (auto state : statesOrderCopy)
 	{
 		if (state->_active &&																											//     Is active
-			(state->_useTimeout || state->_schedule) &&															// AND On a schedule/using the timeout
+			(state->_useTimeout || state->_schedule) &&															// AND On a schedule/using the spamTimeout
 			state->_timer.getElapsedTime().asSeconds() >= state->_timeout &&				// AND Has timed out
 			// AND Not currently being held on
 			(state->_activeType == state->Toggle || (state->_activeType == state->Held && state->_keyIsHeld == false)))
@@ -2805,6 +2808,7 @@ void LayerManager::LayerInfo::SetUnloadingTimer(int timer)
 	_screamSprite->UnloadIfUnused(ltimer);
 }
 
+/*
 void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 {
 	for (auto& l : _layers)
@@ -2849,7 +2853,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 		if (!canTrigger)
 			continue;
 
-		float timeout = 0.2;
+		float spamTimeout = 0.2;
 
 		bool match = false;
 		if ((evt.type == sf::Event::KeyPressed || evt.type == sf::Event::KeyReleased)
@@ -2883,14 +2887,14 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 			else if (keyDown == false)
 			{
 				match = true;
-				timeout = 0;
+				spamTimeout = 0;
 			}
 		}
 
 		if (stateInfo._activeType == StatesInfo::Held)
-			timeout = 0;
+			spamTimeout = 0;
 
-		if (match && stateInfo._timer.getElapsedTime().asSeconds() > timeout)
+		if (match && stateInfo._timer.getElapsedTime().asSeconds() > spamTimeout)
 		{
 			if (evt.type == sf::Event::JoystickMoved)
 				stateInfo._axisWasTriggered = true;
@@ -2964,6 +2968,7 @@ void LayerManager::HandleHotkey(const sf::Event& evt, bool keyDown)
 
 	return;
 }
+*/
 
 void LayerManager::CheckHotkeys()
 {
@@ -2988,7 +2993,7 @@ void LayerManager::CheckHotkeys()
 	for (int h = 0; h < _states.size(); h++)
 	{
 		bool keyDown = false;
-		float timeout = 0.2;
+		float spamTimeout = 0.2;
 		bool changed = false;
 
 		StatesInfo& stateInfo = _states[h];
@@ -3100,27 +3105,38 @@ void LayerManager::CheckHotkeys()
 		}
 
 		if (stateInfo._wasTriggered == true && keyDown == false)
-			changed = true;
+			changed = true;			
 
 		if (stateInfo._activeType == StatesInfo::Held)
-			timeout = 0;
+			spamTimeout = 0;
 
 		stateInfo._wasTriggered = keyDown;
 
-		if (changed && stateInfo._timer.getElapsedTime().asSeconds() > timeout)
+		if (changed && stateInfo._timer.getElapsedTime().asSeconds() > spamTimeout)
 		{
 			if (stateInfo._active && ((stateInfo._activeType == StatesInfo::Toggle && keyDown) || (stateInfo._activeType == StatesInfo::Held && !keyDown)))
 			{
 				stateInfo._keyIsHeld = false;
-				// deactivate
-				stateInfo._active = false;
-				RemoveStateFromOrder(&stateInfo);
 				stateInfo._timer.restart();
 
-				//BREAK here to force a new frame update before modifying any more states
-				break;
+				if (stateInfo._activeType == StatesInfo::Toggle
+					|| (stateInfo._activeType == StatesInfo::Held &&
+								((stateInfo._useTimeout == true) && stateInfo._timer.getElapsedTime().asSeconds() > stateInfo._timeout)
+						||	(stateInfo._useTimeout == false)
+						)
+					)
+				{
+					// deactivate
+					stateInfo._active = false;
+					RemoveStateFromOrder(&stateInfo);
+
+					//BREAK here to force a new frame update before modifying any more states
+					break;
+				}
+
+				
 			}
-			else if (!stateInfo._active && keyDown)
+			else if (keyDown)
 			{
 				if (stateInfo._activeType == StatesInfo::Permanent)
 				{
@@ -3146,25 +3162,34 @@ void LayerManager::CheckHotkeys()
 					if (stateInfo._activeType == StatesInfo::Held)
 						stateInfo._keyIsHeld = true;
 
-					// activate and add to stack
-					SaveDefaultStates();
-
+					if (!stateInfo._active)
 					{
-						std::scoped_lock lockState(_stateLocks[h]);
-						for (auto& state : stateInfo._layerStates)
+						// activate and add to stack
+						SaveDefaultStates();
+
 						{
-							LayerInfo* layer = GetLayer(state.first);
-							if (layer && state.second != StatesInfo::NoChange)
+							std::scoped_lock lockState(_stateLocks[h]);
+							for (auto& state : stateInfo._layerStates)
 							{
-								layer->_visible = state.second;
+								LayerInfo* layer = GetLayer(state.first);
+								if (layer && state.second != StatesInfo::NoChange)
+								{
+									layer->_visible = state.second;
+								}
 							}
 						}
-					}
 
-					AppendStateToOrder(&stateInfo);
-					stateInfo._timer.restart();
-					stateInfo._active = true;
-					_statesTimer.restart();
+						AppendStateToOrder(&stateInfo);
+						stateInfo._timer.restart();
+						stateInfo._active = true;
+						_statesTimer.restart();
+					}
+					else if (stateInfo._activeType == StatesInfo::Held)
+					{
+						stateInfo._timer.restart();
+						stateInfo._active = true;
+					}
+					
 				}
 			}
 
@@ -3352,11 +3377,11 @@ void LayerManager::DrawStatesGUI()
 
 			float contentWidth = ImGui::GetWindowContentRegionMax().x;
 
-			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + 6 * style.ItemSpacing.x, ImGui::GetCursorPosY() + 3 };
-			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth - 20 * style.ItemSpacing.x), ImGui::GetCursorPosY() };
-			ImVec2 dupeButtonPos = { delButtonPos.x - 10 * style.ItemSpacing.x, delButtonPos.y };
-			ImVec2 renameButtonPos = { dupeButtonPos.x - 10 * style.ItemSpacing.x, dupeButtonPos.y };
-			ImVec2 enableButtonPos = { renameButtonPos.x - 10 * style.ItemSpacing.x, renameButtonPos.y };
+			ImVec2 headerTxtPos = { ImGui::GetCursorPosX() + ImGui::GetFrameHeight(), ImGui::GetCursorPosY() + 3 };
+			ImVec2 delButtonPos = { ImGui::GetCursorPosX() + (contentWidth - ImGui::GetFrameHeightWithSpacing()*2.2f), ImGui::GetCursorPosY() };
+			ImVec2 dupeButtonPos = { delButtonPos.x - ImGui::GetFrameHeightWithSpacing(), delButtonPos.y };
+			ImVec2 renameButtonPos = { dupeButtonPos.x - ImGui::GetFrameHeightWithSpacing(), dupeButtonPos.y };
+			ImVec2 enableButtonPos = { renameButtonPos.x - ImGui::GetFrameHeightWithSpacing(), renameButtonPos.y };
 
 
 			ImGui::PushID('id' + stateIdx); {
@@ -3380,17 +3405,21 @@ void LayerManager::DrawStatesGUI()
 					}
 
 
-					ImGui::Columns(3, 0, false);
-					ImGui::SetColumnWidth(0, style.ItemSpacing.x * 50);
-					ImGui::SetColumnWidth(1, style.ItemSpacing.x * 33);
-					ImGui::SetColumnWidth(2, style.ItemSpacing.x * 100);
+					ImGui::BeginTable("##stateOptions", 3, ImGuiTableFlags_SizingStretchSame);
+
+					ImGui::TableSetupColumn("##hotkey");
+					ImGui::TableSetupColumn("##labels");
+					ImGui::TableSetupColumn("##controls");
+
+					ImGui::TableNextColumn();
+
 					std::string btnName = keyName;
 					if (noKey && state._jButton == -1 && state._jPadID == -1 && state._mouseButton == -1)
 						btnName = " Click to\nrecord key";
 					if (state._awaitingHotkey)
 						btnName = "(press a key)";
 					ImGui::PushID("recordKeyBtn"); {
-						if (ImGui::Button(btnName.c_str(), { style.ItemSpacing.x * 43,style.ItemSpacing.x * 12 }) && !_waitingForHotkey)
+						if (ImGui::Button(btnName.c_str(), { -1 ,ImGui::GetFrameHeight() * 2 }) && !_waitingForHotkey)
 						{
 							_pendingKey = sf::Keyboard::Unknown;
 							_pendingKeyScan = sf::Keyboard::Scan::Unknown;
@@ -3410,11 +3439,13 @@ void LayerManager::DrawStatesGUI()
 						}
 						ToolTip("Set a hotkey", &_appConfig->_hoverTimer);
 
-						if (ImGui::Button("Clear", { style.ItemSpacing.x * 43,style.ItemSpacing.x * 7 }))
+						if (ImGui::Button("Clear", { -1 ,ImGui::GetFrameHeight() * 1 }))
 						{
 							state._jDir = 0.f;
 							state._jButton = -1;
+							state._jAxis = -1;
 							state._key = sf::Keyboard::Unknown;
+							state._scancode = sf::Keyboard::Scan::Unknown;
 							state._jPadID = -1;
 
 							state._ctrl = false;
@@ -3482,7 +3513,9 @@ void LayerManager::DrawStatesGUI()
 						}
 					}
 
-					ImGui::NextColumn();
+					bool showScheduleControls = state._schedule && state._activeType != StatesInfo::Permanent;
+
+					ImGui::TableNextColumn();
 
 					ImGui::AlignTextToFramePadding();
 					ImGui::Text("Active Type:");
@@ -3498,25 +3531,44 @@ void LayerManager::DrawStatesGUI()
 
 					float timeoutpos = ImGui::GetCursorPosY();
 					bool whileHeld = state._activeType == StatesInfo::Held;
-					bool timeoutActive = (state._useTimeout && !whileHeld) || state._schedule;
+					bool timeoutActive = state._useTimeout || state._schedule;
 					if (state._activeType != StatesInfo::Permanent)
 					{
-						if (whileHeld)
-							ImGui::BeginDisabled();
-						if (ImGui::Checkbox("Timeout", &timeoutActive) && !state._schedule && !whileHeld)
+						if (whileHeld && state._schedule)
 						{
-							state._useTimeout = timeoutActive;
-						}
-						ToolTip("Deactivate the state after some time", &_appConfig->_hoverTimer);
+							ImGui::PushItemWidth(-1);
+							if (ImGui::BeginCombo("##TimeoutType", state._useTimeout ? "Hold" : "Timeout"))
+							{
+								if (ImGui::Selectable("Hold", state._useTimeout))
+									state._useTimeout = true;
+								ToolTip("Keeps the state held for this long\nafter the button is released", &_appConfig->_hoverTimer);
 
-						if (whileHeld)
-							ImGui::EndDisabled();
+								if (ImGui::Selectable("Timeout", !state._useTimeout))
+									state._useTimeout = false;
+								ToolTip("Timeout applies only when activated by schedule", &_appConfig->_hoverTimer);
+
+								ImGui::EndCombo();
+							}
+						}
+						else
+						{
+							if (ImGui::Checkbox(whileHeld ? "Hold Time" : "Timeout", &timeoutActive) && !state._schedule)
+							{
+								state._useTimeout = timeoutActive;
+							}
+							if (whileHeld)
+								ToolTip("Keeps the state held for this long\nafter the button is released", &_appConfig->_hoverTimer);
+							else
+								ToolTip("Deactivates the state after\nthe specified time", &_appConfig->_hoverTimer);
+						}
+
 						ImGui::Checkbox("Schedule", &state._schedule);
 						ToolTip("Automatically enable the state on a timer", &_appConfig->_hoverTimer);
 					}
 
-					ImGui::NextColumn();
-					ImGui::PushItemWidth(100);
+					ImGui::TableNextColumn();
+
+					ImGui::PushItemWidth(-1);
 					if (ImGui::BeginCombo("##ActiveType", g_activeTypeNames[state._activeType].c_str()))
 					{
 						for (int atype = 0; atype < g_activeTypeNames.size(); atype++)
@@ -3532,7 +3584,7 @@ void LayerManager::DrawStatesGUI()
 \n- While Held: The state will be active while the\n    hotkey is held, and inactive otherwise\
 \n- Permanent: The effects of this state will be\n    permanently applied when the hotkey is pressed", &_appConfig->_hoverTimer);
 
-					ImGui::PushItemWidth(100);
+					ImGui::PushItemWidth(-1);
 					if (ImGui::BeginCombo("##CanTrigger", g_canTriggerNames[state._canTrigger].c_str()))
 					{
 						for (int trigType = 0; trigType < g_canTriggerNames.size(); trigType++)
@@ -3550,6 +3602,7 @@ void LayerManager::DrawStatesGUI()
 
 					if (state._canTrigger != StatesInfo::CanTrigger::TRIGGER_ALWAYS)
 					{
+						ImGui::PushItemWidth(-1);
 						FloatSliderDrag("##Threshold", &state._threshold, 0.0, 1.0, "%.3f", 0, _uiConfig->_numberEditType);
 					}
 
@@ -3558,26 +3611,35 @@ void LayerManager::DrawStatesGUI()
 						ImGui::SetCursorPosY(timeoutpos);
 						if (timeoutActive)
 						{
+							ImGui::PushItemWidth(-1);
 							FloatSliderDrag("##timeoutSlider", &state._timeout, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 							ToolTip("How long the state stays active for", &_appConfig->_hoverTimer, true);
 						}
 					}
 
-					ImGui::Columns();
 
-					ImGui::Columns(2, 0, false);
-					ImGui::SetColumnWidth(0, style.ItemSpacing.x * 50);
-					ImGui::SetColumnWidth(1, windowSize);
-					ImGui::NextColumn();
-					if (state._schedule && state._activeType != StatesInfo::Permanent)
+					if (showScheduleControls)
 					{
-						FloatSliderDrag("Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
+						ImGui::TableNextRow();
+
+						ImGui::TableSetColumnIndex(1);
+
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text("Interval:");
+
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text("Variation:");
+
+						ImGui::TableNextColumn();
+
+						FloatSliderDrag("##Interval", &state._intervalTime, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 						ToolTip("Sets how long the state will be inactive before reactivating", &_appConfig->_hoverTimer, true);
-						FloatSliderDrag("Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
+						FloatSliderDrag("##Variation", &state._intervalVariation, 0.0, 30.0, "%.1f s", ImGuiSliderFlags_Logarithmic, _uiConfig->_numberEditType);
 						ToolTip("Adds a random variation to the Interval.\nThis sets the maximum variation.", &_appConfig->_hoverTimer, true);
 					}
 
-					ImGui::Columns();
+					ImGui::EndTable();
+
 
 					ImGui::Separator();
 

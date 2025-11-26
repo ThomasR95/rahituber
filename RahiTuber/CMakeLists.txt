@@ -51,6 +51,8 @@ target_sources(RahiTuber PRIVATE
     websocket.h
     MainEngine.h
     GamePad.h
+    GamePad.cpp
+    ffwdClock.h
 )
 
 if(WIN32)

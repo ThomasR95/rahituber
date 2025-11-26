@@ -464,7 +464,7 @@ public:
 
 	void menuHelp(ImGuiStyle& style)
 	{
-		bool helpPressed = ImGui::Button("Help", { -1, ImGui::GetFrameHeight() });
+		bool helpPressed = ImGui::Button("Help & Tips", { -1, ImGui::GetFrameHeight() });
 
 		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
 		dotpos -= sf::Vector2f(ImGui::GetFrameHeight()*0.52, ImGui::GetFrameHeight());
@@ -544,8 +544,8 @@ public:
 			ImGui::SeparatorText("General tips:");
 
 			ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
-			ImGui::TextWrapped("Hover over any control to see an explanation of what it does.");
-			ImGui::TextWrapped("CTRL+click any input field to manually type the value. For some sliders you can type a value outside of the sliding range.");
+			ImGui::TextWrapped("Hover over (or right-click) any control to see an explanation of what it does.");
+			ImGui::TextWrapped("CTRL+click any input field to manually type the value. For most sliders you can type a value outside of the sliding range.");
 			ImGui::NewLine();
 
 			ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
@@ -1014,6 +1014,40 @@ public:
 
 			ImGui::EndTable();
 		}
+
+		bool useDefaultDevice = audioConfig->_devIdx == -1;
+		if (useDefaultDevice)
+		{
+			switch (ConfirmModal("Audio Device Not Found", &useDefaultDevice, useDefaultDevice,
+				"The Audio Input device saved in your settings is not available.\nSwitch to the system default input device?", "Use Default", "Exit RahiTuber"))
+			{
+			case -1:
+				break;
+			case 0:
+			{
+				appConfig->_window.close();
+				break;
+			}
+			case 1:
+			{
+				int defInputIdx = Pa_GetDefaultInputDevice();
+				if (useDefaultDevice && audioConfig->_nDevices > 0)
+				{
+					//use the default input device
+					auto dev = audioConfig->GetAudioDevice(defInputIdx);
+					if (dev != nullptr)
+					{
+						SwitchAudioDevice(*dev);
+						logToFile(appConfig, "Auto-selecting system default device " + std::to_string(dev->second) + ": " + dev->first);
+					}
+
+					if (audioConfig->_devIdx == -1)
+						audioConfig->_devIdx = 0;
+				}
+				break;
+			}
+			}
+		}
 	}
 
 	void SwitchAudioDevice(std::pair<std::string, int>& dev)
@@ -1025,6 +1059,7 @@ public:
 		auto info = Pa_GetDeviceInfo(dev.second);
 		float sRate;
 
+		audioConfig->_lastDeviceName = dev.first;
 		audioConfig->_devIdx = dev.second;
 		audioConfig->_params.device = audioConfig->_devIdx;
 		audioConfig->_params.channelCount = Min(2, info->maxInputChannels);
@@ -1975,7 +2010,7 @@ public:
 				appConfig->_menuWindow.close();
 				break;
 			}
-			else if ((evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::Escape) || (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Right)))
+			else if ((evt.type == evt.KeyPressed && evt.key.code == sf::Keyboard::Escape) || (evt.type == evt.MouseButtonPressed && sf::Mouse::isButtonPressed(sf::Mouse::Right) && !ImGui::IsAnyItemHovered()))
 			{
 				//toggle the menu visibility
 				uiConfig->_menuShowing = !uiConfig->_menuShowing;
@@ -2191,7 +2226,7 @@ public:
 			logToFile(appConfig, "No audio input data. Device muted?");
 		}
 
-		if (audioConfig->_muted && audioConfig->_recordTimer.getElapsedTime().asSeconds() > 1)
+		if (audioConfig->_devIdx != -1 && audioConfig->_muted && audioConfig->_recordTimer.getElapsedTime().asSeconds() > 1)
 		{
 			PaError err = paNoError;
 			// if muted, attempt to restart the stream each second in case it got disconnected
@@ -2481,46 +2516,36 @@ If you accept, please click the Accept button.
 			std::cout << hostInfo->name << std::endl;
 		}
 
-		audioConfig->_nDevices = Pa_GetDeviceCount();
+		ListAudioDevices();
+
 		audioConfig->_params.sampleFormat = PA_SAMPLE_TYPE;
-		int defInputIdx = Pa_GetDefaultInputDevice();
+		
 
-		logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_nDevices) + " devices");
-
-		if (audioConfig->_devIdx == -1 && audioConfig->_nDevices > 0)
+		logToFile(appConfig, "PortAudio found " + std::to_string(audioConfig->_deviceList.size()) + " input devices");
+		
+		if (audioConfig->_lastDeviceName != "")
 		{
-			//find an audio input
-			for (PaDeviceIndex dI = 0; dI < audioConfig->_nDevices; dI++)
+			auto dev = audioConfig->GetAudioDevice(audioConfig->_lastDeviceName);
+			if (dev != nullptr)
 			{
-				auto info = Pa_GetDeviceInfo(dI);
-				std::string name = info->name;
-				if (dI == defInputIdx)
-				{
-					logToFile(appConfig, "Auto-selecting device " + std::to_string(dI) + ": " + name);
-					audioConfig->_devIdx = dI;
-					break;
-				}
+				SwitchAudioDevice(*dev);
+				logToFile(appConfig, "PortAudio: Using device read from name in config.xml: " + dev->first);
 			}
-
-			if (audioConfig->_devIdx == -1)
-				audioConfig->_devIdx = 0;
+			else
+				audioConfig->_devIdx = -1;
 		}
-
-		if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
+		else if (audioConfig->_devIdx != -1 && audioConfig->_nDevices > audioConfig->_devIdx)
 		{
-			auto info = Pa_GetDeviceInfo(audioConfig->_devIdx);
-			audioConfig->_params.device = audioConfig->_devIdx;
-			audioConfig->_params.channelCount = Min(1, info->maxInputChannels);
-			audioConfig->_params.suggestedLatency = info->defaultLowInputLatency;
-			audioConfig->_params.hostApiSpecificStreamInfo = nullptr;
-			audioConfig->_currentSampleRate = info->defaultSampleRate;
-
-			std::string devName = info->name;
-
-			logToFile(appConfig, "PortAudio: Using device read from config.xml: " + devName);
+			auto dev = audioConfig->GetAudioDevice(audioConfig->_devIdx);
+			if (dev != nullptr)
+			{
+				SwitchAudioDevice(*dev);
+				logToFile(appConfig, "PortAudio: Using device read from index in config.xml: " + dev->first);
+			}
+			else
+				audioConfig->_devIdx = -1;
 		}
 
-		StartAudioStream(err);
 	}
 
 	void StartAudioStream(PaError& err)

@@ -7,6 +7,8 @@
 #include "SFML/Main.hpp"
 #include "SFML/System.hpp"
 
+#include "ffwdClock.h"
+
 #include <memory>
 #include <deque>
 #include <mutex>
@@ -98,7 +100,7 @@ struct AppConfig
 
 	sf::Clock _timer;
 
-	sf::Clock _hoverTimer;
+	ffwdClock _hoverTimer;
 
 	sf::Clock _runTime;
 
@@ -176,6 +178,7 @@ struct AudioConfig
 	SAMPLE _frameHi = 0.0f;
 	PaStreamParameters _params = {};
 	PaDeviceIndex _devIdx = -1;
+	std::string _lastDeviceName = "";
 	int _nDevices = 0;
 	std::vector<std::pair<std::string, int>> _deviceList;
 	paTestData* _streamData = nullptr;
@@ -197,6 +200,46 @@ struct AudioConfig
 	bool _compression = false;
 
 	bool _processedNew = false;
+
+	inline int GetAudioDeviceIdx(const std::string& name)
+	{
+		for (auto& dev : _deviceList)
+		{
+			if (dev.first == name)
+				return dev.second;
+		}
+		return -1;
+	}
+
+	inline std::string GetAudioDeviceName(const int& idx)
+	{
+		for (auto& dev : _deviceList)
+		{
+			if (dev.second == idx)
+				return dev.first;
+		}
+		return "";
+	}
+
+	inline std::pair<std::string, int>* GetAudioDevice(const std::string& name)
+	{
+		for (auto& dev : _deviceList)
+		{
+			if (dev.first == name)
+				return &dev;
+		}
+		return nullptr;
+	}
+
+	inline std::pair<std::string, int>* GetAudioDevice(const int& idx)
+	{
+		for (auto& dev : _deviceList)
+		{
+			if (dev.second == idx)
+				return &dev;
+		}
+		return nullptr;
+	}
 };
 
 struct UIConfig

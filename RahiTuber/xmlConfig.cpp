@@ -69,6 +69,9 @@ bool xmlConfigLoader::loadCommon()
 		
 	common->QueryBoolAttribute("alwaysOnTop", &_appConfig->_alwaysOnTop);
 	common->QueryIntAttribute("lastAudioDevice", &_audioConfig->_devIdx);
+	const char* lastDevName = common->Attribute("lastAudioDeviceName");
+	if (lastDevName != NULL)
+		_audioConfig->_lastDeviceName = lastDevName;
 	common->QueryBoolAttribute("useKeyboardHook", &_appConfig->_useKeyboardHooks);
 	common->QueryBoolAttribute("audioExpanded", &_uiConfig->_audioExpanded);
 	common->QueryBoolAttribute("showBounds", &_uiConfig->_showLayerBounds);
@@ -195,6 +198,7 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("alwaysOnTop", _appConfig->_alwaysOnTop);
 			common->SetAttribute("lastAudioDevice", _audioConfig->_devIdx);
+			common->SetAttribute("lastAudioDeviceName", _audioConfig->_lastDeviceName.c_str());
 			common->SetAttribute("useKeyboardHook", _appConfig->_useKeyboardHooks);
 			common->SetAttribute("audioExpanded", _uiConfig->_audioExpanded);
 			common->SetAttribute("showBounds", _uiConfig->_showLayerBounds);

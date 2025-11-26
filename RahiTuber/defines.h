@@ -4,6 +4,7 @@
 #include "SFML/Window/Keyboard.hpp"
 #include "SFML/Window/Joystick.hpp"
 #include "SFML/Graphics/Color.hpp"
+#include "ffwdClock.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <string>
@@ -511,11 +512,14 @@ static void UpdateToolTipHint(const char* newHint)
 	g_toolTipNumberHint = newHint;
 }
 
-static bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
+static bool ToolTip(const char* title, const char* txt, ffwdClock* hoverTimer, bool forSlider = false)
 {
-
-	if (ImGui::IsItemHovered() && hoverTimer->getElapsedTime().asSeconds() > 1.0 && ImGui::BeginTooltip(true))
+	if (ImGui::IsItemHovered() 
+		&& (hoverTimer->getElapsedTime().asSeconds() > 1.0 || ImGui::IsMouseDown(ImGuiMouseButton_Right)) 
+		&& ImGui::BeginTooltip(true))
 	{
+		hoverTimer->ffwd(sf::seconds(1));
+
 		if (title != nullptr)
 		{
 			ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), title);
@@ -531,7 +535,7 @@ static bool ToolTip(const char* title, const char* txt, sf::Clock* hoverTimer, b
 	return false;
 }
 
-static inline bool ToolTip(const char* txt, sf::Clock* hoverTimer, bool forSlider = false)
+static inline bool ToolTip(const char* txt, ffwdClock* hoverTimer, bool forSlider = false)
 {
 	return ToolTip(nullptr, txt, hoverTimer, forSlider);
 }
@@ -764,7 +768,7 @@ inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags =
 }
 
 
-static inline int ConfirmModal(const std::string& title, bool* value, bool openNow, const std::string& extraMsg = "")
+static inline int ConfirmModal(const std::string& title, bool* value, bool openNow, const std::string& extraMsg = "", const char* customYes = nullptr, const char* customNo = nullptr)
 {
 
 	if(openNow)
@@ -774,7 +778,7 @@ static inline int ConfirmModal(const std::string& title, bool* value, bool openN
 
 	ImGui::SetNextWindowFocus();
 	ImGui::SetNextWindowSizeConstraints({ 300, 100 }, {450, 500});
-	if (ImGui::BeginPopupModal(title.c_str(), 0, ImGuiWindowFlags_NoScrollbar))
+	if (ImGui::BeginPopupModal(title.c_str(), 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize))
 	{
 
 		if (extraMsg != "")
@@ -784,12 +788,12 @@ static inline int ConfirmModal(const std::string& title, bool* value, bool openN
 		
 		ImGui::Columns(2, 0, false);
 
-		if (LesserButton("No", { -1,ImGui::GetFrameHeight() }))
+		if (LesserButton(customNo ? customNo : "No", { -1,ImGui::GetFrameHeight() }))
 			result = 0;
 
 		ImGui::NextColumn();
 
-		if (ImGui::Button("Yes", { -1,ImGui::GetFrameHeight() }))
+		if (ImGui::Button(customYes ? customYes : "Yes", { -1,ImGui::GetFrameHeight() }))
 			result = 1;
 
 		ImGui::Columns(1);
@@ -872,7 +876,7 @@ struct SwapButtonDef
 	int onFlag = 0;
 };
 
-inline bool SwapButtons(const char* label, const std::vector<SwapButtonDef>& options, int& flag, sf::Clock* hoverTimer, bool useLabel = true)
+inline bool SwapButtons(const char* label, const std::vector<SwapButtonDef>& options, int& flag, ffwdClock* hoverTimer, bool useLabel = true)
 {
 	bool optionChanged = false;
 	int outerTableCols = 1;
