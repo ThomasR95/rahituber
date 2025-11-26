@@ -57,6 +57,26 @@ enum GamePadModel : int {
 	GAMEPAD_MODEL_END
 };
 
+struct GamePadID
+{
+	GamePadID() {}
+	GamePadID(const std::string& _name) : name(_name), alikeIdx(0) {}
+	GamePadID(const std::string& _name, int _alikeIdx) : name(_name), alikeIdx(_alikeIdx) {}
+
+	std::string name = "";
+	int alikeIdx = 0;
+
+	bool empty()
+	{
+		return name == "";
+	}
+
+	bool operator==(const GamePadID& rhs) const
+	{
+		return name == rhs.name && alikeIdx == rhs.alikeIdx;
+	}
+};
+
 class GamePadImpl
 {
 
@@ -74,6 +94,10 @@ public:
 	float getAxisPosition(unsigned int gamepadID, sf::Joystick::Axis axis);
 
 	bool isButtonPressed(unsigned int gamepadID, unsigned int button);
+
+	std::map<int, GamePadID>& enumerateGamePads();
+
+	std::map<int, GamePadID>& getGamePads() { return _gamePadList; }
 
 private:
 
@@ -120,6 +144,7 @@ private:
 
 	}
 
+	std::map<int, GamePadID> _gamePadList;
 
 #ifdef _WIN32
 	void storeRawInputData(RAWINPUT* input);
@@ -152,6 +177,8 @@ private:
 	int reConnectCountdown = 50;
 
 	bool enabled = false;
+
+  
 };
 
 namespace GamePadSingleton
@@ -186,6 +213,16 @@ public:
 	static bool isButtonPressed(unsigned int gamepadID, unsigned int button)
 	{
 		return GetInstance().isButtonPressed(gamepadID, button);
+	}
+
+	static std::map<int, GamePadID>& enumerateGamePads()
+	{
+		return GetInstance().enumerateGamePads();
+	}
+
+	static std::map<int, GamePadID>& getGamePads()
+	{
+		return GetInstance().getGamePads();
 	}
 
 private:

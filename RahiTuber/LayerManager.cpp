@@ -2096,9 +2096,14 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("joypadEffect", layer._joypadEffect);
 			thisLayer->SetAttribute("trackingRotLimitX", layer._trackingRotation.x);
 			thisLayer->SetAttribute("trackingRotLimitY", layer._trackingRotation.y);
+
 			thisLayer->SetAttribute("trackingSelect", layer._trackingSelect);
-			if(layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
-				thisLayer->SetAttribute("trackingControllerID", layer._trackingJoystick);
+			if (layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+			{
+				thisLayer->SetAttribute("trackingControllerName", layer._trackingJoystick.second.name.c_str());
+				thisLayer->SetAttribute("trackingControllerAlikeIdx", layer._trackingJoystick.second.alikeIdx);
+			}
+
 			thisLayer->SetAttribute("trackingScaleMode", layer._trackingScaleMode);
 			thisLayer->SetAttribute("trackingScaleHorizontalX", layer._trackingScaleHorizontal.x);
 			thisLayer->SetAttribute("trackingScaleHorizontalY", layer._trackingScaleHorizontal.y);
@@ -2289,6 +2294,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 		delete _loadingThread;
 		_loadingThread = nullptr;
 	}
+
+	GamePad::enumerateGamePads();
 
 	logToFile(_appConfig, "Loading " + settingsFileName);
 
@@ -2519,7 +2526,23 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("trackingSelect", (int*) & layer._trackingSelect);
 				if (layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
-					thisLayer->QueryAttribute("trackingControllerID", &layer._trackingJoystick);
+				{
+					if (const char* ctrlrName = thisLayer->Attribute("trackingControllerName"))
+					{
+						//if a controller name exists, use that and let the index be set later
+						layer._trackingJoystick.first = -1;
+						layer._trackingJoystick.second.name = ctrlrName;
+						thisLayer->QueryAttribute("trackingControllerAlikeIdx", &layer._trackingJoystick.second.alikeIdx);
+
+					}
+					else
+					{
+						//(old method) take the controller index and hope it's right
+						thisLayer->QueryAttribute("trackingControllerID", &layer._trackingJoystick.first);
+					}
+				}
+				else
+					layer._trackingJoystick = { -1, GamePadID() };
 
 				thisLayer->QueryAttribute("trackingScaleMode", (int*)&layer._trackingScaleMode);
 				thisLayer->QueryAttribute("trackingScaleHorizontalX", &layer._trackingScaleHorizontal.x);
@@ -4562,37 +4585,63 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 
 		if ((_trackingType & TRACKING_CONTROLLER) && _parent->_appConfig->_controllerTrackingEnabled)
 		{
-			if (_trackingJoystick == -1)
+			auto& gamePads = GamePad::getGamePads();
+
+			if(_trackingJoystick.first != -1 && !sf::Joystick::isConnected(_trackingJoystick.first))
+				gamePads = GamePad::enumerateGamePads();
+
+			if (_trackingJoystick.first == -1)
 			{
 				if (_trackingSelect == TRACKINGSELECT_FIRST)
 				{
+					// select the first connected joystick
 					for (int jStick = 0; jStick < sf::Joystick::Count; jStick++)
 					{
 						if (sf::Joystick::isConnected(jStick))
 						{
-							_trackingJoystick = jStick;
+							_trackingJoystick = { jStick, gamePads[jStick]};
 							break;
 						}
 					}
-				}			
+				}
+				else if (_trackingSelect == TRACKINGSELECT_SPECIFIC)
+				{
+					for (int jStick = 0; jStick < sf::Joystick::Count; jStick++)
+					{
+						GamePadID ident = gamePads[jStick];
+						if (sf::Joystick::isConnected(jStick) && ident == _trackingJoystick.second)
+						{
+							_trackingJoystick = { jStick, ident };
+							break;
+						}
+					}
+				}
+				
 			}
 
-			if (_trackingJoystick != -1 && sf::Joystick::isConnected(_trackingJoystick))
+			if (_trackingJoystick.first != -1 && sf::Joystick::isConnected(_trackingJoystick.first))
 			{
+				int joypadID = _trackingJoystick.first;
+
+				if (_trackingJoystick.second.empty())
+				{
+					_trackingJoystick.second = gamePads[joypadID];
+				}
+
 				sf::Vector2f axisPos;
 				switch (_trackingAxis)
 				{
 				case AXIS_XY:
-					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::X);
-					axisPos.y = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::Y);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::X);
+					axisPos.y = 0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::Y);
 					break;
 				case AXIS_UV:
-					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::U);
-					axisPos.y = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::V);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::U);
+					axisPos.y = 0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::V);
 					break;
 				case AXIS_POV:
-					axisPos.x = 0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovX);
-					axisPos.y = -0.01f * GamePad::getAxisPosition(_trackingJoystick, sf::Joystick::Axis::PovY);
+					axisPos.x = 0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::PovX);
+					axisPos.y = -0.01f * GamePad::getAxisPosition(joypadID, sf::Joystick::Axis::PovY);
 					break;
 				}
 
@@ -5694,7 +5743,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								{
 									_trackingSelect = (TrackingControllerSelect)csel;
 									if (_trackingSelect == TRACKINGSELECT_FIRST)
-										_trackingJoystick = -1;
+										_trackingJoystick = { -1, GamePadID() };
 								}
 							}
 							ImGui::EndCombo();
@@ -5703,23 +5752,33 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						if (_trackingSelect == TRACKINGSELECT_SPECIFIC)
 						{
-							if (ImGui::BeginCombo("Controller Index", std::to_string(_trackingJoystick).c_str()))
+							std::stringstream comboname;
+							comboname <<  _trackingJoystick.second.name;
+							if (_trackingJoystick.second.alikeIdx > 0)
+								comboname << " " << _trackingJoystick.second.alikeIdx;
+
+							if (ImGui::BeginCombo("Controller Name", comboname.str().c_str()))
 							{
 								for (int ctrlr = 0; ctrlr < 8; ctrlr++)
 								{
 									if (sf::Joystick::isConnected(ctrlr))
 									{
 										std::stringstream name;
-										name << "[" << ctrlr << "] " << (std::string)sf::Joystick::getIdentification(ctrlr).name;
+										auto ident = GamePad::enumerateGamePads()[ctrlr];
+										name << "[" << ctrlr << "] " << ident.name;
+										if(ident.alikeIdx > 0)
+											name << " " << ident.alikeIdx;
+
 										if (ImGui::Selectable(name.str().c_str()))
 										{
-											_trackingJoystick = (TrackingControllerSelect)ctrlr;
+											_trackingJoystick.first = ctrlr;
+											_trackingJoystick.second = ident;
 										}
 									}
 								}
 								ImGui::EndCombo();
 							}
-							ToolTip("Choose which controller this layer tracks.\nThis is chosen by connection order (by design).\nThe name is just for your reference.", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Choose which controller this layer tracks.\nRahiTuber will attempt to keep track of this controller by name\nbut rearranging them during use may lead to\nunexpected behaviour.", &_parent->_appConfig->_hoverTimer);
 						}
 
 						if (ImGui::BeginCombo("Controller Axis", g_trackingAxisNames[_trackingAxis]))

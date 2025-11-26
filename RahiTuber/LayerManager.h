@@ -18,6 +18,7 @@
 #include "TextureManager.h"
 
 #include "Shaders.h"
+#include "Gamepad.h"
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -25,6 +26,7 @@ namespace fs = std::filesystem;
 #include <thread>
 
 class EffectManager;
+
 
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Normal", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
@@ -376,7 +378,7 @@ public:
 		sf::Vector2f _trackingAmount = { 0.f, 0.f };
 		float _trackingSmooth = 0.2;
 		sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
-		int _trackingJoystick = -1;
+		std::pair<int, GamePadID> _trackingJoystick;
 		float _joypadEffect = 1.0;
 
 		sf::Vector2f _trackingRotation = { 0.0,0.0 };
