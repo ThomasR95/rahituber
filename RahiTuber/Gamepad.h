@@ -20,6 +20,7 @@
 
 #include <map>
 #include <memory>
+#include <list>
 
 struct AppConfig;
 
@@ -55,6 +56,17 @@ enum GamePadModel : int {
 	GAMEPAD_MODEL_VJOY = 48813,
 
 	GAMEPAD_MODEL_END
+};
+
+static const char* g_gamepad_model_names[GAMEPAD_MODEL_END] =
+{
+	"GAMEPAD_MODEL_XB360   ",
+	"GAMEPAD_MODEL_XBONE	 ",
+	"GAMEPAD_MODEL_XBX		 ",
+	"GAMEPAD_MODEL_SWITCH	 ",
+	"GAMEPAD_MODEL_PS4		 ",
+	"GAMEPAD_MODEL_PS5		 ",
+	"GAMEPAD_MODEL_VJOY		 ",
 };
 
 struct GamePadID
@@ -147,7 +159,7 @@ private:
 	std::map<int, GamePadID> _gamePadList;
 
 #ifdef _WIN32
-	void storeRawInputData(RAWINPUT* input);
+	void storeRawInputData(const RAWINPUT& input);
 
 	GamepadAPI inputAPI = GAMEPAD_API_RAWINPUT;
 
@@ -170,6 +182,9 @@ private:
 	AppConfig* appConfig = nullptr;
 
 	HWND windowHandle;
+
+	//std::list<std::thread> updateThreads;
+
 #else
     GamepadAPI inputAPI = GAMEPAD_API_SFML;
 #endif
