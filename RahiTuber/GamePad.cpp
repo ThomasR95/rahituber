@@ -382,8 +382,8 @@ void GamePadImpl::storeRawInputData(const RAWINPUT& input)
 		myState.model = GAMEPAD_MODEL_SWITCH;
 	else if (isVJoy(devInfo.hid))
 		myState.model = GAMEPAD_MODEL_VJOY;
-	else if (isXBX(devInfo.hid))
-		myState.model = GAMEPAD_MODEL_XBX;
+	else if (isXBOX(devInfo.hid))
+		myState.model = GAMEPAD_MODEL_XBOX;
 
 	UINT size;
 	GetRawInputDeviceInfo(input.header.hDevice, RIDI_PREPARSEDDATA, 0, &size);
@@ -421,7 +421,7 @@ void GamePadImpl::storeRawInputData(const RAWINPUT& input)
 			else
 				maxAxis = Max(maxAxis, value);
 
-			if(logValues) snprintf(logbuf, 1024, "%d:%8u, bitsize: %u, logical max (signed): %8d, max %8u, usage: %#010x\n", i, value, valueCaps[i].BitSize, valueCaps[i].LogicalMax, maxAxis, valueCaps[i].Range.UsageMin);
+			if(logValues) snprintf(logbuf + strlen(logbuf), 1024, "%d:%8u, bitsize: %u, logical max (signed): %8d, max %8u, usage: %#010x\n", i, value, valueCaps[i].BitSize, valueCaps[i].LogicalMax, maxAxis, valueCaps[i].Range.UsageMin);
 			
 			myState.axes[valueCaps[i].Range.UsageMin] = ((double)value*2 / maxAxis) - 1;
 		}
@@ -430,7 +430,7 @@ void GamePadImpl::storeRawInputData(const RAWINPUT& input)
 		for (auto& b : myState.buttons)
 			b.second = false;
 
-		if (logValues) snprintf(logbuf, 1024, "Buttons: \n");
+		if (logValues) snprintf(logbuf + strlen(logbuf), 1024, "Buttons: \n");
 
 		HIDP_BUTTON_CAPS* buttonCaps = (HIDP_BUTTON_CAPS*)malloc(caps.NumberInputButtonCaps * sizeof(HIDP_BUTTON_CAPS));
 		HidP_GetButtonCaps(HidP_Input, buttonCaps, &caps.NumberInputButtonCaps, data);
@@ -441,7 +441,7 @@ void GamePadImpl::storeRawInputData(const RAWINPUT& input)
 			HidP_GetUsages(HidP_Input, buttonCaps[i].UsagePage, 0, usages, &usageCount, data, (PCHAR)input.data.hid.bRawData, input.data.hid.dwSizeHid);
 			for (ULONG usageIndex = 0; usageIndex < usageCount; ++usageIndex) {
 				
-				if (logValues) snprintf(logbuf, 1024, "%d : %d \n", i, usages[usageIndex]);
+				if (logValues) snprintf(logbuf + strlen(logbuf), 1024, "%d : %d \n", i, usages[usageIndex]);
 				
 				myState.buttons[usages[usageIndex]] = true;
 			}

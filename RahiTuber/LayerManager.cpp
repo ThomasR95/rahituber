@@ -5764,7 +5764,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									if (sf::Joystick::isConnected(ctrlr))
 									{
 										std::stringstream name;
-										auto ident = GamePad::enumerateGamePads()[ctrlr];
+										auto ident = GamePad::getGamePads()[ctrlr];
 										name << "[" << ctrlr << "] " << ident.name;
 										if(ident.alikeIdx > 0)
 											name << " " << ident.alikeIdx;

@@ -47,22 +47,18 @@ enum GamepadAPI {
 };
 
 enum GamePadModel : int {
-	GAMEPAD_MODEL_XB360 = 1281,
-	GAMEPAD_MODEL_XBONE = 767,
-	GAMEPAD_MODEL_XBX,
-	GAMEPAD_MODEL_SWITCH = 392,
+	GAMEPAD_MODEL_XBOX,
+	GAMEPAD_MODEL_SWITCH,
 	GAMEPAD_MODEL_PS4,
 	GAMEPAD_MODEL_PS5,
-	GAMEPAD_MODEL_VJOY = 48813,
+	GAMEPAD_MODEL_VJOY,
 
 	GAMEPAD_MODEL_END
 };
 
 static const char* g_gamepad_model_names[GAMEPAD_MODEL_END] =
 {
-	"GAMEPAD_MODEL_XB360   ",
-	"GAMEPAD_MODEL_XBONE	 ",
-	"GAMEPAD_MODEL_XBX		 ",
+	"GAMEPAD_MODEL_XBOX		 ",
 	"GAMEPAD_MODEL_SWITCH	 ",
 	"GAMEPAD_MODEL_PS4		 ",
 	"GAMEPAD_MODEL_PS5		 ",
@@ -147,10 +143,10 @@ private:
 		return info.dwVendorId == vjoyVendorID && (info.dwProductId == vjoyProductID);
 	}
 
-	bool isXBX(RID_DEVICE_INFO_HID info)
+	bool isXBOX(RID_DEVICE_INFO_HID info)
 	{
-		const DWORD xbxVendorID = 767;
-		const DWORD xbxProductID = 1118;
+		const DWORD xbxVendorID = 1118;
+		const DWORD xbxProductID = 767;
 
 		return info.dwVendorId == xbxVendorID && (info.dwProductId == xbxProductID);
 
@@ -168,7 +164,7 @@ private:
 	struct RawState {
 		HANDLE hDevice;
 		int productID = 0;
-		GamePadModel model = GAMEPAD_MODEL_XB360;
+		GamePadModel model = GAMEPAD_MODEL_XBOX;
 		std::map<int, ULONG> maxAxes;
 		std::map<int, float> axes;
 		std::map<int, bool> buttons;

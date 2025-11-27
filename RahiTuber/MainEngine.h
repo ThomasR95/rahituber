@@ -1893,7 +1893,7 @@ public:
 
 	void handleEvents()
 	{
-		GamePad::update();
+		//GamePad::update();
 
 
 		sf::Event menuEvt;
@@ -2880,6 +2880,15 @@ If you accept, please click the Accept button.
 
 	void MainLoop()
 	{
+		bool gamePadThreadActive = true;
+		auto gamepadUpdateThread = std::thread([&]() {
+			while (gamePadThreadActive)
+			{
+				GamePad::update();
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			}
+			});
+
 		while (appConfig->_window.isOpen())
 		{
 			doAudioAnalysis();
@@ -2898,6 +2907,9 @@ If you accept, please click the Accept button.
 				appConfig->_pendingNameChange = false;
 			}
 		}
+
+		gamePadThreadActive = false;
+		gamepadUpdateThread.join();
 	}
 
 	void Cleanup()
