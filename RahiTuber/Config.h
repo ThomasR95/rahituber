@@ -179,6 +179,7 @@ struct AudioConfig
 	PaStreamParameters _params = {};
 	PaDeviceIndex _devIdx = -1;
 	std::string _lastDeviceName = "";
+	bool _missingDeviceShown = false;
 	int _nDevices = 0;
 	std::vector<std::pair<std::string, int>> _deviceList;
 	paTestData* _streamData = nullptr;
@@ -192,6 +193,7 @@ struct AudioConfig
 
 	sf::Clock _quietTimer;
 	sf::Clock _recordTimer;
+	sf::Clock _inputCheckTimer;
 	bool _muted = false;
 	float _muteWaitSeconds = 5;
 
@@ -301,6 +303,7 @@ struct UIConfig
 	bool _windowSettingsChanged = false;
 
 	bool _audioExpanded = true;
+	bool _audioDevListOpen = false;
 
 	std::string _theme = "Default";
 	std::string _fontName = "res/monof55.ttf";

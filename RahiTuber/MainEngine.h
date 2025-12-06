@@ -370,7 +370,6 @@ public:
 				logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
 				appConfig->_pendingNameChange = false;
 				appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
-				
 			}
 			else
 			{
@@ -949,12 +948,15 @@ public:
 		}
 
 		ImGui::PushID("AudImpCombo");
-		ImGui::PushItemWidth(-1);
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeightWithSpacing());
 		std::string deviceName = "None";
 		if (audioConfig->_deviceList.size() > audioConfig->_devIdx)
 			deviceName = audioConfig->_deviceList[audioConfig->_devIdx].first;
+		bool devListFirstOpen = false;
 		if (ImGui::BeginCombo("", deviceName.c_str()))
 		{
+			devListFirstOpen = uiConfig->_audioDevListOpen == false;
+			uiConfig->_audioDevListOpen = true;
 			for (auto& dev : audioConfig->_deviceList)
 			{
 				bool active = audioConfig->_devIdx == dev.second;
@@ -968,9 +970,19 @@ public:
 			}
 			ImGui::EndCombo();
 		}
+		else
+			uiConfig->_audioDevListOpen = false;
+
 		ImGui::PopID();
 		ImGui::PopItemWidth();
 		ToolTip("Choose an audio input device.", &appConfig->_hoverTimer);
+
+		ImGui::SameLine();
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+		if (ImGui::ImageButton("refreshInputs", *appConfig->_textureMan.GetIcon(TextureManager::ICON_RELOAD), { ImGui::GetFrameHeightWithSpacing(), ImGui::GetFrameHeightWithSpacing() }, sf::Color::Transparent, toSFColor(style.Colors[ImGuiCol_Text])) || devListFirstOpen)
+			ListAudioDevices(true);
+		ImGui::PopStyleVar();
+		ToolTip("Refresh input device list", &appConfig->_hoverTimer);
 
 		if (uiConfig->_audioExpanded)
 		{
@@ -1016,16 +1028,16 @@ public:
 		}
 
 		bool useDefaultDevice = audioConfig->_devIdx == -1;
-		if (useDefaultDevice)
+		if (useDefaultDevice && !audioConfig->_missingDeviceShown)
 		{
 			switch (ConfirmModal("Audio Device Not Found", &useDefaultDevice, useDefaultDevice,
-				"The Audio Input device saved in your settings is not available.\nSwitch to the system default input device?", "Use Default", "Exit RahiTuber"))
+				"The Audio Input device saved in your settings is not available.\nSwitch to the system default input device?", "Use Default", "Ignore"))
 			{
 			case -1:
 				break;
 			case 0:
 			{
-				appConfig->_window.close();
+				audioConfig->_missingDeviceShown = true;
 				break;
 			}
 			case 1:
@@ -1044,6 +1056,7 @@ public:
 					if (audioConfig->_devIdx == -1)
 						audioConfig->_devIdx = 0;
 				}
+				audioConfig->_missingDeviceShown = true;
 				break;
 			}
 			}
@@ -1094,8 +1107,15 @@ public:
 		Pa_CloseStream(audioConfig->_audioStr);
 	}
 
-	void ListAudioDevices()
+	void ListAudioDevices(bool checkMissingOrChanged = false)
 	{
+		if (checkMissingOrChanged)
+		{
+			Pa_Terminate();
+			Pa_Initialize();
+		}
+
+		int oldDevCount = audioConfig->_deviceList.size();
 		audioConfig->_nDevices = Pa_GetDeviceCount();
 		audioConfig->_deviceList.clear();
 		for (int dI = 0; dI < audioConfig->_nDevices; dI++)
@@ -1103,6 +1123,25 @@ public:
 			auto info = Pa_GetDeviceInfo(dI);
 			if (info->hostApi == 0 && info->maxInputChannels > 0)
 				audioConfig->_deviceList.push_back({ info->name, dI });
+		}
+		int newCount = audioConfig->_deviceList.size();
+
+		if (checkMissingOrChanged)
+		{
+			if (newCount != oldDevCount) logFmtToFile(appConfig, "Listed %d input devices (previous: %d)", newCount, oldDevCount);
+
+			auto dev = audioConfig->GetAudioDevice(audioConfig->_lastDeviceName);
+			if (dev != nullptr)
+			{
+				SwitchAudioDevice(*dev);
+				if(newCount != oldDevCount) logToFile(appConfig, "Audio Devices changed, preserved choice: " + dev->first);
+			}
+			else
+			{
+				audioConfig->_devIdx = -1;
+				if (newCount != oldDevCount) logToFile(appConfig, "Audio Devices changed, lost connection to " + audioConfig->_lastDeviceName);
+			}
+
 		}
 	}
 
@@ -1895,7 +1934,6 @@ public:
 	{
 		//GamePad::update();
 
-
 		sf::Event menuEvt;
 		if (appConfig->_menuWindow.isOpen())
 		{
@@ -2126,6 +2164,10 @@ public:
 					appConfig->_scrY = windowPos.y;
 					appConfig->_window.setPosition(windowPos);
 				}
+			}
+			else if (evt.type == evt.JoystickConnected || evt.type == evt.JoystickDisconnected)
+			{
+				GamePad::enumerateGamePads();
 			}
 
 			if (uiConfig->_menuShowing && appConfig->_menuWindow.isOpen() == false)
