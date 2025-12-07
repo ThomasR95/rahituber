@@ -979,7 +979,7 @@ public:
 
 		ImGui::SameLine();
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-		if (ImGui::ImageButton("refreshInputs", *appConfig->_textureMan.GetIcon(TextureManager::ICON_RELOAD), { ImGui::GetFrameHeightWithSpacing(), ImGui::GetFrameHeightWithSpacing() }, sf::Color::Transparent, toSFColor(style.Colors[ImGuiCol_Text])) || devListFirstOpen)
+		if (ImGui::ImageButton("refreshInputs", *appConfig->_textureMan.GetIcon(TextureManager::ICON_REFRESH), { ImGui::GetFrameHeightWithSpacing(), ImGui::GetFrameHeightWithSpacing() }, sf::Color::Transparent, toSFColor(style.Colors[ImGuiCol_Text])) || devListFirstOpen)
 			ListAudioDevices(true);
 		ImGui::PopStyleVar();
 		ToolTip("Refresh input device list", &appConfig->_hoverTimer);
@@ -1378,6 +1378,8 @@ public:
 
 		appConfig->_menuPopped = appConfig->_menuPopPending;
 
+		float lastScaleFactor = appConfig->scalingFactor;
+
 		if (appConfig->_menuPopped)
 		{
 			ImGui::SFML::SetCurrentWindow(appConfig->_menuWindow);
@@ -1400,7 +1402,7 @@ public:
 
 		auto& style = ImGui::GetStyle();
 
-		if(uiConfig->_theme != uiConfig->_lastTheme)
+		if(uiConfig->_theme != uiConfig->_lastTheme || appConfig->scalingFactor != lastScaleFactor)
 			RefreshStyle(style, io, backdropCol);
 
 		io.FontGlobalScale = appConfig->scalingFactor * 0.5;

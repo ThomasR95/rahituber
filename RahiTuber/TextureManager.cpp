@@ -53,6 +53,8 @@ void TextureManager::LoadIcons(const std::string& appLocation)
 		LoadIcon(appLocation + "res/pin.png", _icons[ICON_PIN]);
 	if (_icons.count(ICON_PIN_OFF) == 0)
 		LoadIcon(appLocation + "res/pin_off.png", _icons[ICON_PIN_OFF]);
+	if (_icons.count(ICON_REFRESH) == 0)
+		LoadIcon(appLocation + "res/refresh.png", _icons[ICON_REFRESH]);
 
 	for (auto& ic : _icons)
 		ic.second->setSmooth(true);

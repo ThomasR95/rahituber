@@ -54,6 +54,7 @@ public:
 		ICON_EYE_CLOSED,
 		ICON_PIN,
 		ICON_PIN_OFF,
+		ICON_REFRESH,
 	};
 
 	void LoadIcons(const std::string& appLocation);
