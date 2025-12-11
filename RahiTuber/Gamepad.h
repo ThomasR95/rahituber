@@ -108,53 +108,53 @@ public:
 	std::map<int, GamePadID>& getGamePads() { return _gamePadList; }
 
 private:
-
-	bool isDualshock4(RID_DEVICE_INFO_HID info)
-	{
-		const DWORD sonyVendorID = 0x054C;
-		const DWORD ds4Gen1ProductID = 0x05C4;
-		const DWORD ds4Gen2ProductID = 0x09CC;
-
-		return info.dwVendorId == sonyVendorID && (info.dwProductId == ds4Gen1ProductID || info.dwProductId == ds4Gen2ProductID);
-	}
-
-	bool isDualsense(RID_DEVICE_INFO_HID info)
-	{
-		const DWORD sonyVendorID = 0x054C;
-		const DWORD dualsenseProductID = 0x0CE6;
-		const DWORD dualsenseEdgeProductID = 0x0DF2;
-
-		return info.dwVendorId == sonyVendorID && (info.dwProductId == dualsenseProductID || info.dwProductId == dualsenseEdgeProductID);
-	}
-
-	bool isSwitch(RID_DEVICE_INFO_HID info)
-	{
-		const DWORD nintendoVendorID = 3695;
-		const DWORD switchProProductID = 392;
-
-		return info.dwVendorId == nintendoVendorID && (info.dwProductId == switchProProductID);
-	}
-
-	bool isVJoy(RID_DEVICE_INFO_HID info)
-	{
-		const DWORD vjoyVendorID = 4660;
-		const DWORD vjoyProductID = 48813;
-
-		return info.dwVendorId == vjoyVendorID && (info.dwProductId == vjoyProductID);
-	}
-
-	bool isXBOX(RID_DEVICE_INFO_HID info)
-	{
-		const DWORD xbxVendorID = 1118;
-		const DWORD xbxProductID = 767;
-
-		return info.dwVendorId == xbxVendorID && (info.dwProductId == xbxProductID);
-
-	}
-
 	std::map<int, GamePadID> _gamePadList;
 
 #ifdef _WIN32
+
+    bool isDualshock4(RID_DEVICE_INFO_HID info)
+    {
+        const DWORD sonyVendorID = 0x054C;
+        const DWORD ds4Gen1ProductID = 0x05C4;
+        const DWORD ds4Gen2ProductID = 0x09CC;
+
+        return info.dwVendorId == sonyVendorID && (info.dwProductId == ds4Gen1ProductID || info.dwProductId == ds4Gen2ProductID);
+    }
+
+    bool isDualsense(RID_DEVICE_INFO_HID info)
+    {
+        const DWORD sonyVendorID = 0x054C;
+        const DWORD dualsenseProductID = 0x0CE6;
+        const DWORD dualsenseEdgeProductID = 0x0DF2;
+
+        return info.dwVendorId == sonyVendorID && (info.dwProductId == dualsenseProductID || info.dwProductId == dualsenseEdgeProductID);
+    }
+
+    bool isSwitch(RID_DEVICE_INFO_HID info)
+    {
+        const DWORD nintendoVendorID = 3695;
+        const DWORD switchProProductID = 392;
+
+        return info.dwVendorId == nintendoVendorID && (info.dwProductId == switchProProductID);
+    }
+
+    bool isVJoy(RID_DEVICE_INFO_HID info)
+    {
+        const DWORD vjoyVendorID = 4660;
+        const DWORD vjoyProductID = 48813;
+
+        return info.dwVendorId == vjoyVendorID && (info.dwProductId == vjoyProductID);
+    }
+
+    bool isXBOX(RID_DEVICE_INFO_HID info)
+    {
+        const DWORD xbxVendorID = 1118;
+        const DWORD xbxProductID = 767;
+
+        return info.dwVendorId == xbxVendorID && (info.dwProductId == xbxProductID);
+
+    }
+
 	void storeRawInputData(const RAWINPUT& input);
 
 	GamepadAPI inputAPI = GAMEPAD_API_RAWINPUT;
@@ -175,8 +175,6 @@ private:
 
 	bool initialized = false;
 
-	AppConfig* appConfig = nullptr;
-
 	HWND windowHandle;
 
 	//std::list<std::thread> updateThreads;
@@ -184,6 +182,8 @@ private:
 #else
     GamepadAPI inputAPI = GAMEPAD_API_SFML;
 #endif
+
+    AppConfig* appConfig = nullptr;
 
 	int reConnectCountdown = 50;
 

@@ -475,6 +475,8 @@ public:
 
 	void DrawGUI(ImGuiStyle& style, float maxHeight);
 
+	void ResetMenuBarFlags();
+
 	void DrawLoadingMessage();
 
 	void DrawCanvasPresetGUI();

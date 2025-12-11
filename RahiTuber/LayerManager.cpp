@@ -662,6 +662,8 @@ void LayerManager::DoMenuBarLogic()
 			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
 			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
 
+			_newXMLOpen = false;
+
 			UpdateWindowTitle();
 		}
 	}ImGui::PopID();
@@ -884,6 +886,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		float frameW = ImGui::GetWindowWidth();
 
+		ResetMenuBarFlags();
+
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
 		if (_uiConfig->_layersUIType == _uiConfig->LayersUI_Old)
 			DrawOldLayerSetUI();
@@ -1072,6 +1076,23 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 		ImGui::EndTooltip();
 	}
 
+}
+
+void LayerManager::ResetMenuBarFlags()
+{
+	_loadXMLOpen = false;
+	_saveXMLOpen = false;
+	_saveAsXMLOpen = false;
+	_newXMLOpen = false;
+	_reloadXMLOpen = false;
+	_makePortableOpen = false;
+	_saveLayersPortable = false;
+	_copyImagesPortable = false;
+	_newLayerOpen = false;
+	_newFolderOpen = false;
+	_clearLayersOpen = false;
+	_editStatesOpen = false;
+	_clearStatesOpen = false;
 }
 
 void LayerManager::DrawLoadingMessage()

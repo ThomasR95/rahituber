@@ -111,7 +111,7 @@ void GamePadImpl::update()
 
 		return;
 	}
-#endif;
+#endif
 
 	sf::Joystick::update();
 }
