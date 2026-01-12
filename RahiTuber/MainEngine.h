@@ -307,6 +307,10 @@ public:
 		settings.majorVersion = 1;
 		settings.minorVersion = 1;
 		settings.attributeFlags = sf::ContextSettings::Core;
+		settings.antialiasingLevel = 0;
+
+		if (appConfig->_gpuCompatibility)
+			settings.attributeFlags = sf::ContextSettings::Default;
 
 		if (appConfig->_isFullScreen)
 		{
@@ -446,6 +450,38 @@ public:
 
 		XCloseDisplay(display);
 #endif
+
+		const char* gpuVendor = (const char*)glGetString(GL_VENDOR);
+		if (gpuVendor)
+			logFmtToFile(appConfig, "GPU Vendor: %s", gpuVendor);
+		const char* glRenderer = (const char*)glGetString(GL_RENDERER);
+		if (glRenderer)
+			logFmtToFile(appConfig, "GL_RENDERER: %s", glRenderer);
+		const char* glVersion = (const char*)glGetString(GL_VERSION);
+		if (glVersion)
+			logFmtToFile(appConfig, "GL_VERSION: %s", glVersion);
+
+		bool useCompatibility = false;
+
+		if (glRenderer && appConfig->_gpuCompatibility == false)
+		{
+			std::string gpuString = glRenderer;
+			if (gpuString.find("Radeon") != std::string::npos)
+				useCompatibility = true;
+		}
+		else if(glVersion && !useCompatibility && appConfig->_gpuCompatibility == false)
+		{
+			std::string glVerString = glVersion;
+			if (glVerString.find("Compatibility") != std::string::npos)
+				useCompatibility = true;
+		}
+		
+		if (useCompatibility)
+		{
+			appConfig->_gpuCompatibility = true;
+			logToFile(appConfig, "Switching to 'Compatibility' context settings");
+			initWindow(true);
+		}
 
 		if (uiConfig->_ico.getPixelsPtr())
 		{

@@ -139,6 +139,8 @@ struct AppConfig
 
 	int _gamepadAPI = 0;
 	int _gamepadModel = 0;
+
+	bool _gpuCompatibility = false;
 };
 
 typedef struct

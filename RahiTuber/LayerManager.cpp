@@ -701,12 +701,12 @@ void LayerManager::DoMenuBarLogic()
 	{
 		ImGui::OpenPopup("Make Portable");
 		_makePortableOpen = false;
+		_saveLayersPortable = false;
+		_copyImagesPortable = false;
 	}
 
 	if (ImGui::BeginPopupModal("Make Portable"))
 	{
-		_saveLayersPortable = false;
-		_copyImagesPortable = false;
 
 		ImGui::SetWindowSize({ 400 * _appConfig->scalingFactor, -1.f });
 		ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of RahiTuber.\n\n\
@@ -1086,8 +1086,6 @@ void LayerManager::ResetMenuBarFlags()
 	_newXMLOpen = false;
 	_reloadXMLOpen = false;
 	_makePortableOpen = false;
-	_saveLayersPortable = false;
-	_copyImagesPortable = false;
 	_newLayerOpen = false;
 	_newFolderOpen = false;
 	_clearLayersOpen = false;
