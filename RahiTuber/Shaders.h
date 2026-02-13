@@ -135,12 +135,18 @@ void main()
     if(pixel.a < alphaClip)
         pixel = vec4(0);
 
+    vec4 inColor = gl_Color;
+
     if(unmultiplyAlpha)
     {
        pixel.xyz = pixel.xyz / pixel.a;
     }
+    else
+    {
+        inColor.xyz = inColor.xyz * inColor.w;
+    }
 
-    pixel = pixel * gl_Color;
+    pixel = pixel * inColor;
 
     if(invert)
     {   
