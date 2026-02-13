@@ -699,16 +699,19 @@ void LayerManager::DoMenuBarLogic()
 
 	if (_makePortableOpen)
 	{
-		ImGui::OpenPopup("Make Portable");
-		_makePortableOpen = false;
-		_saveLayersPortable = false;
-		_copyImagesPortable = false;
+		ImGui::OpenPopup("Model Options");
+		//_makePortableOpen = false;
+		//_saveLayersPortable = false;
+		//_copyImagesPortable = false;
 	}
 
-	if (ImGui::BeginPopupModal("Make Portable"))
+	if (ImGui::BeginPopupModal("Model Options"))
 	{
 
 		ImGui::SetWindowSize({ 400 * _appConfig->scalingFactor, -1.f });
+
+		ImGui::SeparatorText("Make Portable");
+
 		ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of RahiTuber.\n\n\
 This works best when all your sprite images are located in a subfolder of RahiTuber's directory.\n\nCopy them there now?");
 
@@ -737,6 +740,20 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		}
 		ToolTip("Cancels the Make Portable process and leaves your files unchanged.", &_appConfig->_hoverTimer);
 
+		ImGui::SeparatorText("Optimised Portable");
+
+		ImGui::TextWrapped("This function creates a portable copy of your sprites and layer set, and automatically crops the transparency away.\
+			\nPlease note that it may affect physics settings on some layers.");
+
+		ImGui::BeginDisabled(true);
+		if (ImGui::Button("Optimise (coming soon!)", { -1, ImGui::GetFrameHeight() }))
+		{
+			_saveAsXMLOpen = true;
+			_saveLayersPortable = true;
+			_copyImagesPortable = true;
+			_optimisePortable = true;
+		}
+		ImGui::EndDisabled();
 
 		ImGui::EndPopup();
 	}
@@ -762,7 +779,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		auto oldLSName = _layerSetName;
 		_layerSetName = xmlPath.filename().replace_extension("").string();
 
-		if (SaveLayers(xmlPath.string(), _saveLayersPortable, _copyImagesPortable))
+		if (SaveLayers(xmlPath.string(), _saveLayersPortable, _copyImagesPortable, _optimisePortable))
 		{
 			std::error_code ec;
 			_loadedXMLExists = fs::exists(xmlPath, ec);
@@ -781,6 +798,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 
 		_saveLayersPortable = false;
 		_copyImagesPortable = false;
+		_optimisePortable = false;
 	}
 
 	//////////////////////////////// RELOAD ///////////////////////////////////
@@ -1254,8 +1272,8 @@ void LayerManager::DrawMenusLayerSetUI()
 			_saveAsXMLOpen = ImGui::Selectable("Save As");
 			ToolTip("Save the current layer set with a new name.", &_appConfig->_hoverTimer);
 
-			_makePortableOpen = ImGui::Selectable("Make Portable");
-			ToolTip("Save a version of this layer set with\nfile paths relative to RahiTuber", &_appConfig->_hoverTimer);
+			_makePortableOpen = ImGui::Selectable("Model Options");
+			ToolTip("Options for saving and optimising your model", &_appConfig->_hoverTimer);
 
 			_reloadXMLOpen = ImGui::Selectable("Reload");
 			ToolTip("Reload the specified layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
@@ -1887,7 +1905,7 @@ void LayerManager::MakePortablePath(std::string& path)
 	std::replace(path.begin(), path.end(), '\\', '/');
 }
 
-bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePortable, bool copyImages)
+bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePortable, bool copyImages, bool optimise)
 {
 	if (_loadingFinished == false)
 	{
@@ -1944,7 +1962,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		std::error_code cec;
 		fs::create_directory(targetFolder, cec);
 
-		fs::copy_options copyOpts = fs::copy_options::update_existing;
+		fs::copy_options copyOpts = fs::copy_options::overwrite_existing;
 
 		for (auto& layer : _layers)
 		{
@@ -1953,6 +1971,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			CopyFileAndUpdatePath(layer._blinkSpritePath, targetFolder, copyOpts);
 			CopyFileAndUpdatePath(layer._talkBlinkSpritePath, targetFolder, copyOpts);
 			CopyFileAndUpdatePath(layer._screamSpritePath, targetFolder, copyOpts);
+
+			if (optimise)
+			{
+				logToFile(_appConfig, "Optimising sprites...");
+				layer.OptimiseSprites();
+			}
 		}
 	}
 
@@ -2132,6 +2156,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("trackingScaleClampX", layer._trackingScaleClamp.x);
 			thisLayer->SetAttribute("trackingScaleClampY", layer._trackingScaleClamp.y);
 			thisLayer->SetAttribute("trackingScaleAbsolute", layer._trackingScaleAbsolute);
+
+			thisLayer->SetAttribute("motionTimerID", layer.motionTimerID.c_str());
+			thisLayer->SetAttribute("bounceTimerID", layer.bounceTimerID.c_str());
+			thisLayer->SetAttribute("blinkSyncID", layer.blinkSyncID.c_str());
 
 			thisLayer->SetAttribute("pinLoaded", layer._pinLoaded);
 
@@ -2610,6 +2638,17 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					layer._passRotationToChildLayers = true;
 
 				thisLayer->QueryAttribute("rotateChildren", &layer._passRotationToChildLayers);
+
+				const char* motionTimerID = thisLayer->Attribute("motionTimerID");
+				if (motionTimerID)
+					layer.motionTimerID = motionTimerID;
+				const char* bounceTimerID = thisLayer->Attribute("bounceTimerID");
+				if (bounceTimerID)
+					layer.bounceTimerID = bounceTimerID;
+				const char* blinkSyncID = thisLayer->Attribute("blinkSyncID");
+				if (blinkSyncID)
+					layer.blinkSyncID = blinkSyncID;
+
 
 				thisLayer->QueryBoolAttribute("pinLoaded", &layer._pinLoaded);
 
@@ -4016,6 +4055,10 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 		if (_isBouncing)
 		{
 			float motionTime = _bounceTimer.getElapsedTime().asSeconds();
+			if (bounceTimerID != "")
+			{
+				motionTime = _parent->GetLayer(bounceTimerID)->_bounceTimer.getElapsedTime().asSeconds();
+			}
 			int bounces = floor(motionTime / _bounceFrequency);
 
 			// if can stop bouncing but we're still finishing a bounce, keep going
@@ -4061,6 +4104,10 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = true;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			if (motionTimerID != "")
+			{
+				motionTime = _parent->GetLayer(motionTimerID)->_motionTimer.getElapsedTime().asSeconds();
+			}
 
 			float coolDownTime = _breathFrequency / 5;
 
@@ -4094,6 +4141,11 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = false;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
+			if (motionTimerID != "")
+			{
+				motionTime = _parent->GetLayer(motionTimerID)->_motionTimer.getElapsedTime().asSeconds();
+			}
+
 			float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
 
 			_breathAmount.x = std::max(0.0f, _breathAmount.x * coolDownFactor);
@@ -4503,7 +4555,11 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
-	if (canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay)
+	bool shouldBlink = canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay;
+
+	if (blinkSyncID != "")
+		_isBlinking = _parent->GetLayer(blinkSyncID)->_isBlinking;
+	else if (shouldBlink)
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
@@ -5225,6 +5281,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::Checkbox("##Scream", &_scream);
 				ImGui::SetCursorPos(oldCursorPos);
 
+				/////////////////////////////////////////////////// BLINKING ////////////////////////////////////////////////////////////////////////////////////////
+
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowOverlap))
 				{
@@ -5233,6 +5291,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
 					ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+
+					ImGui::BeginDisabled(blinkSyncID != "");
+
 					AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
 					FloatSliderDrag("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer, true);
@@ -5243,7 +5304,56 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					FloatSliderDrag("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer, true);
 
+					ImGui::EndDisabled();
+					
 					BetterUnindent("blinking" + _id);
+
+					LayerInfo* oldSync = _parent->GetLayer(blinkSyncID);
+					std::string syncName = oldSync ? oldSync->_name : "Off";
+					if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
+					{
+						float comboW = ImGui::GetContentRegionAvail().x;
+
+						ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
+						int btnIdx = 0;
+
+						if (ImGui::Selectable("Off", (blinkSyncID == "")))
+							blinkSyncID = "";
+						for (auto& layer : _parent->GetLayers())
+						{
+							if (layer._id != _id && layer.blinkSyncID != _id && layer._isFolder == false)
+							{
+								bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+								if (customColor)
+									ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+								ImGui::PushID(btnIdx++);
+
+								bool clicked = false;
+								if (blinkSyncID == layer._id)
+									clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+								else
+									clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+								ImGui::PopID();
+
+								if (customColor)
+									ImGui::PopStyleColor();
+
+								if (clicked)
+								{
+									blinkSyncID = layer._id;
+									ImGui::CloseCurrentPopup();
+								}
+							}
+						}
+						ImGui::PopStyleVar(2);
+						ImGui::EndCombo();
+					}
+					ToolTip("Sync the blink timer of this layer to\nany other layer", &_parent->_appConfig->_hoverTimer);
+
 				}
 				else
 					ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
@@ -5257,6 +5367,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				if (!hasParent)
 					ImGui::SetNextItemOpen(false);
+
+				////////////////////////////////////////////////// MOTION INHERIT /////////////////////////////////////////////////////////////////////////
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowOverlap) && hasParent)
@@ -5449,6 +5561,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				}
 				ImGui::SetCursorPos(oldCursorPos);
 
+				/////////////////////////////////////////////////// INDIVIDUAL MOTION ////////////////////////////////////////////////////////////////////////
+
 				bool indivEnabled = !hasParent || _allowIndividualMotion;
 
 				ImVec2 headerSize = {};
@@ -5533,6 +5647,53 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 										ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
 									}
 								}
+
+								LayerInfo* oldSync = _parent->GetLayer(bounceTimerID);
+								std::string syncName = oldSync ? oldSync->_name : "Off";
+								if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
+								{
+									float comboW = ImGui::GetContentRegionAvail().x;
+
+									ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+									ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
+									int btnIdx = 0;
+
+									if (ImGui::Selectable("Off", (bounceTimerID == "")))
+										bounceTimerID = "";
+									for (auto& layer : _parent->GetLayers())
+									{
+										if (layer._id != _id && layer.bounceTimerID != _id && layer._isFolder == false)
+										{
+											bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+											if (customColor)
+												ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+											ImGui::PushID(btnIdx++);
+
+											bool clicked = false;
+											if (bounceTimerID == layer._id)
+												clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+											else
+												clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+											ImGui::PopID();
+
+											if (customColor)
+												ImGui::PopStyleColor();
+
+											if (clicked)
+											{
+												bounceTimerID = layer._id;
+												ImGui::CloseCurrentPopup();
+											}
+										}
+									}
+									ImGui::PopStyleVar(2);
+									ImGui::EndCombo();
+								}
+								ToolTip("Sync the talk motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
+
 								ImGui::EndTabItem();
 							}
 							ToolTip("Move the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
@@ -5596,6 +5757,53 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 										ImGui::ColorEdit4("Tint##BreathTint", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 									}
 								}
+
+								LayerInfo* oldSync = _parent->GetLayer(motionTimerID);
+								std::string syncName = oldSync ? oldSync->_name : "Off";
+								if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
+								{
+									float comboW = ImGui::GetContentRegionAvail().x;
+
+									ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+									ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
+									int btnIdx = 0;
+
+									if (ImGui::Selectable("Off", (motionTimerID == "")))
+										motionTimerID = "";
+									for (auto& layer : _parent->GetLayers())
+									{
+										if (layer._id != _id && layer.motionTimerID != _id && layer._isFolder == false)
+										{
+											bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+											if (customColor)
+												ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+											ImGui::PushID(btnIdx++);
+
+											bool clicked = false;
+											if (motionTimerID == layer._id)
+												clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+											else
+												clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+											ImGui::PopID();
+
+											if (customColor)
+												ImGui::PopStyleColor();
+
+											if (clicked)
+											{
+												motionTimerID = layer._id;
+												ImGui::CloseCurrentPopup();
+											}
+										}
+									}
+									ImGui::PopStyleVar(2);
+									ImGui::EndCombo();
+								}
+								ToolTip("Sync the idle motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
+
 								ImGui::EndTabItem();
 							}
 
@@ -6500,4 +6708,135 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 		_idleSprite->AddSync(_screamSprite.get());
 		_idleSprite->Restart();
 	}
+}
+
+void LayerManager::LayerInfo::OptimiseSprites()
+{
+	_idleSprite;
+	_talkSprite;
+	_blinkSprite;
+	_talkBlinkSprite;
+	_screamSprite;
+
+	if (_idleSprite->FrameCount() == 1)
+	{
+		auto org = _pivot;
+		auto orgPx = org * sf::Vector2<double>(_idleSprite->getTexture()->getSize());
+
+		sf::IntRect cropLocation = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
+		sf::Vector2<double> offset((double)cropLocation.left, (double)cropLocation.top);
+		orgPx -= offset;
+		_idleSprite->SetAttributes(1, 1, 1, 1);
+
+		auto orgFrac = orgPx / sf::Vector2<double>(cropLocation.getSize());
+		_pivot = orgFrac;
+	}
+
+	if (_talkSprite->FrameCount() == 1)
+	{
+		sf::IntRect cropLocation = CropTextureTransparency(_talkSprite->getTexture(), _talkSpritePath);
+		_talkSprite->SetAttributes(1, 1, 1, 1);
+	}
+
+	if (_blinkSprite->FrameCount() == 1)
+	{
+		sf::IntRect cropLocation = CropTextureTransparency(_blinkSprite->getTexture(), _blinkSpritePath);
+		_blinkSprite->SetAttributes(1, 1, 1, 1);
+	}
+
+	if (_talkBlinkSprite->FrameCount() == 1)
+	{
+		sf::IntRect cropLocation = CropTextureTransparency(_talkBlinkSprite->getTexture(), _talkBlinkSpritePath);
+		_talkBlinkSprite->SetAttributes(1, 1, 1, 1);
+	}
+
+	if (_screamSprite->FrameCount() == 1)
+	{
+		sf::IntRect cropLocation = CropTextureTransparency(_screamSprite->getTexture(), _screamSpritePath);
+		_screamSprite->SetAttributes(1, 1, 1, 1);
+	}
+
+}
+
+sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath)
+{
+	if (srcTex == nullptr)
+		return sf::IntRect(0,0,0,0);
+
+	logFmtToFile(_parent->_appConfig, "Cropping %s...", imgpath.c_str());
+
+	sf::Image srcImg;
+	srcImg.loadFromFile(imgpath);
+	auto pxPtr = srcImg.getPixelsPtr();
+
+	sf::Vector2u size = srcImg.getSize();
+
+	sf::Vector2u maxContent = { 0,0 };
+	sf::Vector2u minContent = size;
+	int numpixels = size.x * size.y;
+
+	for (unsigned int y = 0; y < size.y; y++)
+		for (unsigned int x = 0; x < size.x; x++)
+		{
+			int fwdPix = (y * size.x + x) * 4;
+			if (pxPtr[fwdPix + 3] != 0)
+			{
+				maxContent.x = Max(x, maxContent.x);
+				maxContent.y = Max(y, maxContent.y);
+
+				minContent.x = Min(x, minContent.x);
+				minContent.y = Min(y, minContent.y);
+			}
+		}
+
+	minContent = Clamp(minContent, { 0,0 }, size);
+	maxContent = Clamp(maxContent, minContent, size);
+
+	sf::IntRect cropLocation(minContent.x, minContent.y, maxContent.x - minContent.x, maxContent.y - minContent.y);
+	const auto cropSize = cropLocation.getSize();
+
+	logFmtToFile(_parent->_appConfig, "Img Offset: %d, %d - new size: %d, %d", minContent.x, minContent.y, cropSize.x, cropSize.y);
+
+	sf::Image croppedImg;
+	croppedImg.create(cropSize.x, cropSize.y, sf::Color(0, 0, 0, 0));
+	croppedImg.copy(srcImg, 0, 0, cropLocation);
+	if (croppedImg.saveToFile(imgpath))
+	{
+		logFmtToFile(_parent->_appConfig, "Saved %s", imgpath.c_str());
+	}
+
+
+	// alpha premult on cropped image
+	const auto imgSize = croppedImg.getSize();
+	int channels = 4;
+	const uint32_t pixelCount = imgSize.x * imgSize.y;
+
+	int x = 0, y = 0;
+	for (uint32_t i = 0u; i < pixelCount; i++)
+	{
+		auto pix = croppedImg.getPixel(x, y);
+		if (pix.a > 0)
+		{
+			pix.r = (sf::Uint8)((float)pix.r * ((float)pix.a / 255));
+			pix.g = (sf::Uint8)((float)pix.g * ((float)pix.a / 255));
+			pix.b = (sf::Uint8)((float)pix.b * ((float)pix.a / 255));
+
+			croppedImg.setPixel(x, y, pix);
+		}
+		else
+			croppedImg.setPixel(x, y, sf::Color(0, 0, 0, 0));
+
+		x++;
+		if (x >= imgSize.x)
+		{
+			x = 0;
+			y++;
+		}
+
+	}
+
+
+	srcTex->loadFromImage(croppedImg);
+
+	return cropLocation;
 }

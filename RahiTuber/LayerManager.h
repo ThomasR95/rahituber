@@ -117,6 +117,10 @@ public:
 		bool _isBlinking = false;
 		float _blinkVarDelay = 0;
 
+		std::string motionTimerID = "";
+		std::string bounceTimerID = "";
+		std::string blinkSyncID = "";
+
 		enum BounceType
 		{
 			BounceNone = 0,
@@ -277,6 +281,10 @@ public:
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
 
 		void SyncAnims(bool sync);
+
+		void OptimiseSprites();
+
+		sf::IntRect CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath);
 
 		int _lastCalculatedDepth = 0;
 		std::string _motionParent = "";
@@ -508,7 +516,7 @@ public:
 
 	void MakePortablePath(std::string& path);
 
-	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false);
+	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false, bool optimise = false);
 	bool LoadLayers(const std::string& settingsFileName);
 
 	void SetUnloadingTimer(int timer);
@@ -660,6 +668,7 @@ private:
 	bool _makePortableOpen = false;
 	bool _saveLayersPortable = false;
 	bool _copyImagesPortable = false;
+	bool _optimisePortable = false;
 	bool _newLayerOpen = false;
 	bool _newFolderOpen = false;
 	bool _clearLayersOpen = false;
