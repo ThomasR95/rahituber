@@ -951,6 +951,10 @@ public:
 					ImGui::EndCombo();
 				}
 				ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
+				ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
 				
 #endif
 
@@ -1970,7 +1974,8 @@ public:
 
 	void handleEvents()
 	{
-		//GamePad::update();
+		if(!appConfig->_gamepadThreaded)
+			GamePad::update();
 
 		sf::Event menuEvt;
 		if (appConfig->_menuWindow.isOpen())
@@ -2960,14 +2965,20 @@ If you accept, please click the Accept button.
 
 	void MainLoop()
 	{
-		bool gamePadThreadActive = true;
-		auto gamepadUpdateThread = std::thread([&]() {
-			while (gamePadThreadActive)
-			{
-				GamePad::update();
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
-			}
-			});
+		
+		bool gamePadThreadActive = false;
+		std::thread gamepadUpdateThread;
+		if (appConfig->_gamepadThreaded)
+		{
+			logToFile(appConfig, "GamePad input on separate thread");
+			gamepadUpdateThread = std::thread([&]() {
+				while (gamePadThreadActive)
+				{
+					GamePad::update();
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				}
+				});
+		}
 
 		while (appConfig->_window.isOpen())
 		{
@@ -2988,8 +2999,10 @@ If you accept, please click the Accept button.
 			}
 		}
 
-		gamePadThreadActive = false;
-		gamepadUpdateThread.join();
+		if (gamepadUpdateThread.joinable())
+		{
+			gamepadUpdateThread.join();
+		}
 	}
 
 	void Cleanup()

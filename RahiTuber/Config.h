@@ -139,6 +139,7 @@ struct AppConfig
 
 	int _gamepadAPI = 0;
 	int _gamepadModel = 0;
+	bool _gamepadThreaded = false;
 
 	bool _gpuCompatibility = false;
 };

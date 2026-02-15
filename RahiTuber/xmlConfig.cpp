@@ -133,6 +133,8 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("fpsLimit", &_appConfig->_fpsLimit);
 
 	common->QueryAttribute("gamepadAPI", &_appConfig->_gamepadAPI);
+	common->QueryAttribute("gamepadThreaded", &_appConfig->_gamepadThreaded);
+
 
 	auto themeElmt = common->FirstChildElement("Theme");
 
@@ -248,6 +250,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("fpsLimit", _appConfig->_fpsLimit);
 
 			common->SetAttribute("gamepadAPI", _appConfig->_gamepadAPI);
+			common->SetAttribute("gamepadThreaded", _appConfig->_gamepadThreaded);
 
 			auto themeElmt = common->FirstChildElement("Theme");
 
