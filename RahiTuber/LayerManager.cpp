@@ -601,10 +601,7 @@ void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem:
 	if (filePath != "")
 	{
 		fs::copy(fsFilePath, targetFolder, copyOpts, ec);
-		if (!ec)
-		{
-			filePath = targetFolder.append(fsFilePath.filename().string()).string();
-		}
+		filePath = targetFolder.append(fsFilePath.filename().string()).string();
 	}
 }
 
@@ -732,28 +729,30 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		}
 		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory. \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of RahiTuber's directory.", &_appConfig->_hoverTimer);
 
-
-		if (LesserButton("Cancel", { -1, ImGui::GetFrameHeight() }))
-		{
-			_saveLayersPortable = false;
-			ImGui::CloseCurrentPopup();
-		}
-		ToolTip("Cancels the Make Portable process and leaves your files unchanged.", &_appConfig->_hoverTimer);
-
 		ImGui::SeparatorText("Optimised Portable");
 
-		ImGui::TextWrapped("This function creates a portable copy of your sprites and layer set, and automatically crops the transparency away.\
-			\nPlease note that it may affect physics settings on some layers.");
+		ImGui::TextWrapped("This function creates a portable copy of your sprites and layer set, and automatically crops the transparency away.");
 
-		ImGui::BeginDisabled(true);
-		if (ImGui::Button("Optimise (coming soon!)", { -1, ImGui::GetFrameHeight() }))
+		ImGui::Checkbox("Store old pivots to keep physics consistent", &_storePreCropPivot);
+		ToolTip("With this enabled, each sprite will store its old pivot so that\nold physics settings continue to work.\nThis is not needed if you're optimising before setting up physics.", &_appConfig->_hoverTimer);
+
+		if (ImGui::Button("Optimise", { -1, ImGui::GetFrameHeight() }))
 		{
 			_saveAsXMLOpen = true;
 			_saveLayersPortable = true;
 			_copyImagesPortable = true;
 			_optimisePortable = true;
 		}
-		ImGui::EndDisabled();
+
+		ImGui::SeparatorText("");
+
+		if (LesserButton("Cancel", { -1, ImGui::GetFrameHeight() }))
+		{
+			_saveLayersPortable = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ToolTip("Cancels the popup and leaves your files unchanged.", &_appConfig->_hoverTimer);
+
 
 		ImGui::EndPopup();
 	}
@@ -1712,6 +1711,9 @@ void LayerManager::MoveLayerTo(int toMove, int position, bool skipFolders)
 
 bool LayerManager::HandleLayerDrag(float mouseX, float mouseY, bool mousePressed)
 {
+	if (IsLoading())
+		return false;
+
 	bool anyLayerPopupOpen = false;
 	for (auto& l : _layers)
 		if (l.AnyPopupOpen())
@@ -1963,7 +1965,6 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		fs::create_directory(targetFolder, cec);
 
 		fs::copy_options copyOpts = fs::copy_options::overwrite_existing;
-
 		for (auto& layer : _layers)
 		{
 			CopyFileAndUpdatePath(layer._idleImagePath, targetFolder, copyOpts);
@@ -1971,8 +1972,11 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			CopyFileAndUpdatePath(layer._blinkSpritePath, targetFolder, copyOpts);
 			CopyFileAndUpdatePath(layer._talkBlinkSpritePath, targetFolder, copyOpts);
 			CopyFileAndUpdatePath(layer._screamSpritePath, targetFolder, copyOpts);
+		}
 
-			if (optimise)
+		if (optimise)
+		{
+			for (auto& layer : _layers)
 			{
 				logToFile(_appConfig, "Optimising sprites...");
 				layer.OptimiseSprites();
@@ -2096,6 +2100,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			thisLayer->SetAttribute("pivotX", layer._pivot.x);
 			thisLayer->SetAttribute("pivotY", layer._pivot.y);
+			thisLayer->SetAttribute("preCropPivotX", layer._preCropPivot.x);
+			thisLayer->SetAttribute("preCropPivotY", layer._preCropPivot.y);
 
 			thisLayer->SetAttribute("rotateChildren", layer._passRotationToChildLayers);
 
@@ -2396,7 +2402,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			_statesOrder.clear();
 			_layers.clear();
 			_textureMan->Reset();
-
+			_croppedImages.clear();
 			_lastSavedLocation = _loadingPath;
 
 			auto thisLayer = layers->FirstChildElement("layer");
@@ -2536,6 +2542,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("pivotX", &layer._pivot.x);
 				thisLayer->QueryAttribute("pivotY", &layer._pivot.y);
+				thisLayer->QueryAttribute("preCropPivotX", &layer._preCropPivot.x);
+				thisLayer->QueryAttribute("preCropPivotY", &layer._preCropPivot.y);
 
 				bool oldMouseTrack = false;
 				thisLayer->QueryBoolAttribute("followMouse", &oldMouseTrack);
@@ -4185,8 +4193,6 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 		double directParentRot = 0;
 		sf::Vector2<double> directParentScale = {1,1};
 
-
-
 		if (motionDelayNow > 0)
 		{
 			sf::Time totalParentStoredTime;
@@ -4296,7 +4302,13 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 
 			float totalRot = _rot + motionRot + motionParentRot;
 
-			sf::Vector2<double> pivotDiff = sf::Vector2<double>(_pivot) - sf::Vector2<double>(.5f, .5f);
+			auto physicsPivot = _pivot;
+			if (_preCropPivot.x > -99999)
+			{
+				physicsPivot = _preCropPivot;
+			}
+
+			sf::Vector2<double> pivotDiff = sf::Vector2<double>(physicsPivot) - sf::Vector2<double>(.5f, .5f);
 			if (_physicsIgnorePivots)
 			{
 				pivotDiff = sf::Vector2<double>(-_weightDirection);
@@ -4316,7 +4328,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 				totalRot = _rot + motionRot + motionParentRot;
 
 				//use pivot direction only as a means of deciding the squash direction, not for weighting/strength
-				sf::Vector2<double>pivotDirLocal = (sf::Vector2<double>(.5f, .5f) - sf::Vector2<double>(_pivot));
+				sf::Vector2<double>pivotDirLocal = (sf::Vector2<double>(.5f, .5f) - sf::Vector2<double>(physicsPivot));
 				if (_physicsIgnorePivots)
 					pivotDirLocal = sf::Vector2<double>(_weightDirection);
 
@@ -5432,6 +5444,22 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::Checkbox("Ignore pivots", &_physicsIgnorePivots);
 						ToolTip("Ignores the position of the layer's pivot point\nwhen calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
+
+						if (_preCropPivot.x > -99999)
+						{
+							if (LesserButton("Clear Pre-crop pivot"))
+							{
+								_clearingPreCropPivot = true;
+							}
+							ToolTip("If you used the Optimise function,\nwe stored the old pivot to keep your physics consistent.\nUse this to clear that stored value and go back to real physics settings.", &_parent->_appConfig->_hoverTimer);
+						}
+						bool confirmClearPivot = 0;
+						ConfirmModal("Clear Pre-Crop Pivot", &confirmClearPivot, _clearingPreCropPivot);
+						if (confirmClearPivot)
+						{
+							_preCropPivot = { -99999, 0 };
+							_clearingPreCropPivot = false;
+						}
 
 						if (_physicsIgnorePivots)
 						{
@@ -6721,47 +6749,65 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	if (_idleSprite->FrameCount() == 1)
 	{
 		auto org = _pivot;
-		auto orgPx = org * sf::Vector2<double>(_idleSprite->getTexture()->getSize());
 
-		sf::IntRect cropLocation = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
+		if(_parent->_storePreCropPivot)
+			_preCropPivot = org;
+
+		CropInfo cropInfo = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
+
+		auto orgPx = org * sf::Vector2<double>(cropInfo.origSize);
+		auto& cropLocation = cropInfo.cropRect;
 		sf::Vector2<double> offset((double)cropLocation.left, (double)cropLocation.top);
 		orgPx -= offset;
-		_idleSprite->SetAttributes(1, 1, 1, 1);
+		_idleSprite->UpdateSize();
 
-		auto orgFrac = orgPx / sf::Vector2<double>(cropLocation.getSize());
+		auto newSize = cropLocation.getSize();
+
+		auto orgFrac = orgPx / sf::Vector2<double>(newSize);
 		_pivot = orgFrac;
+
+		sf::Vector2f sizeShrinkAmt = sf::Vector2f(newSize) / sf::Vector2f(cropInfo.origSize);
+		_motionStretchStrength = _motionStretchStrength * sizeShrinkAmt;
+
 	}
 
 	if (_talkSprite->FrameCount() == 1)
 	{
-		sf::IntRect cropLocation = CropTextureTransparency(_talkSprite->getTexture(), _talkSpritePath);
-		_talkSprite->SetAttributes(1, 1, 1, 1);
+		CropInfo cropInfo = CropTextureTransparency(_talkSprite->getTexture(), _talkSpritePath);
+		_talkSprite->UpdateSize();
 	}
 
 	if (_blinkSprite->FrameCount() == 1)
 	{
-		sf::IntRect cropLocation = CropTextureTransparency(_blinkSprite->getTexture(), _blinkSpritePath);
-		_blinkSprite->SetAttributes(1, 1, 1, 1);
+		CropInfo cropInfo = CropTextureTransparency(_blinkSprite->getTexture(), _blinkSpritePath);
+		_blinkSprite->UpdateSize();
 	}
 
 	if (_talkBlinkSprite->FrameCount() == 1)
 	{
-		sf::IntRect cropLocation = CropTextureTransparency(_talkBlinkSprite->getTexture(), _talkBlinkSpritePath);
-		_talkBlinkSprite->SetAttributes(1, 1, 1, 1);
+		CropInfo cropInfo = CropTextureTransparency(_talkBlinkSprite->getTexture(), _talkBlinkSpritePath);
+		_talkBlinkSprite->UpdateSize();
 	}
 
 	if (_screamSprite->FrameCount() == 1)
 	{
-		sf::IntRect cropLocation = CropTextureTransparency(_screamSprite->getTexture(), _screamSpritePath);
-		_screamSprite->SetAttributes(1, 1, 1, 1);
+		CropInfo cropInfo = CropTextureTransparency(_screamSprite->getTexture(), _screamSpritePath);
+		_screamSprite->UpdateSize();
 	}
 
 }
 
-sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath)
+LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath)
 {
 	if (srcTex == nullptr)
-		return sf::IntRect(0,0,0,0);
+		return CropInfo();
+
+	auto found = _parent->_croppedImages.find(imgpath);
+	if (found != _parent->_croppedImages.end())
+	{
+		logFmtToFile(_parent->_appConfig, "Already cropped %s...", imgpath.c_str());
+		return found->second;
+	}
 
 	logFmtToFile(_parent->_appConfig, "Cropping %s...", imgpath.c_str());
 
@@ -6769,16 +6815,16 @@ sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex
 	srcImg.loadFromFile(imgpath);
 	auto pxPtr = srcImg.getPixelsPtr();
 
-	sf::Vector2u size = srcImg.getSize();
+	sf::Vector2u srcSize = srcImg.getSize();
 
 	sf::Vector2u maxContent = { 0,0 };
-	sf::Vector2u minContent = size;
-	int numpixels = size.x * size.y;
+	sf::Vector2u minContent = srcSize;
+	int numpixels = srcSize.x * srcSize.y;
 
-	for (unsigned int y = 0; y < size.y; y++)
-		for (unsigned int x = 0; x < size.x; x++)
+	for (unsigned int y = 0; y < srcSize.y; y++)
+		for (unsigned int x = 0; x < srcSize.x; x++)
 		{
-			int fwdPix = (y * size.x + x) * 4;
+			int fwdPix = (y * srcSize.x + x) * 4;
 			if (pxPtr[fwdPix + 3] != 0)
 			{
 				maxContent.x = Max(x, maxContent.x);
@@ -6789,8 +6835,8 @@ sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex
 			}
 		}
 
-	minContent = Clamp(minContent, { 0,0 }, size);
-	maxContent = Clamp(maxContent, minContent, size);
+	minContent = Clamp(minContent, { 0,0 }, srcSize);
+	maxContent = Clamp(maxContent, minContent, srcSize);
 
 	sf::IntRect cropLocation(minContent.x, minContent.y, maxContent.x - minContent.x, maxContent.y - minContent.y);
 	const auto cropSize = cropLocation.getSize();
@@ -6800,9 +6846,15 @@ sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex
 	sf::Image croppedImg;
 	croppedImg.create(cropSize.x, cropSize.y, sf::Color(0, 0, 0, 0));
 	croppedImg.copy(srcImg, 0, 0, cropLocation);
+	CropInfo cropInfo{ srcSize, cropLocation };
 	if (croppedImg.saveToFile(imgpath))
 	{
+		_parent->_croppedImages[imgpath] = cropInfo;
 		logFmtToFile(_parent->_appConfig, "Saved %s", imgpath.c_str());
+	}
+	else
+	{
+		logFmtToFile(_parent->_appConfig, "Failed to save %s", imgpath.c_str());
 	}
 
 
@@ -6838,5 +6890,5 @@ sf::IntRect LayerManager::LayerInfo::CropTextureTransparency(sf::Texture* srcTex
 
 	srcTex->loadFromImage(croppedImg);
 
-	return cropLocation;
+	return cropInfo;
 }

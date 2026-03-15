@@ -129,6 +129,16 @@ void SpriteSheet::SetAttributes(int frameCount, int gridX, int gridY, float fps,
 	_playing = true;
 }
 
+void SpriteSheet::UpdateSize()
+{
+	if (FrameCount() > 1)
+		return;
+	if (_sprite.getTexture() == nullptr)
+		return;
+
+	SetAttributes(1, 1, 1, 1);
+}
+
 void SpriteSheet::UnloadTexture()
 {
 	if (_texMan == nullptr || _spriteUnloaded)

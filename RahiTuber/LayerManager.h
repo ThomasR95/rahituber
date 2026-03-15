@@ -85,6 +85,12 @@ public:
 
 	~LayerManager();
 
+	struct CropInfo
+	{
+		sf::Vector2u origSize = {};
+		sf::IntRect cropRect = sf::IntRect(0,0,0,0);
+	};
+
 	struct LayerInfo 
 	{
 		std::string _id = "";
@@ -284,7 +290,7 @@ public:
 
 		void OptimiseSprites();
 
-		sf::IntRect CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath);
+		LayerManager::CropInfo CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath);
 
 		int _lastCalculatedDepth = 0;
 		std::string _motionParent = "";
@@ -314,6 +320,8 @@ public:
 		sf::Vector2f _stretchScaleMin = { 0.5f, 0.5f };
 		sf::Vector2f _stretchScaleMax = { 2.0f, 2.0f };
 		sf::Vector2f _weightDirection = { 0.f, 1.f };
+		sf::Vector2<double> _preCropPivot = { -99999, 0 };
+		bool _clearingPreCropPivot = false;
 
 		std::deque<MotionLinkData> _motionLinkData;
 
@@ -734,6 +742,9 @@ private:
 	float _maxCursorDragY = 0;
 
 	std::vector<std::string> _hoveredLayers;
+
+	std::map<std::string, LayerManager::CropInfo> _croppedImages;
+	bool _storePreCropPivot = false;
 
 	void AppendStateToOrder(StatesInfo* state)
 	{

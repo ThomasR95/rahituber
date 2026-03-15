@@ -18,6 +18,7 @@ public:
 
 	void LoadFromTexture(TextureManager* texMan, const std::string& texPath, int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& frameSize = { -1, -1 }, std::string* errorMsg = nullptr);
 	void SetAttributes(int frameCount, int gridX, int gridY, float fps, const sf::Vector2f& frameSize = { -1, -1 });
+	void UpdateSize();
 
 	void UnloadTexture();
 	void ReloadTexture();
