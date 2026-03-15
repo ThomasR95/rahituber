@@ -768,15 +768,16 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 	if (_saveAsXMLOpen)
 		folderSelect.SetStartingDir(_savingXMLPath = _fullLoadedXMLPath);
 	if (_saveLayersPortable)
-		folderSelect.SetStartingDir(fs::path(_appConfig->_appLocation).append(_layerSetName + ".xml").string());
+		folderSelect.SetStartingDir(fs::path(_appConfig->_appLocation).append(_layerSetName + (_optimisePortable ? "_OPT.xml" : ".xml")).string());
 	if (folderSelect.render(_saveAsXMLOpen, _savingXMLPath, true))
 	{
 		fs::path xmlPath = fs::absolute(_savingXMLPath);
-		if (xmlPath.extension().string() != ".xml")
-			xmlPath.replace_extension(".xml");
 
 		auto oldLSName = _layerSetName;
 		_layerSetName = xmlPath.filename().replace_extension("").string();
+
+		if (xmlPath.extension().string() != ".xml")
+			xmlPath.replace_extension(".xml");
 
 		if (SaveLayers(xmlPath.string(), _saveLayersPortable, _copyImagesPortable, _optimisePortable))
 		{
