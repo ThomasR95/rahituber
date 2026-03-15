@@ -469,6 +469,12 @@ public:
 			if (gpuString.find("Radeon") != std::string::npos)
 				useCompatibility = true;
 		}
+		else if (gpuVendor && appConfig->_gpuCompatibility == false)
+		{
+			std::string vendString = gpuVendor;
+			if (vendString.find("Intel") != std::string::npos)
+				useCompatibility = true;
+		}
 		else if(glVersion && !useCompatibility && appConfig->_gpuCompatibility == false)
 		{
 			std::string glVerString = glVersion;
