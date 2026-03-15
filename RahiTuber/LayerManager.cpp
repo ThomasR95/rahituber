@@ -1976,11 +1976,37 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 		if (optimise)
 		{
+			sf::Clock updateTimer; 
+			sf::RenderWindow progress;
+			progress.create(sf::VideoMode(300, 100), "RahiTuber Optimisation", sf::Style::Titlebar);
+			ImGui::SFML::Init(progress);
+			ImGui::SFML::SetCurrentWindow(progress);
+			int layerNum = 0;
 			for (auto& layer : _layers)
 			{
-				logToFile(_appConfig, "Optimising sprites...");
+				logToFile(_appConfig, "Optimising " + layer._name + "...");
 				layer.OptimiseSprites();
+			
+				ImGui::SFML::Update(progress, updateTimer.restart());
+
+				ImGui::SetNextWindowSizeConstraints({ 300, 100 }, { 300, 100 });
+				ImGui::SetNextWindowPos({ 150, 50 }, 0, { 0.5, 0.5 });
+				ImGui::Begin("Please Wait", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+
+				ImGui::AlignTextToFramePadding();
+				std::string txt = "Optimising " + layer._name + "...";
+				TextCentered(ANSIToUTF8(txt).c_str());
+
+				ImGui::ProgressBar((float)layerNum / _layers.size());
+
+				ImGui::End();
+				ImGui::EndFrame();
+				ImGui::SFML::Render(progress);
+				progress.display();
+				layerNum++;
 			}
+			ImGui::SFML::Shutdown(progress);
+			progress.close();
 		}
 	}
 
