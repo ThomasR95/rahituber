@@ -868,7 +868,7 @@ void LayerManager::DrawButtonsLayerSetUI()
 		ToolTip("Save As", "Save the current layer set with a new name.", &_appConfig->_hoverTimer);
 		ImGui::TableNextColumn();
 		_makePortableOpen = ImGui::ImageButton("##makePortable", *_makePortableIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
-		ToolTip("Make Portable", "Save a version of this layer set with\nfile paths relative to RahiTuber", &_appConfig->_hoverTimer);
+		ToolTip("Model Options", "Options for porting and optimising your model", &_appConfig->_hoverTimer);
 		ImGui::TableNextColumn();
 		_reloadXMLOpen = ImGui::ImageButton("##reload", *_reloadIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor);
 		ToolTip("Reload", "Reload the specified layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
@@ -1273,7 +1273,7 @@ void LayerManager::DrawMenusLayerSetUI()
 			ToolTip("Save the current layer set with a new name.", &_appConfig->_hoverTimer);
 
 			_makePortableOpen = ImGui::Selectable("Model Options");
-			ToolTip("Options for saving and optimising your model", &_appConfig->_hoverTimer);
+			ToolTip("Options for porting and optimising your model", &_appConfig->_hoverTimer);
 
 			_reloadXMLOpen = ImGui::Selectable("Reload");
 			ToolTip("Reload the specified layer set.\n(discards unsaved changes!)", &_appConfig->_hoverTimer);
