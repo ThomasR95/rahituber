@@ -136,6 +136,8 @@ public:
 	bool _visible = true;
 	bool _loop = true;
 
+	sf::Vector2f _offsetFromIdle = {};
+
 private:
 
 	sf::Sprite _sprite;

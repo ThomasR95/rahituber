@@ -4515,9 +4515,10 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	double motionParentRot = 0;
 	ImVec4 mpTint;
 
-	sf::Vector2<double> centerToPivot = _pivot - sf::Vector2<double>(0.5, 0.5);
-
-	sf::Vector2<double> pivot = { 0.5*_activeSprite->Size().x + centerToPivot.x * _idleSprite->Size().x, 0.5 * _activeSprite->Size().y + centerToPivot.y * _idleSprite->Size().y };
+	sf::Vector2<double> centerToPivot(_pivot - sf::Vector2<double>(0.5, 0.5));
+	sf::Vector2<double> idleCenterToPivotPX(centerToPivot * sf::Vector2<double>(_idleSprite->Size()));
+	sf::Vector2<double> activeSpriteCenter(0.5 * sf::Vector2<double>(_activeSprite->Size()) + sf::Vector2<double>(_activeSprite->_offsetFromIdle));
+	sf::Vector2<double> pivot(activeSpriteCenter + idleCenterToPivotPX);
 
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 	if (hasParent)
@@ -6773,53 +6774,69 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	_talkBlinkSprite;
 	_screamSprite;
 
+	sf::Vector2f idleToCenterOrig;
+	sf::Vector2f idleToCenterNew;
+	sf::Vector2<double> originalPivot(_pivot);
+	sf::Vector2f idleOrigSize;
+	sf::Vector2f idleNewSize;
+
 	if (_idleSprite->FrameCount() == 1)
 	{
-		auto org = _pivot;
-
 		if(_parent->_storePreCropPivot)
-			_preCropPivot = org;
+			_preCropPivot = originalPivot;
 
-		CropInfo cropInfo = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
+		const CropInfo cropInfo = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
 
-		auto orgPx = org * sf::Vector2<double>(cropInfo.origSize);
+		idleToCenterOrig = 0.5f * sf::Vector2f(cropInfo.origSize);
+		idleOrigSize = sf::Vector2f(cropInfo.origSize);
+
+		auto orgPx = originalPivot * sf::Vector2<double>(cropInfo.origSize);
 		auto& cropLocation = cropInfo.cropRect;
-		sf::Vector2<double> offset((double)cropLocation.left, (double)cropLocation.top);
+		const sf::Vector2<double> offset((double)cropLocation.left, (double)cropLocation.top);
 		orgPx -= offset;
 		_idleSprite->UpdateSize();
 
-		auto newSize = cropLocation.getSize();
+		const auto newSize = cropLocation.getSize();
 
-		auto orgFrac = orgPx / sf::Vector2<double>(newSize);
+		const auto orgFrac = orgPx / sf::Vector2<double>(newSize);
 		_pivot = orgFrac;
 
-		sf::Vector2f sizeShrinkAmt = sf::Vector2f(newSize) / sf::Vector2f(cropInfo.origSize);
+		const sf::Vector2f sizeShrinkAmt = sf::Vector2f(newSize) / sf::Vector2f(cropInfo.origSize);
 		_motionStretchStrength = _motionStretchStrength * sizeShrinkAmt;
 
+		idleToCenterNew = sf::Vector2f(offset) + 0.5f * sf::Vector2f(newSize);
+		idleNewSize = sf::Vector2f(newSize);
+	}
+	else
+	{
+		idleToCenterOrig = idleToCenterNew = sf::Vector2f(_pivot) * sf::Vector2f(_idleSprite->Size());
 	}
 
-	if (_talkSprite->FrameCount() == 1)
+	std::vector<std::shared_ptr<SpriteSheet>> otherSprites = { _talkSprite, _blinkSprite, _talkBlinkSprite, _screamSprite };
+	std::vector<std::string> spritePaths = { _talkSpritePath, _blinkSpritePath, _talkBlinkSpritePath, _screamSpritePath };
+	for (int s = 0; s < otherSprites.size(); s++)
 	{
-		CropInfo cropInfo = CropTextureTransparency(_talkSprite->getTexture(), _talkSpritePath);
-		_talkSprite->UpdateSize();
-	}
+		auto& sp = otherSprites[s];
+		auto& sPath = spritePaths[s];
+		if (sp->FrameCount() == 1)
+		{
+			const CropInfo cropInfo = CropTextureTransparency(sp->getTexture(), sPath);
 
-	if (_blinkSprite->FrameCount() == 1)
-	{
-		CropInfo cropInfo = CropTextureTransparency(_blinkSprite->getTexture(), _blinkSpritePath);
-		_blinkSprite->UpdateSize();
-	}
+			// assuming the centers of both sprites were aligned before the crop
+			// - calculate the distance from this sprite's original top left to the idle sprite's original top left
+			const sf::Vector2f activeToCenterOrig = 0.5f * sf::Vector2f(cropInfo.origSize);
+			const sf::Vector2f origCornerOffset = idleToCenterOrig - activeToCenterOrig;
+			 
+			// - use the crop location and size to find the center of each new crop
+			const sf::Vector2f activeToCenterNew = origCornerOffset + sf::Vector2f(cropInfo.cropRect.getPosition()) + 0.5f * sf::Vector2f(cropInfo.cropRect.getSize());
 
-	if (_talkBlinkSprite->FrameCount() == 1)
-	{
-		CropInfo cropInfo = CropTextureTransparency(_talkBlinkSprite->getTexture(), _talkBlinkSpritePath);
-		_talkBlinkSprite->UpdateSize();
-	}
+			// -calculate the distance between this center and the idle center to find the offset
+			sp->_offsetFromIdle = idleToCenterNew - activeToCenterNew;
 
-	if (_screamSprite->FrameCount() == 1)
-	{
-		CropInfo cropInfo = CropTextureTransparency(_screamSprite->getTexture(), _screamSpritePath);
-		_screamSprite->UpdateSize();
+
+			sp->UpdateSize();
+
+		}
 	}
 
 }
