@@ -6736,7 +6736,7 @@ void LayerManager::LayerInfo::OptimiseSprites()
 
 	if (_sprites[SP_IDLE]->FrameCount() == 1)
 	{
-		if(_parent->_storePreCropPivot)
+		if(_parent->_storePreCropPivot && (_parent->GetLayer(_motionParent)!=nullptr))
 			_preCropPivot = originalPivot;
 
 		const CropInfo cropInfo = CropTextureTransparency(_sprites[SP_IDLE]->getTexture(), _sprites[SP_IDLE].path);
@@ -6763,32 +6763,41 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	}
 	else
 	{
-		idleToCenterOrig = idleToCenterNew = sf::Vector2f(_pivot) * sf::Vector2f(_sprites[SP_IDLE]->Size());
+		idleToCenterOrig = idleToCenterNew = 0.5f * sf::Vector2f(_sprites[SP_IDLE]->Size());
 	}
 
 
 	for (int s = SP_TALK; s < SP_END; s++)
 	{
 		auto& sp = _sprites[(SpriteType)s];
+		sf::Vector2f origSize;
+		sf::Vector2f cropPosition;
+		sf::Vector2f cropSize;
+
 		if (sp->FrameCount() == 1)
 		{
 			const CropInfo cropInfo = CropTextureTransparency(sp->getTexture(), sp.path);
-
-			// assuming the centers of both sprites were aligned before the crop
-			// - calculate the distance from this sprite's original top left to the idle sprite's original top left
-			const sf::Vector2f activeToCenterOrig = 0.5f * sf::Vector2f(cropInfo.origSize);
-			const sf::Vector2f origCornerOffset = idleToCenterOrig - activeToCenterOrig;
-			 
-			// - use the crop location and size to find the center of each new crop
-			const sf::Vector2f activeToCenterNew = origCornerOffset + sf::Vector2f(cropInfo.cropRect.getPosition()) + 0.5f * sf::Vector2f(cropInfo.cropRect.getSize());
-
-			// -calculate the distance between this center and the idle center to find the offset
-			sp->_offsetFromIdle = idleToCenterNew - activeToCenterNew;
-
-
+			origSize = sf::Vector2f(cropInfo.origSize);
+			cropPosition = sf::Vector2f(cropInfo.cropRect.getPosition());
+			cropSize = sf::Vector2f(cropInfo.cropRect.getSize());
 			sp->UpdateSize();
-
 		}
+		else
+		{
+			cropPosition = { 0.f,0.f };
+			origSize = cropSize = sf::Vector2f(_sprites[SP_IDLE]->Size());
+		}
+
+		// assuming the centers of both sprites were aligned before the crop
+		// - calculate the distance from this sprite's original top left to the idle sprite's original top left
+		const sf::Vector2f activeToCenterOrig = 0.5f * origSize;
+		const sf::Vector2f origCornerOffset = idleToCenterOrig - activeToCenterOrig;
+
+		// - use the crop location and size to find the center of each new crop
+		const sf::Vector2f activeToCenterNew = origCornerOffset + cropPosition + 0.5f * cropSize;
+
+		// -calculate the distance between this center and the idle center to find the offset
+		sp->_offsetFromIdle = idleToCenterNew - activeToCenterNew;
 	}
 
 }
