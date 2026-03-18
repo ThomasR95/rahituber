@@ -77,6 +77,21 @@ static const char* const g_trackingSelectNames[2] = {
 	"First Available", "Specific"
 };
 
+enum SpriteType : int
+{
+	SP_IDLE,
+	SP_TALK,
+	SP_BLINK,
+	SP_TALKBLINK,
+	SP_SCREAM,
+
+	SP_END
+};
+
+static const char* const g_spriteNames[SP_END] = {
+	"Idle", "Talk", "Blink", "TalkBlink", "Scream"
+};
+
 class LayerManager
 {
 public:
@@ -89,6 +104,30 @@ public:
 	{
 		sf::Vector2u origSize = {};
 		sf::IntRect cropRect = sf::IntRect(0,0,0,0);
+	};
+	
+
+	struct SpriteInfo
+	{
+		std::string path = u8"";
+		std::shared_ptr<SpriteSheet> sprite = std::make_shared<SpriteSheet>();
+		ImVec4 tint = { 1,1,1,1 };
+
+		bool importOpen = false;
+		bool spriteOpen = false;
+		bool oldSpriteOpen = false;
+
+		SpriteSheet* operator->() { return sprite.get(); }
+		SpriteSheet* get() { return sprite.get(); }
+		SpriteSheet& operator*() { return *sprite; }
+
+		explicit operator bool() const
+		{
+			return sprite.get();
+		}
+
+		LayerManager::SpriteInfo Copy() const;
+
 	};
 
 	struct LayerInfo 
@@ -172,26 +211,7 @@ public:
 		float _minScreamTime = 0.2;
 		sf::Clock _screamTimer;
 
-		std::string _idleImagePath = u8"";
-		ImVec4 _idleTint = { 1,1,1,1 };
-
-		std::string _talkSpritePath = u8"";
-		ImVec4 _talkTint = { 1,1,1,1 };
-
-		std::string _blinkSpritePath = u8"";
-		ImVec4 _blinkTint = { 1,1,1,1 };
-
-		std::string _talkBlinkSpritePath = u8"";
-		ImVec4 _talkBlinkTint = { 1,1,1,1 };
-
-		std::string _screamSpritePath = u8"";
-		ImVec4 _screamTint = { 1,1,1,1 };
-
-		std::shared_ptr<SpriteSheet> _idleSprite = std::make_shared<SpriteSheet>();
-		std::shared_ptr<SpriteSheet> _talkSprite = std::make_shared<SpriteSheet>();
-		std::shared_ptr<SpriteSheet> _blinkSprite = std::make_shared<SpriteSheet>();
-		std::shared_ptr<SpriteSheet> _talkBlinkSprite = std::make_shared<SpriteSheet>();
-		std::shared_ptr<SpriteSheet> _screamSprite = std::make_shared<SpriteSheet>();
+		std::map<SpriteType, SpriteInfo> _sprites;
 
 		SpriteSheet* _activeSprite = nullptr;
 
@@ -210,22 +230,6 @@ public:
 		int _scaleFiltering = 1;
 		float _alphaClip = 0.0;
 
-		bool _importIdleOpen = false;
-		bool _importTalkOpen = false;
-		bool _importBlinkOpen = false;
-		bool _importTalkBlinkOpen = false;
-		bool _importScreamOpen = false;
-
-		bool _spriteIdleOpen = false;
-		bool _spriteTalkOpen = false;
-		bool _spriteBlinkOpen = false;
-		bool _spriteTalkBlinkOpen = false;
-		bool _spriteScreamOpen = false;
-		bool _oldSpriteIdleOpen = false;
-		bool _oldSpriteTalkOpen = false;
-		bool _oldSpriteBlinkOpen = false;
-		bool _oldSpriteTalkBlinkOpen = false;
-		bool _oldSpriteScreamOpen = false;
 		bool _renamePopupOpen = false;
 		bool _renameFirstOpened = false;
 		std::string _renamingString = "";
@@ -238,19 +242,22 @@ public:
 
 		bool AnyPopupOpen() const
 		{
-			return _importIdleOpen || _importTalkOpen || _importBlinkOpen || _importTalkBlinkOpen ||
-				_importScreamOpen ||
-				_spriteIdleOpen || _spriteTalkOpen || _spriteBlinkOpen || _spriteTalkBlinkOpen || _spriteScreamOpen ||
-				_renamePopupOpen || _inheritanceGraphOpen;
+			bool anyspriteOpen = false;
+			for (auto& sp : _sprites)
+			{
+				if (sp.second.importOpen || sp.second.spriteOpen)
+					return true;
+			}
+			return	_renamePopupOpen || _inheritanceGraphOpen;
 		}
 
 		void CloseAllPopups()
 		{
-			_importIdleOpen = _importTalkOpen = _importBlinkOpen = _importTalkBlinkOpen =
-			_importScreamOpen =
-			_spriteIdleOpen = _spriteTalkOpen = _spriteBlinkOpen = _spriteTalkBlinkOpen = _spriteScreamOpen =
-			_renamePopupOpen = _inheritanceGraphOpen =
-			false;
+			for (auto& sp : _sprites)
+			{
+				sp.second.importOpen = sp.second.spriteOpen = false;
+			}
+			_renamePopupOpen = _inheritanceGraphOpen = false;
 		}
 
 		void CalculateLayerDepth();

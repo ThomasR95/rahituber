@@ -249,11 +249,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				if (useBlendShader)
 					state.shader = _blendingShader.get();
 
-				layer._idleSprite->Draw(target, state);
-				layer._talkSprite->Draw(target, state);
-				layer._blinkSprite->Draw(target, state);
-				layer._talkBlinkSprite->Draw(target, state);
-				layer._screamSprite->Draw(target, state);
+				layer._sprites[SP_IDLE]->Draw(target, state);
+				layer._sprites[SP_TALK]->Draw(target, state);
+				layer._sprites[SP_BLINK]->Draw(target, state);
+				layer._sprites[SP_TALKBLINK]->Draw(target, state);
+				layer._sprites[SP_SCREAM]->Draw(target, state);
 			}
 			else
 			{
@@ -293,11 +293,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipState.shader = _blendingShader.get();
 				}
 
-				clipLayer->_idleSprite->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_talkSprite->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_blinkSprite->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_talkBlinkSprite->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_screamSprite->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_sprites[SP_IDLE]->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_sprites[SP_TALK]->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_sprites[SP_BLINK]->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_sprites[SP_TALKBLINK]->Draw(&clipRTs._clipRT, clipState);
+				clipLayer->_sprites[SP_SCREAM]->Draw(&clipRTs._clipRT, clipState);
 
 				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
 				layer._clipRect.setPosition({ 0,0 });
@@ -316,11 +316,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 
 				// Draw layer to be clipped onto an empty canvas
-				layer._idleSprite->Draw(&clipRTs._soloLayerRT, state);
-				layer._talkSprite->Draw(&clipRTs._soloLayerRT, state);
-				layer._blinkSprite->Draw(&clipRTs._soloLayerRT, state);
-				layer._talkBlinkSprite->Draw(&clipRTs._soloLayerRT, state);
-				layer._screamSprite->Draw(&clipRTs._soloLayerRT, state);
+				layer._sprites[SP_IDLE]->Draw(&clipRTs._soloLayerRT, state);
+				layer._sprites[SP_TALK]->Draw(&clipRTs._soloLayerRT, state);
+				layer._sprites[SP_BLINK]->Draw(&clipRTs._soloLayerRT, state);
+				layer._sprites[SP_TALKBLINK]->Draw(&clipRTs._soloLayerRT, state);
+				layer._sprites[SP_SCREAM]->Draw(&clipRTs._soloLayerRT, state);
 
 				clipRTs._soloLayerRT.display();
 				layer._clipRect.setTexture(&clipRTs._soloLayerRT.getTexture(), true);
@@ -350,11 +350,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		}
 		else
 		{
-			layer._idleSprite->Tick();
-			layer._talkSprite->Tick();
-			layer._blinkSprite->Tick();
-			layer._talkBlinkSprite->Tick();
-			layer._screamSprite->Tick();
+			layer._sprites[SP_IDLE]->Tick();
+			layer._sprites[SP_TALK]->Tick();
+			layer._sprites[SP_BLINK]->Tick();
+			layer._sprites[SP_TALKBLINK]->Tick();
+			layer._sprites[SP_SCREAM]->Tick();
 		}
 
 		layer._oldVisible = visible;
@@ -1328,11 +1328,11 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	{
 		newLayer = LayerInfo(*toCopy);
 		newLayer._name += " Copy";
-		newLayer._blinkSprite = std::make_shared<SpriteSheet>(*newLayer._blinkSprite.get());
-		newLayer._talkBlinkSprite = std::make_shared<SpriteSheet>(*newLayer._talkBlinkSprite.get());
-		newLayer._talkSprite = std::make_shared<SpriteSheet>(*newLayer._talkSprite.get());
-		newLayer._screamSprite = std::make_shared<SpriteSheet>(*newLayer._screamSprite.get());
-		newLayer._idleSprite = std::make_shared<SpriteSheet>(*newLayer._idleSprite.get());
+
+		for (int sp = SP_IDLE; sp < SP_END; sp++)
+		{
+			newLayer._sprites[(SpriteType)sp] = toCopy->_sprites.at((SpriteType)sp).Copy();
+		}
 
 		newLayer.SyncAnims(newLayer._animsSynced);
 
@@ -1968,11 +1968,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		fs::copy_options copyOpts = fs::copy_options::overwrite_existing;
 		for (auto& layer : _layers)
 		{
-			CopyFileAndUpdatePath(layer._idleImagePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._talkSpritePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._blinkSpritePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._talkBlinkSpritePath, targetFolder, copyOpts);
-			CopyFileAndUpdatePath(layer._screamSpritePath, targetFolder, copyOpts);
+			for (auto& sp : layer._sprites)
+			{
+				CopyFileAndUpdatePath(sp.second.path, targetFolder, copyOpts);
+			}
 		}
 
 		if (optimise)
@@ -2081,41 +2080,29 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			if (makePortable)
 			{
-				MakePortablePath(layer._idleImagePath);
-				MakePortablePath(layer._talkSpritePath);
-				MakePortablePath(layer._blinkSpritePath);
-				MakePortablePath(layer._talkBlinkSpritePath);
-				MakePortablePath(layer._screamSpritePath);
+				for (auto& sp : layer._sprites)
+				{
+					MakePortablePath(sp.second.path);
+				}
 			}
 
-			thisLayer->SetAttribute("idlePath", layer._idleImagePath.c_str());
-			thisLayer->SetAttribute("talkPath", layer._talkSpritePath.c_str());
-			thisLayer->SetAttribute("blinkPath", layer._blinkSpritePath.c_str());
-			thisLayer->SetAttribute("talkBlinkPath", layer._talkBlinkSpritePath.c_str());
-			thisLayer->SetAttribute("screamPath", layer._screamSpritePath.c_str());
+			for (int s = SP_IDLE; s < SP_END; s++)
+			{
+				auto& sp = layer._sprites[(SpriteType)s];
+				auto sprElement = thisLayer->InsertNewChildElement((std::string(g_spriteNames[s]) + "Sprite").c_str());
 
-			if (layer._idleSprite->FrameCount() > 1 || layer._idleSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-				SaveAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite, layer._animsSynced);
+				sprElement->SetAttribute("path", sp.path.c_str());
+				SaveColor(sprElement, &doc, "tint", sp.tint);
 
-			if (layer._talkSprite->FrameCount() > 1 || layer._talkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-				SaveAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite, layer._animsSynced);
+				sprElement->SetAttribute("idleOffsetX", sp->_offsetFromIdle.x);
+				sprElement->SetAttribute("idleOffsetY", sp->_offsetFromIdle.y);
 
-			if (layer._blinkSprite->FrameCount() > 1 || layer._blinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-				SaveAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite, layer._animsSynced);
+				if (sp->FrameCount() > 1 || sp->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
+					SaveAnimInfo(sprElement, &doc, "anim", *sp.sprite, layer._animsSynced);
 
-			if (layer._talkBlinkSprite->FrameCount() > 1 || layer._talkBlinkSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-				SaveAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite, layer._animsSynced);
-
-			if (layer._screamSprite->FrameCount() > 1 || layer._screamSprite->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
-				SaveAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite, layer._animsSynced);
+			}
 
 			thisLayer->SetAttribute("syncAnims", layer._animsSynced);
-
-			SaveColor(thisLayer, &doc, "idleTint", layer._idleTint);
-			SaveColor(thisLayer, &doc, "talkTint", layer._talkTint);
-			SaveColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
-			SaveColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
-			SaveColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
 			thisLayer->SetAttribute("smoothTalkTint", layer._smoothTalkTint);
 
@@ -2512,46 +2499,70 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
 
+#pragma region < V13.972 compatibility
 				if (const char* idlePth = thisLayer->Attribute("idlePath"))
-					layer._idleImagePath = idlePth;
+					layer._sprites[SP_IDLE].path = idlePth;
 				if (const char* talkPth = thisLayer->Attribute("talkPath"))
-					layer._talkSpritePath = talkPth;
+					layer._sprites[SP_TALK].path = talkPth;
 				if (const char* blkPth = thisLayer->Attribute("blinkPath"))
-					layer._blinkSpritePath = blkPth;
+					layer._sprites[SP_BLINK].path = blkPth;
 				if (const char* talkBlkPth = thisLayer->Attribute("talkBlinkPath"))
-					layer._talkBlinkSpritePath = talkBlkPth;
+					layer._sprites[SP_TALKBLINK].path = talkBlkPth;
 				if (const char* screamPth = thisLayer->Attribute("screamPath"))
-					layer._screamSpritePath = screamPth;
+					layer._sprites[SP_SCREAM].path = screamPth;
 
 				fs::current_path(_appConfig->_appLocation);
 
-				if (layer._idleImagePath != "")
-					layer._idleSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._idleImagePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
-				if (layer._talkSpritePath != "")
-					layer._talkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._talkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
-				if (layer._blinkSpritePath != "")
-					layer._blinkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._blinkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
-				if (layer._talkBlinkSpritePath != "")
-					layer._talkBlinkSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._talkBlinkSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
-				if (layer._screamSpritePath != "")
-					layer._screamSprite->LoadFromTexture(_textureMan, TryAbsolutePath(layer._screamSpritePath).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._sprites[SP_IDLE].path != "")
+					layer._sprites[SP_IDLE]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_IDLE].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._sprites[SP_TALK].path != "")
+					layer._sprites[SP_TALK]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_TALK].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._sprites[SP_BLINK].path != "")
+					layer._sprites[SP_BLINK]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_BLINK].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._sprites[SP_TALKBLINK].path != "")
+					layer._sprites[SP_TALKBLINK]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_TALKBLINK].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+				if (layer._sprites[SP_SCREAM].path != "")
+					layer._sprites[SP_SCREAM]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_SCREAM].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
 
-				LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._idleSprite);
-				LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._talkSprite);
-				LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._blinkSprite);
-				LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._talkBlinkSprite);
-				LoadAnimInfo(thisLayer, &doc, "screamAnim", *layer._screamSprite);
+				LoadAnimInfo(thisLayer, &doc, "idleAnim", *layer._sprites[SP_IDLE].sprite);
+				LoadAnimInfo(thisLayer, &doc, "talkAnim", *layer._sprites[SP_TALK].sprite);
+				LoadAnimInfo(thisLayer, &doc, "blinkAnim", *layer._sprites[SP_BLINK].sprite);
+				LoadAnimInfo(thisLayer, &doc, "talkBlinkAnim", *layer._sprites[SP_TALKBLINK].sprite);
+				LoadAnimInfo(thisLayer, &doc, "screamAnim", *layer._sprites[SP_SCREAM].sprite);
+
+				LoadColor(thisLayer, &doc, "idleTint", layer._sprites[SP_IDLE].tint);
+				LoadColor(thisLayer, &doc, "talkTint", layer._sprites[SP_TALK].tint);
+				LoadColor(thisLayer, &doc, "blinkTint", layer._sprites[SP_BLINK].tint);
+				LoadColor(thisLayer, &doc, "talkBlinkTint", layer._sprites[SP_TALKBLINK].tint);
+				LoadColor(thisLayer, &doc, "screamTint", layer._sprites[SP_SCREAM].tint);
+#pragma endregion
+
+				for (int s = SP_IDLE; s < SP_END; s++)
+				{
+					auto& sp = layer._sprites[(SpriteType)s];
+					auto sprElement = thisLayer->FirstChildElement((std::string(g_spriteNames[s]) + "Sprite").c_str());
+					if (!sprElement)
+						continue;
+
+					if (const char* spritepath = sprElement->Attribute("path"))
+						sp.path = spritepath;
+
+					if (sp.path != "")
+						sp->LoadFromTexture(_textureMan, TryAbsolutePath(sp.path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
+
+					LoadColor(sprElement, &doc, "tint", sp.tint);
+
+					sprElement->QueryAttribute("idleOffsetX", &sp->_offsetFromIdle.x);
+					sprElement->QueryAttribute("idleOffsetY", &sp->_offsetFromIdle.y);
+
+					LoadAnimInfo(sprElement, &doc, "anim", *sp.sprite);
+
+				}
 
 				thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
 
 				if (layer._animsSynced)
 					layer.SyncAnims(layer._animsSynced);
-
-				LoadColor(thisLayer, &doc, "idleTint", layer._idleTint);
-				LoadColor(thisLayer, &doc, "talkTint", layer._talkTint);
-				LoadColor(thisLayer, &doc, "blinkTint", layer._blinkTint);
-				LoadColor(thisLayer, &doc, "talkBlinkTint", layer._talkBlinkTint);
-				LoadColor(thisLayer, &doc, "screamTint", layer._screamTint);
 
 				LoadColor(thisLayer, &doc, "layerColor", layer._layerColor);
 
@@ -2708,10 +2719,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					layer._clipID = clipGuid;
 
 
-					layer._idleSprite->setSmooth(layer._scaleFiltering);
-					layer._talkSprite->setSmooth(layer._scaleFiltering);
-					layer._blinkSprite->setSmooth(layer._scaleFiltering);
-					layer._talkBlinkSprite->setSmooth(layer._scaleFiltering);
+					layer._sprites[SP_IDLE]->setSmooth(layer._scaleFiltering);
+					layer._sprites[SP_TALK]->setSmooth(layer._scaleFiltering);
+					layer._sprites[SP_BLINK]->setSmooth(layer._scaleFiltering);
+					layer._sprites[SP_TALKBLINK]->setSmooth(layer._scaleFiltering);
 
 				thisLayer->QueryAttribute("isFolder", &layer._isFolder);
 
@@ -2917,11 +2928,11 @@ void LayerManager::LayerInfo::SetUnloadingTimer(int timer)
 {
 	int ltimer = _pinLoaded ? 0 : timer;
 
-	_idleSprite->UnloadIfUnused(ltimer);
-	_talkSprite->UnloadIfUnused(ltimer);
-	_blinkSprite->UnloadIfUnused(ltimer);
-	_talkBlinkSprite->UnloadIfUnused(ltimer);
-	_screamSprite->UnloadIfUnused(ltimer);
+	_sprites[SP_IDLE]->UnloadIfUnused(ltimer);
+	_sprites[SP_TALK]->UnloadIfUnused(ltimer);
+	_sprites[SP_BLINK]->UnloadIfUnused(ltimer);
+	_sprites[SP_TALKBLINK]->UnloadIfUnused(ltimer);
+	_sprites[SP_SCREAM]->UnloadIfUnused(ltimer);
 }
 
 /*
@@ -4350,7 +4361,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 				motionRot += _rotationEffect * rotMult;// *(movementDist * lenPivot);
 			}
 
-			if (_idleSprite && movementDist > 0)
+			if (_sprites[SP_IDLE].sprite && movementDist > 0)
 			{
 				totalRot = _rot + motionRot + motionParentRot;
 
@@ -4378,7 +4389,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 				sf::Vector2<double> rotatedOffset = Rotate(offset, Deg2Rad(-totalRot));
 				sf::Vector2<double> rotatedOffsetDir = rotatedOffset / movementDist;
 
-				sf::Vector2<double> stretchFactor = pivotStrength * (movementDist / EllipseRadius(angle, _idleSprite->Size()));
+				sf::Vector2<double> stretchFactor = pivotStrength * (movementDist / EllipseRadius(angle, _sprites[SP_IDLE]->Size()));
 
 				float xStretch = -rotatedOffsetDir.x * stretchFactor.x;
 				float yStretch = -rotatedOffsetDir.y * stretchFactor.y;
@@ -4439,18 +4450,18 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	_activeSprite = nullptr;
 
-	if (!_idleSprite)
+	if (!_sprites[SP_IDLE].sprite)
 		return;
 
-	_idleSprite->_visible = true;
-	_blinkSprite->_visible = false;
-	_talkSprite->_visible = false;
-	_talkBlinkSprite->_visible = false;
-	_screamSprite->_visible = false;
+	_sprites[SP_IDLE]->_visible = true;
+	_sprites[SP_BLINK]->_visible = false;
+	_sprites[SP_TALK]->_visible = false;
+	_sprites[SP_TALKBLINK]->_visible = false;
+	_sprites[SP_SCREAM]->_visible = false;
 
-	_activeSprite = _idleSprite.get();
+	_activeSprite = _sprites[SP_IDLE].get();
 
-	ImVec4 activeSpriteCol = _idleTint;
+	ImVec4 activeSpriteCol = _sprites[SP_IDLE].tint;
 
 	float talkFactor = 0;
 	if (talkMax > 0)
@@ -4483,16 +4494,16 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	if (becameVisible && _restartAnimsOnVisible)
 	{
-		if (_talkBlinkSprite)
-			_talkBlinkSprite->Restart();
-		if (_blinkSprite)
-			_blinkSprite->Restart();
-		if (_talkSprite)
-			_talkSprite->Restart();
-		if (_idleSprite)
-			_idleSprite->Restart();
-		if (_screamSprite)
-			_screamSprite->Restart();
+		if (_sprites[SP_TALKBLINK])
+			_sprites[SP_TALKBLINK]->Restart();
+		if (_sprites[SP_BLINK])
+			_sprites[SP_BLINK]->Restart();
+		if (_sprites[SP_TALK])
+			_sprites[SP_TALK]->Restart();
+		if (_sprites[SP_IDLE])
+			_sprites[SP_IDLE]->Restart();
+		if (_sprites[SP_SCREAM])
+			_sprites[SP_SCREAM]->Restart();
 
 		_motionTimer.restart();
 	}
@@ -4516,7 +4527,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	ImVec4 mpTint;
 
 	sf::Vector2<double> centerToPivot(_pivot - sf::Vector2<double>(0.5, 0.5));
-	sf::Vector2<double> idleCenterToPivotPX(centerToPivot * sf::Vector2<double>(_idleSprite->Size()));
+	sf::Vector2<double> idleCenterToPivotPX(centerToPivot * sf::Vector2<double>(_sprites[SP_IDLE]->Size()));
 	sf::Vector2<double> activeSpriteCenter(0.5 * sf::Vector2<double>(_activeSprite->Size()) + sf::Vector2<double>(_activeSprite->_offsetFromIdle));
 	sf::Vector2<double> pivot(activeSpriteCenter + idleCenterToPivotPX);
 
@@ -4590,8 +4601,8 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
 {
 
-	bool blinkAvailable = _blinkSprite->HasTexture() && !talking && !screaming;
-	bool talkBlinkAvailable = _blinkWhileTalking && _talkBlinkSprite->HasTexture() && talking && !screaming;
+	bool blinkAvailable = _sprites[SP_BLINK]->HasTexture() && !talking && !screaming;
+	bool talkBlinkAvailable = _blinkWhileTalking && _sprites[SP_TALKBLINK]->HasTexture() && talking && !screaming;
 
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
@@ -4603,8 +4614,8 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
-		if (!_blinkSprite->IsSynced())
-			_blinkSprite->Restart();
+		if (!_sprites[SP_BLINK]->IsSynced())
+			_sprites[SP_BLINK]->Restart();
 		_blinkVarDelay = GetRandom11() * _blinkVariation;
 	}
 
@@ -4612,60 +4623,60 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	{
 		if (talkBlinkAvailable)
 		{
-			_activeSprite = _talkBlinkSprite.get();
-			_talkBlinkSprite->_visible = true;
-			_blinkSprite->_visible = false;
-			_talkSprite->_visible = false;
-			_idleSprite->_visible = false;
-			_screamSprite->_visible = false;
-			_talkBlinkSprite->SetColor(_talkBlinkTint);
-			activeSpriteCol = _talkBlinkTint;
+			_activeSprite = _sprites[SP_TALKBLINK].get();
+			_sprites[SP_TALKBLINK]->_visible = true;
+			_sprites[SP_BLINK]->_visible = false;
+			_sprites[SP_TALK]->_visible = false;
+			_sprites[SP_IDLE]->_visible = false;
+			_sprites[SP_SCREAM]->_visible = false;
+			_sprites[SP_TALKBLINK]->SetColor(_sprites[SP_TALKBLINK].tint);
+			activeSpriteCol = _sprites[SP_TALKBLINK].tint;
 		}
 		else if (blinkAvailable)
 		{
-			_activeSprite = _blinkSprite.get();
-			_blinkSprite->_visible = true;
-			_talkBlinkSprite->_visible = false;
-			_talkSprite->_visible = false;
-			_idleSprite->_visible = false;
-			_screamSprite->_visible = false;
-			_blinkSprite->SetColor(_blinkTint);
-			activeSpriteCol = _blinkTint;
+			_activeSprite = _sprites[SP_BLINK].get();
+			_sprites[SP_BLINK]->_visible = true;
+			_sprites[SP_TALKBLINK]->_visible = false;
+			_sprites[SP_TALK]->_visible = false;
+			_sprites[SP_IDLE]->_visible = false;
+			_sprites[SP_SCREAM]->_visible = false;
+			_sprites[SP_BLINK]->SetColor(_sprites[SP_BLINK].tint);
+			activeSpriteCol = _sprites[SP_BLINK].tint;
 		}
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
 			_isBlinking = false;
 	}
 
-	if (_talkSprite->HasTexture() && !_isBlinking && _swapWhenTalking && talking)
+	if (_sprites[SP_TALK]->HasTexture() && !_isBlinking && _swapWhenTalking && talking)
 	{
-		_activeSprite = _talkSprite.get();
-		_screamSprite->_visible = false;
-		_idleSprite->_visible = false;
-		_blinkSprite->_visible = false;
-		_talkSprite->_visible = true;
-		_talkSprite->SetColor(_talkTint);
-		activeSpriteCol = _talkTint;
+		_activeSprite = _sprites[SP_TALK].get();
+		_sprites[SP_SCREAM]->_visible = false;
+		_sprites[SP_IDLE]->_visible = false;
+		_sprites[SP_BLINK]->_visible = false;
+		_sprites[SP_TALK]->_visible = true;
+		_sprites[SP_TALK]->SetColor(_sprites[SP_TALK].tint);
+		activeSpriteCol = _sprites[SP_TALK].tint;
 
 		if (_smoothTalkTint)
 		{
-			activeSpriteCol = _talkTint * talkAmount + _idleTint * (1.0 - talkAmount);
+			activeSpriteCol = _sprites[SP_TALK].tint * talkAmount + _sprites[SP_IDLE].tint * (1.0 - talkAmount);
 		}
 
 		if (!_wasTalking && _restartTalkAnim)
 		{
-			_talkSprite->Restart();
+			_sprites[SP_TALK]->Restart();
 		}
 	}
-	else if (_screamSprite->HasTexture() && screaming)
+	else if (_sprites[SP_SCREAM]->HasTexture() && screaming)
 	{
-		_activeSprite = _screamSprite.get();
-		_screamSprite->_visible = true;
-		_idleSprite->_visible = false;
-		_blinkSprite->_visible = false;
-		_talkSprite->_visible = false;
-		_screamSprite->SetColor(_screamTint);
-		activeSpriteCol = _screamTint;
+		_activeSprite = _sprites[SP_SCREAM].get();
+		_sprites[SP_SCREAM]->_visible = true;
+		_sprites[SP_IDLE]->_visible = false;
+		_sprites[SP_BLINK]->_visible = false;
+		_sprites[SP_TALK]->_visible = false;
+		_sprites[SP_SCREAM]->SetColor(_sprites[SP_SCREAM].tint);
+		activeSpriteCol = _sprites[SP_SCREAM].tint;
 	}
 }
 
@@ -4929,35 +4940,35 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-						ImageBrowsePreviewBtn(_importIdleOpen, "idleimgbtn", imgBtnWidth, _idleImagePath, _idleSprite.get());
+						ImageBrowsePreviewBtn(_sprites[SP_IDLE].importOpen, "idleimgbtn", imgBtnWidth, _sprites[SP_IDLE].path, _sprites[SP_IDLE].get());
 
 						ImGui::SameLine();
-						_spriteIdleOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+						_sprites[SP_IDLE].spriteOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
 						ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
-						AnimPopup(*_idleSprite, _spriteIdleOpen, _oldSpriteIdleOpen);
+						AnimPopup(*_sprites[SP_IDLE], _sprites[SP_IDLE].spriteOpen, _sprites[SP_IDLE].oldSpriteOpen);
 
 						ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 						ImGui::PushID("idleimportfile"); {
 							char idlebuf[MAX_PATH] = {};
-							ANSIToUTF8(_idleImagePath).copy(idlebuf, MAX_PATH);
+							ANSIToUTF8(_sprites[SP_IDLE].path).copy(idlebuf, MAX_PATH);
 							ImGui::SetNextItemWidth(-1);
 							if (ImGui::InputText("", idlebuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 							{
-								_idleImagePath = UTF8ToANSI(idlebuf);
-								if (_idleImagePath == "")
-									_idleSprite->Clear();
+								_sprites[SP_IDLE].path = UTF8ToANSI(idlebuf);
+								if (_sprites[SP_IDLE].path == "")
+									_sprites[SP_IDLE]->Clear();
 								else
 								{
-									_idleSprite->LoadFromTexture(_parent->_textureMan, _idleImagePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-									_idleSprite->setSmooth(_scaleFiltering);
+									_sprites[SP_IDLE]->LoadFromTexture(_parent->_textureMan, _sprites[SP_IDLE].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+									_sprites[SP_IDLE]->setSmooth(_scaleFiltering);
 								}
 
 							}
 						}ImGui::PopID();
 						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-						ImGui::ColorEdit4("Tint", &_idleTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+						ImGui::ColorEdit4("Tint", &_sprites[SP_IDLE].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 					}ImGui::PopID();
 
@@ -4970,36 +4981,36 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("talkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							ImageBrowsePreviewBtn(_importTalkOpen, "talkimgbtn", imgBtnWidth, _talkSpritePath, _talkSprite.get());
+							ImageBrowsePreviewBtn(_sprites[SP_TALK].importOpen, "talkimgbtn", imgBtnWidth, _sprites[SP_TALK].path, _sprites[SP_TALK].get());
 
 							ImGui::SameLine();
 							ImGui::PushID("talkanimbtn"); {
-								_spriteTalkOpen |= ImGui::ImageButton("talkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+								_sprites[SP_TALK].spriteOpen |= ImGui::ImageButton("talkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
 								ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-								AnimPopup(*_talkSprite, _spriteTalkOpen, _oldSpriteTalkOpen);
+								AnimPopup(*_sprites[SP_TALK], _sprites[SP_TALK].spriteOpen, _sprites[SP_TALK].oldSpriteOpen);
 							}ImGui::PopID();
 
 							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 							ImGui::PushID("talkimportfile"); {
 								char talkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_talkSpritePath).copy(talkbuf, MAX_PATH);
+								ANSIToUTF8(_sprites[SP_TALK].path).copy(talkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
 								if (ImGui::InputText("", talkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
-									_talkSpritePath = UTF8ToANSI(talkbuf);
-									if (_talkSpritePath == "")
-										_talkSprite->Clear();
+									_sprites[SP_TALK].path = UTF8ToANSI(talkbuf);
+									if (_sprites[SP_TALK].path == "")
+										_sprites[SP_TALK]->Clear();
 									else
 									{
-										_talkSprite->LoadFromTexture(_parent->_textureMan, _talkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-										_talkSprite->setSmooth(_scaleFiltering);
+										_sprites[SP_TALK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_TALK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+										_sprites[SP_TALK]->setSmooth(_scaleFiltering);
 									}
 								}
 							}ImGui::PopID();
 							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-							ImGui::ColorEdit4("Tint", &_talkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+							ImGui::ColorEdit4("Tint", &_sprites[SP_TALK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 
 						}ImGui::PopID();
 					}
@@ -5015,31 +5026,31 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						ImGui::PushID("blinkimport"); {
 							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-							ImageBrowsePreviewBtn(_importBlinkOpen, "blinkimgbtn", blinkBtnSize, _blinkSpritePath, _blinkSprite.get());
+							ImageBrowsePreviewBtn(_sprites[SP_BLINK].importOpen, "blinkimgbtn", blinkBtnSize, _sprites[SP_BLINK].path, _sprites[SP_BLINK].get());
 
 							ImGui::SameLine();
 							auto tintPos = ImGui::GetCursorPos();
 							ImGui::PushID("blinkanimbtn"); {
-								_spriteBlinkOpen |= ImGui::ImageButton("blinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+								_sprites[SP_BLINK].spriteOpen |= ImGui::ImageButton("blinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
 								tintPos.y += ImGui::GetItemRectSize().y;
 								ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-								AnimPopup(*_blinkSprite, _spriteBlinkOpen, _oldSpriteBlinkOpen);
+								AnimPopup(*_sprites[SP_BLINK], _sprites[SP_BLINK].spriteOpen, _sprites[SP_BLINK].oldSpriteOpen);
 							}ImGui::PopID();
 							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 							ImGui::PushID("blinkimportfile"); {
 								char blinkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_blinkSpritePath).copy(blinkbuf, MAX_PATH);
+								ANSIToUTF8(_sprites[SP_BLINK].path).copy(blinkbuf, MAX_PATH);
 								ImGui::SetNextItemWidth(-1);
 								if (ImGui::InputText("", blinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 								{
-									_blinkSpritePath = UTF8ToANSI(blinkbuf);
-									if (_blinkSpritePath == "")
-										_blinkSprite->Clear();
+									_sprites[SP_BLINK].path = UTF8ToANSI(blinkbuf);
+									if (_sprites[SP_BLINK].path == "")
+										_sprites[SP_BLINK]->Clear();
 									else
 									{
-										_blinkSprite->LoadFromTexture(_parent->_textureMan, _blinkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-										_blinkSprite->setSmooth(_scaleFiltering);
+										_sprites[SP_BLINK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_BLINK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+										_sprites[SP_BLINK]->setSmooth(_scaleFiltering);
 									}
 								}
 							}ImGui::PopID();
@@ -5049,7 +5060,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							if (_blinkWhileTalking)
 								ImGui::SetCursorPos(tintPos);
 
-							ImGui::ColorEdit4("Tint", &_blinkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+							ImGui::ColorEdit4("Tint", &_sprites[SP_BLINK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 							ImGui::SetCursorPos(saveCursor);
 						}ImGui::PopID();
 
@@ -5059,32 +5070,32 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushID("talkblinkimport"); {
 								ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-								ImageBrowsePreviewBtn(_importTalkBlinkOpen, "talkblinkimgbtn", blinkBtnSize, _talkBlinkSpritePath, _talkBlinkSprite.get());
+								ImageBrowsePreviewBtn(_sprites[SP_TALKBLINK].importOpen, "talkblinkimgbtn", blinkBtnSize, _sprites[SP_TALKBLINK].path, _sprites[SP_TALKBLINK].get());
 
 								ImGui::SameLine();
 								auto tintPos = ImGui::GetCursorPos();
 								ImGui::PushID("talkblinkanimbtn"); {
-									_spriteTalkBlinkOpen |= ImGui::ImageButton("talkblinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+									_sprites[SP_TALKBLINK].spriteOpen |= ImGui::ImageButton("talkblinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
 									tintPos.y += ImGui::GetItemRectSize().y;
 									ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-									AnimPopup(*_talkBlinkSprite, _spriteTalkBlinkOpen, _oldSpriteTalkBlinkOpen);
+									AnimPopup(*_sprites[SP_TALKBLINK], _sprites[SP_TALKBLINK].spriteOpen, _sprites[SP_TALKBLINK].oldSpriteOpen);
 								}ImGui::PopID();//talkblinkanimbtn
 
 								ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
 
 								ImGui::PushID("talkblinkimportfile"); {
 									char talkblinkbuf[MAX_PATH] = {};
-									ANSIToUTF8(_talkBlinkSpritePath).copy(talkblinkbuf, MAX_PATH);
+									ANSIToUTF8(_sprites[SP_TALKBLINK].path).copy(talkblinkbuf, MAX_PATH);
 									ImGui::SetNextItemWidth(-1);
 									if (ImGui::InputText("", talkblinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
 									{
-										_talkBlinkSpritePath = UTF8ToANSI(talkblinkbuf);
-										if (_talkBlinkSpritePath == "")
-											_talkBlinkSprite->Clear();
+										_sprites[SP_TALKBLINK].path = UTF8ToANSI(talkblinkbuf);
+										if (_sprites[SP_TALKBLINK].path == "")
+											_sprites[SP_TALKBLINK]->Clear();
 										else
 										{
-											_talkBlinkSprite->LoadFromTexture(_parent->_textureMan, _talkBlinkSpritePath, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-											_talkBlinkSprite->setSmooth(_scaleFiltering);
+											_sprites[SP_TALKBLINK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_TALKBLINK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+											_sprites[SP_TALKBLINK]->setSmooth(_scaleFiltering);
 										}
 									}
 								}ImGui::PopID();//talkblinkimportfile
@@ -5094,7 +5105,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								if (_blinkWhileTalking)
 									ImGui::SetCursorPos(tintPos);
 
-								ImGui::ColorEdit4("Tint", &_talkBlinkTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+								ImGui::ColorEdit4("Tint", &_sprites[SP_TALKBLINK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 								ImGui::SetCursorPos(saveCursor);
 							}ImGui::PopID();
 						}
@@ -5124,11 +5135,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}, _scaleFiltering, &_parent->_appConfig->_hoverTimer);
 						if (scaleFilterChanged)
 						{
-							if (_idleSprite) _idleSprite->setSmooth(_scaleFiltering);
-							if (_talkSprite) _talkSprite->setSmooth(_scaleFiltering);
-							if (_blinkSprite) _blinkSprite->setSmooth(_scaleFiltering);
-							if (_talkBlinkSprite) _talkBlinkSprite->setSmooth(_scaleFiltering);
-							if (_screamSprite) _screamSprite->setSmooth(_scaleFiltering);
+							if (_sprites[SP_IDLE]) _sprites[SP_IDLE]->setSmooth(_scaleFiltering);
+							if (_sprites[SP_TALK]) _sprites[SP_TALK]->setSmooth(_scaleFiltering);
+							if (_sprites[SP_BLINK]) _sprites[SP_BLINK]->setSmooth(_scaleFiltering);
+							if (_sprites[SP_TALKBLINK]) _sprites[SP_TALKBLINK]->setSmooth(_scaleFiltering);
+							if (_sprites[SP_SCREAM]) _sprites[SP_SCREAM]->setSmooth(_scaleFiltering);
 						}
 
 						AddResetButton("alphaCutoff", _alphaClip, 0.0f, _parent->_appConfig, &style);
@@ -5259,30 +5270,30 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
 					ImGui::PushID("screamimport"); {
 
-						ImageBrowsePreviewBtn(_importScreamOpen, "screamimgbtn", imgBtnWidth, _screamSpritePath, _screamSprite.get());
+						ImageBrowsePreviewBtn(_sprites[SP_SCREAM].importOpen, "screamimgbtn", imgBtnWidth, _sprites[SP_SCREAM].path, _sprites[SP_SCREAM].get());
 
 						ImGui::SameLine();
 						ImGui::PushID("screamanimbtn"); {
-							_spriteScreamOpen |= ImGui::ImageButton("screamanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+							_sprites[SP_SCREAM].spriteOpen |= ImGui::ImageButton("screamanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
 							ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-							AnimPopup(*_screamSprite, _spriteScreamOpen, _oldSpriteScreamOpen);
+							AnimPopup(*_sprites[SP_SCREAM], _sprites[SP_SCREAM].spriteOpen, _sprites[SP_SCREAM].oldSpriteOpen);
 						}ImGui::PopID();//screamanimbtn
 
 						ImGui::PopStyleVar();
 
 						ImGui::PushID("screamimportfile"); {
 							char screambuf[MAX_PATH] = {};
-							ANSIToUTF8(_screamSpritePath).copy(screambuf, MAX_PATH);
+							ANSIToUTF8(_sprites[SP_SCREAM].path).copy(screambuf, MAX_PATH);
 							if (ImGui::InputText("", screambuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
 							{
-								_screamSpritePath = UTF8ToANSI(screambuf);
-								_screamSprite->LoadFromTexture(_parent->_textureMan, _screamSpritePath, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
-								_screamSprite->setSmooth(_scaleFiltering);
+								_sprites[SP_SCREAM].path = UTF8ToANSI(screambuf);
+								_sprites[SP_SCREAM]->LoadFromTexture(_parent->_textureMan, _sprites[SP_SCREAM].path, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
+								_sprites[SP_SCREAM]->setSmooth(_scaleFiltering);
 							}
 						}ImGui::PopID();//screamimportfile
 						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
 
-						ImGui::ColorEdit4("Tint", &_screamTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+						ImGui::ColorEdit4("Tint", &_sprites[SP_SCREAM].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 						ToolTip("Tint the sprite a different color, or change its opacity (alpha value)", &_parent->_appConfig->_hoverTimer);
 					}ImGui::PopID();
 
@@ -5809,7 +5820,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 									if (_doBreathTint)
 									{
-										AddResetButton("breathtintreset", _breathTint, _idleTint, _parent->_appConfig, &style);
+										AddResetButton("breathtintreset", _breathTint, _sprites[SP_IDLE].tint, _parent->_appConfig, &style);
 										ImGui::ColorEdit4("Tint##BreathTint", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 									}
 								}
@@ -6236,7 +6247,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ToolTip("Apply this rotation value to any layers using\nthis as a Motion Parent.\n\
 (This is different from the rotation in Individual Motion.\nChildrens' position will also be rotated.)", &_parent->_appConfig->_hoverTimer);
 
-					sf::Vector2f spriteSize = _idleSprite->Size();
+					sf::Vector2f spriteSize = _sprites[SP_IDLE]->Size();
 
 					sf::Vector2<double> prevPivot = _pivot;
 					AddResetButton("pivot", _pivot, sf::Vector2<double>(0.5, 0.5), _parent->_appConfig, &style);
@@ -6755,24 +6766,24 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 void LayerManager::LayerInfo::SyncAnims(bool sync)
 {
-	_idleSprite->ClearSync();
+	_sprites[SP_IDLE]->ClearSync();
 	if (sync)
 	{
-		_idleSprite->AddSync(_talkSprite.get());
-		_idleSprite->AddSync(_blinkSprite.get());
-		_idleSprite->AddSync(_talkBlinkSprite.get());
-		_idleSprite->AddSync(_screamSprite.get());
-		_idleSprite->Restart();
+		_sprites[SP_IDLE]->AddSync(_sprites[SP_TALK].get());
+		_sprites[SP_IDLE]->AddSync(_sprites[SP_BLINK].get());
+		_sprites[SP_IDLE]->AddSync(_sprites[SP_TALKBLINK].get());
+		_sprites[SP_IDLE]->AddSync(_sprites[SP_SCREAM].get());
+		_sprites[SP_IDLE]->Restart();
 	}
 }
 
 void LayerManager::LayerInfo::OptimiseSprites()
 {
-	_idleSprite;
-	_talkSprite;
-	_blinkSprite;
-	_talkBlinkSprite;
-	_screamSprite;
+	_sprites[SP_IDLE];
+	_sprites[SP_TALK];
+	_sprites[SP_BLINK];
+	_sprites[SP_TALKBLINK];
+	_sprites[SP_SCREAM];
 
 	sf::Vector2f idleToCenterOrig;
 	sf::Vector2f idleToCenterNew;
@@ -6780,12 +6791,12 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	sf::Vector2f idleOrigSize;
 	sf::Vector2f idleNewSize;
 
-	if (_idleSprite->FrameCount() == 1)
+	if (_sprites[SP_IDLE]->FrameCount() == 1)
 	{
 		if(_parent->_storePreCropPivot)
 			_preCropPivot = originalPivot;
 
-		const CropInfo cropInfo = CropTextureTransparency(_idleSprite->getTexture(), _idleImagePath);
+		const CropInfo cropInfo = CropTextureTransparency(_sprites[SP_IDLE]->getTexture(), _sprites[SP_IDLE].path);
 
 		idleToCenterOrig = 0.5f * sf::Vector2f(cropInfo.origSize);
 		idleOrigSize = sf::Vector2f(cropInfo.origSize);
@@ -6794,7 +6805,7 @@ void LayerManager::LayerInfo::OptimiseSprites()
 		auto& cropLocation = cropInfo.cropRect;
 		const sf::Vector2<double> offset((double)cropLocation.left, (double)cropLocation.top);
 		orgPx -= offset;
-		_idleSprite->UpdateSize();
+		_sprites[SP_IDLE]->UpdateSize();
 
 		const auto newSize = cropLocation.getSize();
 
@@ -6809,18 +6820,16 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	}
 	else
 	{
-		idleToCenterOrig = idleToCenterNew = sf::Vector2f(_pivot) * sf::Vector2f(_idleSprite->Size());
+		idleToCenterOrig = idleToCenterNew = sf::Vector2f(_pivot) * sf::Vector2f(_sprites[SP_IDLE]->Size());
 	}
 
-	std::vector<std::shared_ptr<SpriteSheet>> otherSprites = { _talkSprite, _blinkSprite, _talkBlinkSprite, _screamSprite };
-	std::vector<std::string> spritePaths = { _talkSpritePath, _blinkSpritePath, _talkBlinkSpritePath, _screamSpritePath };
-	for (int s = 0; s < otherSprites.size(); s++)
+
+	for (int s = SP_TALK; s < SP_END; s++)
 	{
-		auto& sp = otherSprites[s];
-		auto& sPath = spritePaths[s];
+		auto& sp = _sprites[(SpriteType)s];
 		if (sp->FrameCount() == 1)
 		{
-			const CropInfo cropInfo = CropTextureTransparency(sp->getTexture(), sPath);
+			const CropInfo cropInfo = CropTextureTransparency(sp->getTexture(), sp.path);
 
 			// assuming the centers of both sprites were aligned before the crop
 			// - calculate the distance from this sprite's original top left to the idle sprite's original top left
@@ -6935,4 +6944,17 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 	srcTex->loadFromImage(croppedImg);
 
 	return cropInfo;
+}
+
+LayerManager::SpriteInfo LayerManager::SpriteInfo::Copy() const
+{
+	LayerManager::SpriteInfo copy;
+	copy.importOpen = importOpen;
+	copy.spriteOpen = spriteOpen;
+	copy.oldSpriteOpen = oldSpriteOpen;
+	copy.path = path;
+	copy.tint = tint;
+	copy.sprite = std::make_shared<SpriteSheet>(*sprite);
+
+	return std::move(copy);
 }
