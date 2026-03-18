@@ -610,6 +610,11 @@ static inline void TextCentered(const std::string& text)
 	ImGui::Text(text.c_str());
 }
 
+inline float Luminosity(const ImVec4& col)
+{
+	return (0.3*col.x + 0.59*col.y + 0.11*col.z);
+}
+
 inline sf::Color toSFColor(const ImVec4& col)
 {
 	return sf::Color(sf::Uint8(Clamp(col.x * 255u, 0, 255u)), 

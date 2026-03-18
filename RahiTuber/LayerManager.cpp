@@ -3370,6 +3370,10 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_newFolderIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_NEWFOLDER);
 		_statesIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_STATES);
 		_plusIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PLUS);
+		_moveIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_MOVE);
+		_dropIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_DROP);
+
+
 
 		_lockOpenIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_OPEN);
 		_lockClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_CLOSED);
@@ -4927,92 +4931,25 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				_parent->_hoveredLayers.push_back(_id);
 
 				float imgBtnWidth = UIUnit * 6 - 2;
-				float smlImageBtnWidth = UIUnit * 3 - 2;
+				float smlImageBtnWidth = UIUnit * 3.5 - 2;
 				float animBtnWidth = UIUnit;
+				float checkboxPos;
 
 				if (ImGui::BeginTable("imagebuttons", 3, ImGuiTableFlags_SizingFixedSame))
 				{
 					ImGui::TableNextColumn();
 
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text("Idle");
-					ImGui::PushID("idleimport"); {
+					SpriteSelectGUI(SP_IDLE, imgBtnWidth, animBtnWidth, btnColor, uiScale);
 
-						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-						ImageBrowsePreviewBtn(_sprites[SP_IDLE].importOpen, "idleimgbtn", imgBtnWidth, _sprites[SP_IDLE].path, _sprites[SP_IDLE].get());
-
-						ImGui::SameLine();
-						_sprites[SP_IDLE].spriteOpen |= ImGui::ImageButton("idleanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-						ToolTip("Animation settings", &_parent->_appConfig->_hoverTimer);
-						AnimPopup(*_sprites[SP_IDLE], _sprites[SP_IDLE].spriteOpen, _sprites[SP_IDLE].oldSpriteOpen);
-
-						ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
-
-						ImGui::PushID("idleimportfile"); {
-							char idlebuf[MAX_PATH] = {};
-							ANSIToUTF8(_sprites[SP_IDLE].path).copy(idlebuf, MAX_PATH);
-							ImGui::SetNextItemWidth(-1);
-							if (ImGui::InputText("", idlebuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
-							{
-								_sprites[SP_IDLE].path = UTF8ToANSI(idlebuf);
-								if (_sprites[SP_IDLE].path == "")
-									_sprites[SP_IDLE]->Clear();
-								else
-								{
-									_sprites[SP_IDLE]->LoadFromTexture(_parent->_textureMan, _sprites[SP_IDLE].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-									_sprites[SP_IDLE]->setSmooth(_scaleFiltering);
-								}
-
-							}
-						}ImGui::PopID();
-						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-						ImGui::ColorEdit4("Tint", &_sprites[SP_IDLE].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-					}ImGui::PopID();
+					checkboxPos = ImGui::GetCursorPosY();
 
 					ImGui::TableNextColumn();
 
 					if (_swapWhenTalking)
 					{
 						ImGui::AlignTextToFramePadding();
-						ImGui::Text("Talk");
-						ImGui::PushID("talkimport"); {
-							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-							ImageBrowsePreviewBtn(_sprites[SP_TALK].importOpen, "talkimgbtn", imgBtnWidth, _sprites[SP_TALK].path, _sprites[SP_TALK].get());
-
-							ImGui::SameLine();
-							ImGui::PushID("talkanimbtn"); {
-								_sprites[SP_TALK].spriteOpen |= ImGui::ImageButton("talkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-								ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-								AnimPopup(*_sprites[SP_TALK], _sprites[SP_TALK].spriteOpen, _sprites[SP_TALK].oldSpriteOpen);
-							}ImGui::PopID();
-
-							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
-
-							ImGui::PushID("talkimportfile"); {
-								char talkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_sprites[SP_TALK].path).copy(talkbuf, MAX_PATH);
-								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", talkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
-								{
-									_sprites[SP_TALK].path = UTF8ToANSI(talkbuf);
-									if (_sprites[SP_TALK].path == "")
-										_sprites[SP_TALK]->Clear();
-									else
-									{
-										_sprites[SP_TALK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_TALK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-										_sprites[SP_TALK]->setSmooth(_scaleFiltering);
-									}
-								}
-							}ImGui::PopID();
-							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-							ImGui::ColorEdit4("Tint", &_sprites[SP_TALK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-						}ImGui::PopID();
+						SpriteSelectGUI(SP_TALK, imgBtnWidth, animBtnWidth, btnColor, uiScale);
 					}
 
 					ImGui::TableNextColumn();
@@ -5023,97 +4960,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						ImGui::AlignTextToFramePadding();
 						ImGui::Text("Blink");
-						ImGui::PushID("blinkimport"); {
-							ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-							ImageBrowsePreviewBtn(_sprites[SP_BLINK].importOpen, "blinkimgbtn", blinkBtnSize, _sprites[SP_BLINK].path, _sprites[SP_BLINK].get());
-
-							ImGui::SameLine();
-							auto tintPos = ImGui::GetCursorPos();
-							ImGui::PushID("blinkanimbtn"); {
-								_sprites[SP_BLINK].spriteOpen |= ImGui::ImageButton("blinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-								tintPos.y += ImGui::GetItemRectSize().y;
-								ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-								AnimPopup(*_sprites[SP_BLINK], _sprites[SP_BLINK].spriteOpen, _sprites[SP_BLINK].oldSpriteOpen);
-							}ImGui::PopID();
-							ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
-
-							ImGui::PushID("blinkimportfile"); {
-								char blinkbuf[MAX_PATH] = {};
-								ANSIToUTF8(_sprites[SP_BLINK].path).copy(blinkbuf, MAX_PATH);
-								ImGui::SetNextItemWidth(-1);
-								if (ImGui::InputText("", blinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
-								{
-									_sprites[SP_BLINK].path = UTF8ToANSI(blinkbuf);
-									if (_sprites[SP_BLINK].path == "")
-										_sprites[SP_BLINK]->Clear();
-									else
-									{
-										_sprites[SP_BLINK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_BLINK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-										_sprites[SP_BLINK]->setSmooth(_scaleFiltering);
-									}
-								}
-							}ImGui::PopID();
-							ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-							auto saveCursor = ImGui::GetCursorPos();
-							if (_blinkWhileTalking)
-								ImGui::SetCursorPos(tintPos);
-
-							ImGui::ColorEdit4("Tint", &_sprites[SP_BLINK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-							ImGui::SetCursorPos(saveCursor);
-						}ImGui::PopID();
+						SpriteSelectGUI(SP_BLINK, blinkBtnSize, animBtnWidth, btnColor, uiScale, true);
 
 						if (_blinkWhileTalking)
 						{
-							//ImGui::TextColored(style.Colors[ImGuiCol_Text], "Talk Blink");
-							ImGui::PushID("talkblinkimport"); {
-								ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-								ImageBrowsePreviewBtn(_sprites[SP_TALKBLINK].importOpen, "talkblinkimgbtn", blinkBtnSize, _sprites[SP_TALKBLINK].path, _sprites[SP_TALKBLINK].get());
-
-								ImGui::SameLine();
-								auto tintPos = ImGui::GetCursorPos();
-								ImGui::PushID("talkblinkanimbtn"); {
-									_sprites[SP_TALKBLINK].spriteOpen |= ImGui::ImageButton("talkblinkanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-									tintPos.y += ImGui::GetItemRectSize().y;
-									ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-									AnimPopup(*_sprites[SP_TALKBLINK], _sprites[SP_TALKBLINK].spriteOpen, _sprites[SP_TALKBLINK].oldSpriteOpen);
-								}ImGui::PopID();//talkblinkanimbtn
-
-								ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
-
-								ImGui::PushID("talkblinkimportfile"); {
-									char talkblinkbuf[MAX_PATH] = {};
-									ANSIToUTF8(_sprites[SP_TALKBLINK].path).copy(talkblinkbuf, MAX_PATH);
-									ImGui::SetNextItemWidth(-1);
-									if (ImGui::InputText("", talkblinkbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
-									{
-										_sprites[SP_TALKBLINK].path = UTF8ToANSI(talkblinkbuf);
-										if (_sprites[SP_TALKBLINK].path == "")
-											_sprites[SP_TALKBLINK]->Clear();
-										else
-										{
-											_sprites[SP_TALKBLINK]->LoadFromTexture(_parent->_textureMan, _sprites[SP_TALKBLINK].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
-											_sprites[SP_TALKBLINK]->setSmooth(_scaleFiltering);
-										}
-									}
-								}ImGui::PopID();//talkblinkimportfile
-								ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-								auto saveCursor = ImGui::GetCursorPos();
-								if (_blinkWhileTalking)
-									ImGui::SetCursorPos(tintPos);
-
-								ImGui::ColorEdit4("Tint", &_sprites[SP_TALKBLINK].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-								ImGui::SetCursorPos(saveCursor);
-							}ImGui::PopID();
+							SpriteSelectGUI(SP_TALKBLINK, blinkBtnSize, animBtnWidth, btnColor, uiScale, true);
+							checkboxPos = ImGui::GetCursorPosY() - ImGui::GetFrameHeightWithSpacing();
 						}
 					}
 
 					ImGui::EndTable();
 				}
 
+				ImGui::SetCursorPosY(checkboxPos);
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
 				ToolTip("Restarts all this layer's sprite-sheets whenever\nthis layer is made visible", &_parent->_appConfig->_hoverTimer);
 
@@ -5135,11 +4994,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}, _scaleFiltering, &_parent->_appConfig->_hoverTimer);
 						if (scaleFilterChanged)
 						{
-							if (_sprites[SP_IDLE]) _sprites[SP_IDLE]->setSmooth(_scaleFiltering);
-							if (_sprites[SP_TALK]) _sprites[SP_TALK]->setSmooth(_scaleFiltering);
-							if (_sprites[SP_BLINK]) _sprites[SP_BLINK]->setSmooth(_scaleFiltering);
-							if (_sprites[SP_TALKBLINK]) _sprites[SP_TALKBLINK]->setSmooth(_scaleFiltering);
-							if (_sprites[SP_SCREAM]) _sprites[SP_SCREAM]->setSmooth(_scaleFiltering);
+							for (auto& sp : _sprites)
+							{
+								if(sp.second)
+									sp.second->setSmooth(_scaleFiltering);
+							}
 						}
 
 						AddResetButton("alphaCutoff", _alphaClip, 0.0f, _parent->_appConfig, &style);
@@ -5267,35 +5126,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
-					ImGui::TextColored(style.Colors[ImGuiCol_Text], "Scream");
-					ImGui::PushID("screamimport"); {
-
-						ImageBrowsePreviewBtn(_sprites[SP_SCREAM].importOpen, "screamimgbtn", imgBtnWidth, _sprites[SP_SCREAM].path, _sprites[SP_SCREAM].get());
-
-						ImGui::SameLine();
-						ImGui::PushID("screamanimbtn"); {
-							_sprites[SP_SCREAM].spriteOpen |= ImGui::ImageButton("screamanimbtn", *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-							ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
-							AnimPopup(*_sprites[SP_SCREAM], _sprites[SP_SCREAM].spriteOpen, _sprites[SP_SCREAM].oldSpriteOpen);
-						}ImGui::PopID();//screamanimbtn
-
-						ImGui::PopStyleVar();
-
-						ImGui::PushID("screamimportfile"); {
-							char screambuf[MAX_PATH] = {};
-							ANSIToUTF8(_sprites[SP_SCREAM].path).copy(screambuf, MAX_PATH);
-							if (ImGui::InputText("", screambuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll))
-							{
-								_sprites[SP_SCREAM].path = UTF8ToANSI(screambuf);
-								_sprites[SP_SCREAM]->LoadFromTexture(_parent->_textureMan, _sprites[SP_SCREAM].path, 1, 1, 1, 1, { -1,-1 }, & _parent->_errorMessage);
-								_sprites[SP_SCREAM]->setSmooth(_scaleFiltering);
-							}
-						}ImGui::PopID();//screamimportfile
-						ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
-
-						ImGui::ColorEdit4("Tint", &_sprites[SP_SCREAM].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-						ToolTip("Tint the sprite a different color, or change its opacity (alpha value)", &_parent->_appConfig->_hoverTimer);
-					}ImGui::PopID();
+					SpriteSelectGUI(SP_SCREAM, imgBtnWidth, animBtnWidth, btnColor, uiScale);
 
 					AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style, true, &barPos);
 					ImVec2 barPos = ImGui::GetCursorScreenPos();
@@ -6580,6 +6411,82 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	return allowContinue;
 }
 
+void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised)
+{
+
+	std::string spriteTitle = g_spriteNames[UISprite];
+	std::string sectionID = std::string(spriteTitle) + "import";
+	std::string imgID = std::string(spriteTitle) + "imgbtn";
+	std::string animID = std::string(spriteTitle) + "animbtn";
+	std::string tintid = "##" + std::string(spriteTitle) + "tint";
+	std::string offsetID = std::string(spriteTitle) + "offsetbtn";
+	std::string fileID = std::string(spriteTitle) + "importfile";
+
+
+	if(!minimised)
+		ImGui::Text(spriteTitle.c_str());
+
+	ImGui::PushID(sectionID.c_str()); {
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
+		ImageBrowsePreviewBtn(_sprites[UISprite].importOpen, imgID.c_str(), imgBtnWidth, _sprites[UISprite].path, _sprites[UISprite].get());
+		auto filePathPos = ImGui::GetCursorPos();
+
+		ImGui::SameLine();
+		auto offsetBtnPos = ImGui::GetCursorPos();
+		ImGui::PushID(animID.c_str()); {
+			_sprites[UISprite].spriteOpen |= ImGui::ImageButton(animID.c_str(), *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+			ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
+			AnimPopup(*_sprites[UISprite], _sprites[UISprite].spriteOpen, _sprites[UISprite].oldSpriteOpen);
+		}ImGui::PopID();
+
+		offsetBtnPos.y += ImGui::GetFrameHeightWithSpacing() * 1.2;
+		ImGui::SetCursorPos(offsetBtnPos);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 4.15f, uiScale * 4.1f });
+		ImGui::ColorEdit4(tintid.c_str(), &_sprites[UISprite].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+		ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
+		ImGui::SetCursorPos(offsetBtnPos + ImVec2(uiScale*1, uiScale * 1));
+		sf::Color tintBtnCol = btnColor;
+		if (Luminosity(_sprites[UISprite].tint) > 0.5)
+			tintBtnCol = toSFColor(toImVec4(tintBtnCol) * ImVec4(0.3, 0.3, 0.3, 1));
+		ImGui::Image(*_dropIcon, sf::Vector2f(animBtnWidth, animBtnWidth), tintBtnCol);
+
+		if (UISprite != SP_IDLE)
+		{
+			offsetBtnPos.y += ImGui::GetFrameHeightWithSpacing() * 1.2;
+			ImGui::SetCursorPos(offsetBtnPos);
+			ImGui::PushID(offsetID.c_str()); {
+				_sprites[UISprite].offsetOpen |= ImGui::ImageButton(offsetID.c_str(), *_moveIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
+				ToolTip("Offset Settings", &_parent->_appConfig->_hoverTimer);
+				OffsetPopup(*_sprites[UISprite], _sprites[UISprite].offsetOpen, _sprites[UISprite].oldOffsetOpen);
+			}ImGui::PopID();
+		}
+		
+		ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
+
+		ImGui::SetCursorPos(filePathPos);
+		ImGui::PushID(fileID.c_str()); {
+			char filepathbuf[MAX_PATH] = {};
+			ANSIToUTF8(_sprites[UISprite].path).copy(filepathbuf, MAX_PATH);
+			ImGui::SetNextItemWidth(-1);
+			if (ImGui::InputText("", filepathbuf, MAX_PATH, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_ElideLeft))
+			{
+				_sprites[UISprite].path = UTF8ToANSI(filepathbuf);
+				if (_sprites[UISprite].path == "")
+					_sprites[UISprite]->Clear();
+				else
+				{
+					_sprites[UISprite]->LoadFromTexture(_parent->_textureMan, _sprites[UISprite].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+					_sprites[UISprite]->setSmooth(_scaleFiltering);
+				}
+			}
+		}ImGui::PopID();
+		ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
+
+
+	}ImGui::PopID();
+}
+
 void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, float imgBtnWidth, std::string& path, SpriteSheet* sprite)
 {
 	bool emptyTex = !sprite->HasTexture();
@@ -6760,6 +6667,42 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		ImGui::PopStyleVar();
 
+		ImGui::EndPopup();
+	}
+}
+
+void LayerManager::LayerInfo::OffsetPopup(SpriteSheet& sprite, bool& open, bool& oldOpen)
+{
+	float uiScale = _parent->_appConfig->scalingFactor;
+
+	if (open != oldOpen)
+	{
+		oldOpen = open;
+
+		if (open)
+		{
+
+			ImGui::SetNextWindowPos({ _parent->_appConfig->_scrW / 2 - 200 * uiScale, _parent->_appConfig->_scrH / 2 - 120 * uiScale });
+			ImGui::SetNextWindowSize({ 400 * uiScale, -1 });
+			ImGui::OpenPopup("Offset Setup");
+		}
+		else
+		{
+			//closed
+		}
+	}
+
+	if (ImGui::BeginPopupModal("Offset Setup", &open))
+	{
+		ImGui::SetWindowSize({ 400 * uiScale, -1 });
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 3, uiScale * 3 });
+
+		ImGui::PushItemWidth(120 * uiScale);
+		AddResetButton("offsetreset", sprite._offsetFromIdle, { 0, 0 }, _parent->_appConfig);
+		Float2SliderDrag("Offset from Idle Sprite", &sprite._offsetFromIdle.x, -1000, 1000, "%.1f", 0, _parent->_uiConfig->_numberEditType);
+		ToolTip("The offset between this sprite and the Idle sprite", &_parent->_appConfig->_hoverTimer);
+		ImGui::PopItemWidth();
+		ImGui::PopStyleVar();
 		ImGui::EndPopup();
 	}
 }

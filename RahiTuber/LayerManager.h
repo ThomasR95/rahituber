@@ -116,6 +116,8 @@ public:
 		bool importOpen = false;
 		bool spriteOpen = false;
 		bool oldSpriteOpen = false;
+		bool offsetOpen = false;
+		bool oldOffsetOpen = false;
 
 		SpriteSheet* operator->() { return sprite.get(); }
 		SpriteSheet* get() { return sprite.get(); }
@@ -278,6 +280,8 @@ public:
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
+		void SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised = false);
+
 		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, float imgBtnWidth, std::string& path, SpriteSheet* sprite);
 
 		void DrawThresholdBar(float thresholdLevel, float thresholdTrigger, ImVec2& barPos, float uiScale, float barWidth);
@@ -292,6 +296,8 @@ public:
 		bool _restartAnimsOnVisible = false;
 
 		void AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen);
+
+		void OffsetPopup(SpriteSheet& sprite, bool& open, bool& oldOpen);
 
 		void SyncAnims(bool sync);
 
@@ -893,6 +899,8 @@ static sf::Texture* _newLayerIcon = nullptr;
 static sf::Texture* _newFolderIcon = nullptr;
 static sf::Texture* _statesIcon = nullptr;
 static sf::Texture* _plusIcon = nullptr;
+static sf::Texture* _moveIcon = nullptr;
+static sf::Texture* _dropIcon = nullptr;
 
 static sf::Texture* _lockOpenIcon = nullptr;
 static sf::Texture* _lockClosedIcon = nullptr;
