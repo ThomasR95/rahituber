@@ -2089,6 +2089,10 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			for (int s = SP_IDLE; s < SP_END; s++)
 			{
 				auto& sp = layer._sprites[(SpriteType)s];
+
+				if (!sp || sp.path == "")
+					continue;
+
 				auto sprElement = thisLayer->InsertNewChildElement((std::string(g_spriteNames[s]) + "Sprite").c_str());
 
 				sprElement->SetAttribute("path", sp.path.c_str());
@@ -6816,42 +6820,57 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 
 	logFmtToFile(_parent->_appConfig, "Cropping %s...", imgpath.c_str());
 
-	sf::Image srcImg;
-	srcImg.loadFromFile(imgpath);
-	auto pxPtr = srcImg.getPixelsPtr();
-
-	sf::Vector2u srcSize = srcImg.getSize();
-
-	sf::Vector2u maxContent = { 0,0 };
-	sf::Vector2u minContent = srcSize;
-	int numpixels = srcSize.x * srcSize.y;
-
-	for (unsigned int y = 0; y < srcSize.y; y++)
-		for (unsigned int x = 0; x < srcSize.x; x++)
-		{
-			int fwdPix = (y * srcSize.x + x) * 4;
-			if (pxPtr[fwdPix + 3] != 0)
-			{
-				maxContent.x = Max(x, maxContent.x);
-				maxContent.y = Max(y, maxContent.y);
-
-				minContent.x = Min(x, minContent.x);
-				minContent.y = Min(y, minContent.y);
-			}
-		}
-
-	minContent = Clamp(minContent, { 0,0 }, srcSize);
-	maxContent = Clamp(maxContent, minContent, srcSize);
-
-	sf::IntRect cropLocation(minContent.x, minContent.y, maxContent.x - minContent.x, maxContent.y - minContent.y);
-	const auto cropSize = cropLocation.getSize();
-
-	logFmtToFile(_parent->_appConfig, "Img Offset: %d, %d - new size: %d, %d", minContent.x, minContent.y, cropSize.x, cropSize.y);
-
 	sf::Image croppedImg;
-	croppedImg.create(cropSize.x, cropSize.y, sf::Color(0, 0, 0, 0));
-	croppedImg.copy(srcImg, 0, 0, cropLocation);
-	CropInfo cropInfo{ srcSize, cropLocation };
+	CropInfo cropInfo;
+
+	{
+		sf::Image srcImg;
+		srcImg.loadFromFile(imgpath);
+		auto pxPtr = srcImg.getPixelsPtr();
+
+		sf::Vector2u srcSize = srcImg.getSize();
+
+		sf::Vector2u maxContent = { 0,0 };
+		sf::Vector2u minContent = srcSize;
+		int numpixels = srcSize.x * srcSize.y;
+
+		for (unsigned int y = 0; y < srcSize.y; y++)
+			for (unsigned int x = 0; x < srcSize.x; x++)
+			{
+				int fwdPix = (y * srcSize.x + x) * 4;
+				if (pxPtr[fwdPix + 3] != 0)
+				{
+					maxContent.x = Max(x, maxContent.x);
+					maxContent.y = Max(y, maxContent.y);
+
+					minContent.x = Min(x, minContent.x);
+					minContent.y = Min(y, minContent.y);
+				}
+			}
+
+		minContent = Clamp(minContent, { 0,0 }, srcSize);
+		maxContent = Clamp(maxContent, minContent, srcSize);
+
+		sf::IntRect cropLocation(minContent.x, minContent.y, maxContent.x - minContent.x, maxContent.y - minContent.y);
+		const auto cropSize = cropLocation.getSize();
+
+		logFmtToFile(_parent->_appConfig, "Img Offset: %d, %d - new size: %d, %d", minContent.x, minContent.y, cropSize.x, cropSize.y);
+
+		croppedImg.create(cropSize.x, cropSize.y, sf::Color(0, 0, 0, 0));
+		croppedImg.copy(srcImg, 0, 0, cropLocation);
+		cropInfo = { srcSize, cropLocation };
+
+		//end scope to destroy the src image in case it's holding onto the file handle
+	}
+
+	// try removing it first, if we can't, then something's wrong
+	std::error_code ec;
+	std::filesystem::remove(imgpath, ec);
+	if (ec)
+	{
+		logFmtToFile(_parent->_appConfig, "ERROR: Failed to remove %s - %s", imgpath.c_str(), ec.message().c_str());
+	}
+
 	if (croppedImg.saveToFile(imgpath))
 	{
 		_parent->_croppedImages[imgpath] = cropInfo;
@@ -6859,7 +6878,7 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 	}
 	else
 	{
-		logFmtToFile(_parent->_appConfig, "Failed to save %s", imgpath.c_str());
+		logFmtToFile(_parent->_appConfig, "ERROR: Failed to save %s", imgpath.c_str());
 	}
 
 
@@ -6891,7 +6910,6 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 		}
 
 	}
-
 
 	srcTex->loadFromImage(croppedImg);
 
