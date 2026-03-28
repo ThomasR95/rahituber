@@ -2031,6 +2031,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("smoothInput", layer._smoothTalkFactor);
 			thisLayer->SetAttribute("smoothAmount", layer._smoothTalkFactorSize);
 			thisLayer->SetAttribute("restartOnSwap", layer._restartTalkAnim);
+			thisLayer->SetAttribute("usePhonemes", layer._usePhonemes);
+			thisLayer->SetAttribute("separatePhonemeTints", layer._separatePhonemeTints);
 
 			thisLayer->SetAttribute("useBlink", layer._useBlinkFrame);
 			thisLayer->SetAttribute("talkBlink", layer._blinkWhileTalking);
@@ -2452,6 +2454,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("smoothInput", &layer._smoothTalkFactor);
 				thisLayer->QueryAttribute("smoothAmount", &layer._smoothTalkFactorSize);
 				thisLayer->QueryAttribute("restartOnSwap", &layer._restartTalkAnim);
+				thisLayer->QueryAttribute("usePhonemes", &layer._usePhonemes);
+				thisLayer->QueryAttribute("separatePhonemeTints", &layer._separatePhonemeTints);
 
 				thisLayer->QueryAttribute("useBlink", &layer._useBlinkFrame);
 				thisLayer->QueryAttribute("talkBlink", &layer._blinkWhileTalking);
@@ -6849,22 +6853,19 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 	_sprites[SP_IDLE]->ClearSync();
 	if (sync)
 	{
-		_sprites[SP_IDLE]->AddSync(_sprites[SP_TALK].get());
-		_sprites[SP_IDLE]->AddSync(_sprites[SP_BLINK].get());
-		_sprites[SP_IDLE]->AddSync(_sprites[SP_TALKBLINK].get());
-		_sprites[SP_IDLE]->AddSync(_sprites[SP_SCREAM].get());
+		for (auto& sp : _sprites)
+		{
+			if (sp.first == SP_IDLE)
+				continue;
+
+			_sprites[SP_IDLE]->AddSync(sp.second.get());
+		}
 		_sprites[SP_IDLE]->Restart();
 	}
 }
 
 void LayerManager::LayerInfo::OptimiseSprites()
 {
-	_sprites[SP_IDLE];
-	_sprites[SP_TALK];
-	_sprites[SP_BLINK];
-	_sprites[SP_TALKBLINK];
-	_sprites[SP_SCREAM];
-
 	sf::Vector2f idleToCenterOrig;
 	sf::Vector2f idleToCenterNew;
 	sf::Vector2<double> originalPivot(_pivot);

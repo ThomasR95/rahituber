@@ -164,31 +164,47 @@ struct AudioConfig
 {
 	float _cutoff = 0.0006f;
 
-	SAMPLE _frame = 0.f;
-	SAMPLE _runningAverage = 0.0001f;
+	SAMPLE _overallLevel = 0.f;
+	SAMPLE _overallSoftFall = 0.0001f;
 	SAMPLE _runningMax = 0.0001f;
-	SAMPLE _frameMax = 0.0001f;
+	SAMPLE _overallMax = 0.0001f;
 
 	std::vector<SAMPLE> _frames;
 	RealArray1D _fftData;
 	ComplexArray1D _frequencyData;
 	std::mutex _freqDataMutex;
+
+	SAMPLE _subHi = 0.0f;
+	SAMPLE _subMax = 0.0f;
+	SAMPLE _subSoftFall = 0.0f;
+	SAMPLE _subShortAverage = 0.0f;
+	SAMPLE _subLongAverage = 0.0f;
+
 	SAMPLE _bassHi = 0.0f;
 	SAMPLE _bassMax = 0.0f;
-	SAMPLE _bassAverage = 0.0f;
+	SAMPLE _bassSoftFall = 0.0f;
+	SAMPLE _bassShortAverage = 0.0f;
+	SAMPLE _bassLongAverage = 0.0f;
 
 	SAMPLE _trebleHi = 0.0f;
 	SAMPLE _trebleMax = 0.0f;
-	SAMPLE _trebleAverage = 0.0f;
+	SAMPLE _trebleSoftFall = 0.0f;
+	SAMPLE _trebleShortAverage = 0.0f;
+	SAMPLE _trebleLongAverage = 0.0f;
 
 	SAMPLE _midHi = 0.0f;
 	SAMPLE _midMax = 0.0f;
-	SAMPLE _midAverage = 0.0f;
+	SAMPLE _midSoftFall = 0.0f;
+	SAMPLE _midShortAverage = 0.0f;
+	SAMPLE _midLongAverage = 0.0f;
 
-	float _smoothAmount = 10.0f;
+	std::vector<int> _lastPhonemes;
+	int _prevPhoneme;
+
+	float _softFallAmount = 10.0f;
 	float _smoothFactor = 24.0f;
 
-	SAMPLE _frameHi = 0.0f;
+	SAMPLE _overallHi = 0.0f;
 	PaStreamParameters _params = {};
 	PaDeviceIndex _devIdx = -1;
 	std::string _lastDeviceName = "";
