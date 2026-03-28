@@ -17,6 +17,7 @@ target_include_directories(RahiTuber PRIVATE
     ${CMAKE_SOURCE_DIR}/Libraries/portaudio/include
     ${CMAKE_SOURCE_DIR}/Libraries/SFML/include
     ${CMAKE_SOURCE_DIR}/Libraries/tinyxml2
+    ${CMAKE_SOURCE_DIR}/Libraries/Simple-FFT/include
 )
 
 if(WIN32)
@@ -78,6 +79,7 @@ if(MSVC)
         SFML_STATIC
         NOMINMAX
         _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+        __USE_SQUARE_BRACKETS_FOR_ELEMENT_ACCESS_OPERATOR
     )
 endif()
 

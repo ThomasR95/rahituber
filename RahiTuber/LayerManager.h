@@ -25,8 +25,16 @@ namespace fs = std::filesystem;
 
 #include <thread>
 
-class EffectManager;
+enum PhonemeMask : int
+{
+	PH_NONE = 0,
+	PH_A = 1 << 0,
+	PH_E = 1 << 1,
+	PH_S = 1 << 2,
+	PH_P = 1 << 3,
+};
 
+class EffectManager;
 
 static std::map<std::string, sf::BlendMode> g_blendmodes = {
 	{"Normal", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
@@ -85,11 +93,24 @@ enum SpriteType : int
 	SP_TALKBLINK,
 	SP_SCREAM,
 
+	SP_PH_A,
+	SP_PH_E,
+	SP_PH_S,
+	SP_PH_P,
+
+	SP_SC_PH_A,
+	SP_SC_PH_E,
+	SP_SC_PH_S,
+	SP_SC_PH_P,
+
 	SP_END
 };
 
 static const char* const g_spriteNames[SP_END] = {
-	"Idle", "Talk", "Blink", "TalkBlink", "Scream"
+	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "Vowel 'A'", "Vowel 'E'", "Sibilance 'S'", "Plosive 'P/B'","Vowel 'A'", "Vowel 'E'", "Sibilance 'S'", "Plosive 'P/B'"
+};
+static const char* const g_spriteElements[SP_END] = {
+	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "VowelA", "VowelE", "SibilanceS", "PlosivePB","VowelAScream", "VowelEScream", "SibilanceSScream", "PlosivePBScream",
 };
 
 class LayerManager
@@ -154,6 +175,8 @@ public:
 		bool _restartTalkAnim = false;
 		bool _wasTalking = false;
 		bool _smoothTalkTint = false;
+		bool _usePhonemes = false;
+		bool _separatePhonemeTints = false;
 
 		bool _useBlinkFrame = false;
 		bool _blinkWhileTalking = false;
@@ -272,15 +295,15 @@ public:
 
 		void DoConstantMotion(sf::Time& frameTime, sf::Vector2<double>& mpScale, sf::Vector2<double>& mpPos, double& mpRot);
 
-		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax);
+		void CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax, PhonemeMask phMask);
 
-		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount);
+		void DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount, PhonemeMask phMask);
 
 		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
 
-		void SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised = false);
+		void SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised = false, bool disableTint = false);
 
 		void ImageBrowsePreviewBtn(bool& openFlag, const char* btnname, float imgBtnWidth, std::string& path, SpriteSheet* sprite);
 
@@ -490,7 +513,7 @@ public:
 		sf::Clock _timer;
 	};
 
-	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax);
+	void Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax, PhonemeMask phMask = PH_NONE);
 
 	void DrawOldLayerSetUI();
 

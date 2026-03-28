@@ -42,6 +42,9 @@
 // must be last
 #include "websocket.h"
 
+#include "simple_fft/fft_settings.h"
+#include "simple_fft/fft.h"
+
 AudioConfig* g_audioConfig = nullptr;
 
 float mean(float a, float b) { return a + (b - a) * 0.5f; }
@@ -1680,7 +1683,25 @@ public:
 			audioLevel = Clamp(audioLevel, 0.0, 1.0);
 		}
 
-		layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax);
+		PhonemeMask phMask = PH_NONE;
+		if (audioConfig->_trebleHi > audioConfig->_midHi && audioConfig->_trebleHi > audioConfig->_bassHi)
+		{
+			phMask = PH_S;
+		}
+		if (audioConfig->_bassHi > audioConfig->_midHi && audioConfig->_bassHi > audioConfig->_trebleHi)
+		{
+			phMask = PH_A;
+		}
+		if (audioConfig->_midHi > audioConfig->_bassHi && audioConfig->_midHi > audioConfig->_trebleHi)
+		{
+			phMask = PH_E;
+		}
+		if (audioConfig->_bassHi > audioConfig->_bassAverage)
+		{
+			phMask = PH_P;
+		}
+
+		layerMan->Draw(&appConfig->_layersRT, appConfig->_scrH, appConfig->_scrW, audioLevel, audioConfig->_midMax, phMask);
 
 		if (layerMan && layerMan->IsEmptyAndIdle())
 		{
@@ -1781,16 +1802,35 @@ public:
 		//draw debug audio bars
 		{
 			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
+			auto FFTSize = audioConfig->_frequencyData.size();
 
-			auto frames = audioConfig->_frequencyData;
-			float barW = appConfig->_scrW / (frames.size() / 2);
+			float barW = appConfig->_scrW / (FFTSize / 2);
 
-			for (UINT bar = 0; bar < frames.size() / 2; bar++)
+			for (UINT bar = 0; bar < FFTSize / 2; bar++)
 			{
-				float height = (frames[bar] / audioConfig->_bassMax) * appConfig->_scrH;
+				auto re = audioConfig->_frequencyData[bar].real();
+				auto im = audioConfig->_frequencyData[bar].imag();
+				auto magnitude = std::sqrt(re * re + im * im);
+
+
+				float point = bar / 20 + 0.3f;
+				magnitude = magnitude * pow(atan(point), 2);
+				if (bar == 0) magnitude *= 0.7f;
+
+				float height = (magnitude / audioConfig->_bassMax) * appConfig->_scrH;
 				appConfig->bars[bar].setSize({ barW, height });
 				appConfig->bars[bar].setOrigin({ 0.f, height });
 				appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
+
+				//store data for bass and treble
+				if (bar < FFTSize / 25)
+					appConfig->bars[bar].setFillColor(sf::Color::Red);
+				if (bar > FFTSize / 25 && bar < FFTSize / 5)
+					appConfig->bars[bar].setFillColor(sf::Color::Yellow);
+				if (bar > FFTSize / 5 && bar < FFTSize / 2)
+					appConfig->bars[bar].setFillColor(sf::Color::Green);
+
+
 				appConfig->_menuRT.draw(appConfig->bars[bar]);
 			}
 		}
@@ -2267,40 +2307,46 @@ public:
 			{ //lock for frequency data
 				std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
 				if (audioConfig->_frames.size() >= (FRAMES_PER_BUFFER * 2))
-					audioConfig->_fftData = std::vector<SAMPLE>(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
+					audioConfig->_fftData = RealArray1D(audioConfig->_frames.begin(), audioConfig->_frames.begin() + (FRAMES_PER_BUFFER * 2));
 			} //end lock
 
-			auto halfSize = audioConfig->_fftData.size() / 2;
+			auto FFTsize = audioConfig->_fftData.size();
 
-			four1(audioConfig->_fftData.data(), halfSize);
-			float factor = 50;
 			audioConfig->_frequencyData.clear();
+			audioConfig->_frequencyData.resize(FFTsize);
 
-			for (unsigned int it = 0; it < halfSize; it++)
+			const char* error_description = 0;
+			simple_fft::FFT(audioConfig->_fftData, audioConfig->_frequencyData, FFTsize, error_description);
+
+			float factor = 50;
+
+			for (unsigned int it = 0; it < audioConfig->_frequencyData.size(); it++)
 			{
-				auto re = audioConfig->_fftData[it];
-				auto im = audioConfig->_fftData[it + 1];
+				auto re = audioConfig->_frequencyData[it].real();
+				auto im = audioConfig->_frequencyData[it].imag();
 				auto magnitude = std::sqrt(re * re + im * im);
 
-				//Compensations for the fact my FFT implementation is probably wrong
-				float point = it / factor + 0.3f;
-				magnitude = magnitude * atan(point);
+				////Try to flatten the FFT graph
+				float point = it / 20 + 0.3f;
+				magnitude = magnitude * pow(atan(point),2);
 				if (it == 0) magnitude *= 0.7f;
 
-				//Store the magnitude
-				audioConfig->_frequencyData.push_back(magnitude);
+				//magnitude = pow(10, (magnitude / 20));
+
+				////Store the magnitude
+				//audioConfig->_frequencyData.push_back(magnitude);
 
 				//store data for bass and treble
-				if (it < FRAMES_PER_BUFFER / 12 && magnitude > audioConfig->_bassHi)
+				if (it < FFTsize / 25 && magnitude > audioConfig->_bassHi)
 					audioConfig->_bassHi = magnitude;
 
-				if (it > FRAMES_PER_BUFFER / 12 && it < FRAMES_PER_BUFFER / 3 && magnitude > audioConfig->_midHi)
+				if (it > FFTsize / 25 && it < FFTsize / 5 && magnitude > audioConfig->_midHi)
 					audioConfig->_midHi = magnitude;
 
-				if (it > FRAMES_PER_BUFFER / 3 && it < FRAMES_PER_BUFFER / 2 && magnitude > audioConfig->_trebleHi)
+				if (it > FFTsize / 5 && it < FFTsize / 2 && magnitude > audioConfig->_trebleHi)
 					audioConfig->_trebleHi = magnitude;
 
-				if (magnitude > audioConfig->_frameHi && it < FRAMES_PER_BUFFER / 2)
+				if (magnitude > audioConfig->_frameHi && it < FFTsize / 2)
 					audioConfig->_frameHi = magnitude;
 			}
 		}
@@ -2901,7 +2947,7 @@ If you accept, please click the Accept button.
 
 		//setup debug bars
 		audioConfig->_frames.resize(FRAMES_PER_BUFFER * 3);
-		appConfig->bars.resize(FRAMES_PER_BUFFER / 2);
+		appConfig->bars.resize(FRAMES_PER_BUFFER * 2);
 		float barW = appConfig->_scrW / (FRAMES_PER_BUFFER / 2);
 		for (int b = 0; b < appConfig->bars.size(); b++)
 		{

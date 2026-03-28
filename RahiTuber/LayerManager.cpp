@@ -47,7 +47,7 @@ const std::vector<std::string> g_canTriggerNames
 	"While Idle"
 };
 
-void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax)
+void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax, PhonemeMask phMask)
 {
 	_lastTalkLevel = talkLevel;
 	_lastTalkMax = talkMax;
@@ -179,7 +179,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		}
 
 		if (calculate)
-			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax);
+			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax, phMask);
 	}
 
 
@@ -249,11 +249,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				if (useBlendShader)
 					state.shader = _blendingShader.get();
 
-				layer._sprites[SP_IDLE]->Draw(target, state);
-				layer._sprites[SP_TALK]->Draw(target, state);
-				layer._sprites[SP_BLINK]->Draw(target, state);
-				layer._sprites[SP_TALKBLINK]->Draw(target, state);
-				layer._sprites[SP_SCREAM]->Draw(target, state);
+				for(auto& sp : layer._sprites)
+					sp.second->Draw(target, state);
 			}
 			else
 			{
@@ -2093,7 +2090,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 				if (!sp || sp.path == "")
 					continue;
 
-				auto sprElement = thisLayer->InsertNewChildElement((std::string(g_spriteNames[s]) + "Sprite").c_str());
+				auto sprElement = thisLayer->InsertNewChildElement((std::string(g_spriteElements[s]) + "Sprite").c_str());
 
 				sprElement->SetAttribute("path", sp.path.c_str());
 				SaveColor(sprElement, &doc, "tint", sp.tint);
@@ -2377,6 +2374,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			if (doc.Error())
 			{
+				logToFile(_appConfig, doc.ErrorStr());
+
 				_loadingPath = _appConfig->_appLocation + _loadingPath;
 				doc.LoadFile((_loadingPath).c_str());
 
@@ -2388,6 +2387,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					_loadingPath = "";
 					_loadingFinished = true;
 					_uiConfig->_menuShowing = true;
+					logToFile(_appConfig, doc.ErrorStr());
 					logToFile(_appConfig, "Load Failed: " + _errorMessage);
 					return;
 				}
@@ -2544,7 +2544,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				for (int s = SP_IDLE; s < SP_END; s++)
 				{
 					auto& sp = layer._sprites[(SpriteType)s];
-					auto sprElement = thisLayer->FirstChildElement((std::string(g_spriteNames[s]) + "Sprite").c_str());
+					auto sprElement = thisLayer->FirstChildElement((std::string(g_spriteElements[s]) + "Sprite").c_str());
 					if (!sprElement)
 						continue;
 
@@ -4443,7 +4443,7 @@ void LayerManager::LayerInfo::DoConstantMotion(sf::Time& frameTime, sf::Vector2<
 	mpRot += _storedConstantRot;
 }
 
-void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax)
+void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidth, float talkLevel, float talkMax, PhonemeMask phMask)
 {
 	sf::Time frameTime = _frameTimer.restart();
 	float fps = 1.0 / frameTime.asSeconds();
@@ -4523,7 +4523,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		screaming = true;
 
 	bool talking = !screaming && talkFactor > _talkThreshold;
-	DetermineVisibleSprites(talking, screaming, activeSpriteCol, talkAmount);
+	DetermineVisibleSprites(talking, screaming, activeSpriteCol, talkAmount, phMask);
 
 	_wasTalking = talking;
 
@@ -4606,7 +4606,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 }
 
-void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount)
+void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount, PhonemeMask phMask)
 {
 
 	bool blinkAvailable = _sprites[SP_BLINK]->HasTexture() && !talking && !screaming;
@@ -4615,6 +4615,8 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
 	bool shouldBlink = canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay;
+
+	SpriteType activeType = SP_IDLE;
 
 	if (blinkSyncID != "")
 		_isBlinking = _parent->GetLayer(blinkSyncID)->_isBlinking;
@@ -4631,25 +4633,15 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	{
 		if (talkBlinkAvailable)
 		{
-			_activeSprite = _sprites[SP_TALKBLINK].get();
-			_sprites[SP_TALKBLINK]->_visible = true;
-			_sprites[SP_BLINK]->_visible = false;
-			_sprites[SP_TALK]->_visible = false;
-			_sprites[SP_IDLE]->_visible = false;
-			_sprites[SP_SCREAM]->_visible = false;
-			_sprites[SP_TALKBLINK]->SetColor(_sprites[SP_TALKBLINK].tint);
-			activeSpriteCol = _sprites[SP_TALKBLINK].tint;
+			activeType = SP_TALKBLINK;
+			_sprites[activeType]->SetColor(_sprites[activeType].tint);
+			activeSpriteCol = _sprites[activeType].tint;
 		}
 		else if (blinkAvailable)
 		{
-			_activeSprite = _sprites[SP_BLINK].get();
-			_sprites[SP_BLINK]->_visible = true;
-			_sprites[SP_TALKBLINK]->_visible = false;
-			_sprites[SP_TALK]->_visible = false;
-			_sprites[SP_IDLE]->_visible = false;
-			_sprites[SP_SCREAM]->_visible = false;
-			_sprites[SP_BLINK]->SetColor(_sprites[SP_BLINK].tint);
-			activeSpriteCol = _sprites[SP_BLINK].tint;
+			activeType = SP_BLINK;
+			_sprites[activeType]->SetColor(_sprites[activeType].tint);
+			activeSpriteCol = _sprites[activeType].tint;
 		}
 
 		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
@@ -4658,34 +4650,91 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 
 	if (_sprites[SP_TALK]->HasTexture() && !_isBlinking && _swapWhenTalking && talking)
 	{
-		_activeSprite = _sprites[SP_TALK].get();
-		_sprites[SP_SCREAM]->_visible = false;
-		_sprites[SP_IDLE]->_visible = false;
-		_sprites[SP_BLINK]->_visible = false;
-		_sprites[SP_TALK]->_visible = true;
-		_sprites[SP_TALK]->SetColor(_sprites[SP_TALK].tint);
-		activeSpriteCol = _sprites[SP_TALK].tint;
+		activeType = SP_TALK;
+		
+		if (_usePhonemes)
+		{
+			switch (phMask)
+			{
+			case PH_NONE:
+				break;
+			case PH_A:
+				activeType = SP_PH_A;
+				break;
+			case PH_E:
+				activeType = SP_PH_E;
+				break;
+			case PH_S:
+				activeType = SP_PH_S;
+				break;
+			case PH_P:
+				activeType = SP_PH_P;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if(_separatePhonemeTints)
+			activeSpriteCol = _sprites[activeType].tint;
+		else
+			activeSpriteCol = _sprites[SP_TALK].tint;
+
+		_sprites[activeType]->SetColor(activeSpriteCol);
 
 		if (_smoothTalkTint)
 		{
-			activeSpriteCol = _sprites[SP_TALK].tint * talkAmount + _sprites[SP_IDLE].tint * (1.0 - talkAmount);
+			if (_separatePhonemeTints)
+				activeSpriteCol = _sprites[activeType].tint * talkAmount + _sprites[SP_IDLE].tint * (1.0 - talkAmount);
+			else
+				activeSpriteCol = _sprites[SP_TALK].tint * talkAmount + _sprites[SP_IDLE].tint * (1.0 - talkAmount);
 		}
 
 		if (!_wasTalking && _restartTalkAnim)
 		{
-			_sprites[SP_TALK]->Restart();
+			_sprites[activeType]->Restart();
 		}
 	}
 	else if (_sprites[SP_SCREAM]->HasTexture() && screaming)
 	{
-		_activeSprite = _sprites[SP_SCREAM].get();
-		_sprites[SP_SCREAM]->_visible = true;
-		_sprites[SP_IDLE]->_visible = false;
-		_sprites[SP_BLINK]->_visible = false;
-		_sprites[SP_TALK]->_visible = false;
-		_sprites[SP_SCREAM]->SetColor(_sprites[SP_SCREAM].tint);
-		activeSpriteCol = _sprites[SP_SCREAM].tint;
+		activeType - SP_SCREAM;
+
+		if (_usePhonemes)
+		{
+			switch (phMask)
+			{
+			case PH_NONE:
+				break;
+			case PH_A:
+				activeType = SP_SC_PH_A;
+				break;
+			case PH_E:
+				activeType = SP_SC_PH_E;
+				break;
+			case PH_S:
+				activeType = SP_SC_PH_S;
+				break;
+			case PH_P:
+				activeType = SP_SC_PH_P;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (_separatePhonemeTints)
+			activeSpriteCol = _sprites[activeType].tint;
+		else
+			activeSpriteCol = _sprites[SP_SCREAM].tint;
+
+		_sprites[activeType]->SetColor(activeSpriteCol);
 	}
+
+	for (auto& sp : _sprites)
+		sp.second->_visible = false;
+
+	_activeSprite = _sprites[activeType].get();
+	_sprites[activeType]->_visible = true;
 }
 
 void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale)
@@ -5078,6 +5127,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				}
 
 
+				////////////////////////////////// TALKING /////////////////////////////////////////////////////////////////////////////////////
 				ImGui::Separator();
 
 				AddResetButton("talkThresh", _talkThreshold, 0.15f, _parent->_appConfig, &style, true);
@@ -5090,6 +5140,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::NewLine();
 
 				DrawThresholdBar(_lastTalkFactor, _talkThreshold, barPos, uiScale, barWidth);
+
+				ImGui::Checkbox("Use Talk Sprite", &_swapWhenTalking);
+				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
 
 				if (ImGui::BeginTable("smoothinputtable", 2, ImGuiTableFlags_SizingFixedFit))
 				{
@@ -5108,19 +5161,60 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::EndTable();
 				}
 
+				if (LesserCollapsingHeader("More Talk settings..."))
+				{
+					BetterIndent(indentSize, _id + "talk");
 
-				ImGui::Checkbox("Swap when Talking", &_swapWhenTalking);
-				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
+					ImGui::Checkbox("Restart talk anim when activated", &_restartTalkAnim);
+					ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::SameLine(0.0, 10.f);
+					ImGui::Checkbox("Smooth Tint", &_smoothTalkTint);
+					ToolTip("Smoothly transition between the Idle and Talk tint colors", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::Checkbox("Restart on Swap", &_restartTalkAnim);
-				ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
+					ImGui::Checkbox("Phoneme Detection", &_usePhonemes);
+					ToolTip("Use phoneme detection to switch sprites when talking", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::SameLine(0.0, 10.f);
+					ImGui::SameLine();
+					ImGui::Checkbox("Separate Tints", &_separatePhonemeTints);
+					ToolTip("Define separate tint colours for each phoneme", &_parent->_appConfig->_hoverTimer);
 
-				ImGui::Checkbox("Smooth Tint", &_smoothTalkTint);
-				ToolTip("Smoothly transition between the Idle and Talk tint colors", &_parent->_appConfig->_hoverTimer);
+					if (_usePhonemes)
+					{
+						ImGui::BeginTable((_id + "ph_tab_1").c_str(), 6, ImGuiTableFlags_SizingStretchProp);
+						{
+							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##4", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
+
+							ImGui::TableNextColumn();
+							ImGui::TableNextColumn();
+							// A vowel
+							SpriteSelectGUI(SP_PH_A, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// E vowel
+							SpriteSelectGUI(SP_PH_E, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// S sibilance
+							SpriteSelectGUI(SP_PH_S, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// P/B plosive
+							SpriteSelectGUI(SP_PH_P, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::EndTable();
+						}
+					}
+
+					BetterUnindent(_id + "talk");
+				}
+
+
+				//////////////////////////////////////// SCREAMING /////////////////////////////////////////////////////////////////////////////
 
 				ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowOverlap))
@@ -5131,6 +5225,38 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
 					SpriteSelectGUI(SP_SCREAM, imgBtnWidth, animBtnWidth, btnColor, uiScale);
+
+					if (_usePhonemes)
+					{
+						ImGui::BeginTable((_id + "ph_tab_2").c_str(), 6, ImGuiTableFlags_SizingStretchProp);
+						{
+							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##4", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
+
+							ImGui::TableNextColumn();
+							ImGui::TableNextColumn();
+							// A vowel
+							SpriteSelectGUI(SP_SC_PH_A, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// E vowel
+							SpriteSelectGUI(SP_SC_PH_E, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// S sibilance
+							SpriteSelectGUI(SP_SC_PH_S, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// P/B plosive
+							SpriteSelectGUI(SP_SC_PH_P, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::EndTable();
+						}
+					}
 
 					AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style, true, &barPos);
 					ImVec2 barPos = ImGui::GetCursorScreenPos();
@@ -5156,6 +5282,8 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					AddResetButton("vibspeed", _screamVibrateSpeed, 1.f, _parent->_appConfig, &style);
 					FloatSliderDrag("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 					ToolTip("The speed of the vibration", &_parent->_appConfig->_hoverTimer, true);
+
+					ImGui::PopStyleVar();
 
 					BetterUnindent("screaming" + _id);
 				}
@@ -6415,7 +6543,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	return allowContinue;
 }
 
-void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised)
+void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised, bool disableTint)
 {
 
 	std::string spriteTitle = g_spriteNames[UISprite];
@@ -6427,8 +6555,11 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 	std::string fileID = std::string(spriteTitle) + "importfile";
 
 
-	if(!minimised)
+	if (!minimised)
+	{
+		ImGui::AlignTextToFramePadding();
 		ImGui::Text(spriteTitle.c_str());
+	}
 
 	ImGui::PushID(sectionID.c_str()); {
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
@@ -6446,6 +6577,7 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 
 		offsetBtnPos.y += ImGui::GetFrameHeightWithSpacing() * 1.2;
 		ImGui::SetCursorPos(offsetBtnPos);
+		ImGui::BeginDisabled(disableTint);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 4.15f, uiScale * 4.1f });
 		ImGui::ColorEdit4(tintid.c_str(), &_sprites[UISprite].tint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 		ImGui::PopStyleVar();//ImGuiStyleVar_FramePadding
@@ -6454,6 +6586,7 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 		if (Luminosity(_sprites[UISprite].tint) > 0.5)
 			tintBtnCol = toSFColor(toImVec4(tintBtnCol) * ImVec4(0.3, 0.3, 0.3, 1));
 		ImGui::Image(*_dropIcon, sf::Vector2f(animBtnWidth, animBtnWidth), tintBtnCol);
+		ImGui::EndDisabled();
 
 		if (UISprite != SP_IDLE)
 		{

@@ -20,6 +20,16 @@
 #include <fstream>
 #include <thread>
 
+#include "simple_fft/fft_settings.h"
+
+// typedefing vectors
+typedef std::vector<real_type> RealArray1D;
+typedef std::vector<complex_type> ComplexArray1D;
+typedef std::vector<std::vector<real_type> > RealArray2D;
+typedef std::vector<std::vector<complex_type> > ComplexArray2D;
+typedef std::vector<std::vector<std::vector<real_type> > > RealArray3D;
+typedef std::vector<std::vector<std::vector<complex_type> > > ComplexArray3D;
+
 #define SCRW 1280
 #define SCRH 720
 
@@ -160,8 +170,8 @@ struct AudioConfig
 	SAMPLE _frameMax = 0.0001f;
 
 	std::vector<SAMPLE> _frames;
-	std::vector<SAMPLE> _fftData;
-	std::vector<SAMPLE> _frequencyData;
+	RealArray1D _fftData;
+	ComplexArray1D _frequencyData;
 	std::mutex _freqDataMutex;
 	SAMPLE _bassHi = 0.0f;
 	SAMPLE _bassMax = 0.0f;

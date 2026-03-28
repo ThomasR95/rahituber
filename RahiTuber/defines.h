@@ -1340,4 +1340,6 @@ static std::map<sf::Keyboard::Scan::Scancode, std::string> g_scancode_names = {
 	{sf::Keyboard::Scan::F22, "F22"},
 	{sf::Keyboard::Scan::F23, "F23"},
 	{sf::Keyboard::Scan::F24, "F24"},
+	{sf::Keyboard::Scan::LAlt, "LAlt"},
+	{sf::Keyboard::Scan::RAlt, "RAlt"},
 };
