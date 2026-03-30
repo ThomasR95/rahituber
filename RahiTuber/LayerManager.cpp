@@ -4674,6 +4674,9 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			case PH_P:
 				activeType = SP_PH_P;
 				break;
+			case PH_W:
+				activeType = SP_PH_W;
+				break;
 			default:
 				break;
 			}
@@ -4720,6 +4723,9 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 				break;
 			case PH_P:
 				activeType = SP_SC_PH_P;
+				break;
+			case PH_W:
+				activeType = SP_SC_PH_W;
 				break;
 			default:
 				break;
@@ -5184,13 +5190,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (_usePhonemes)
 					{
-						ImGui::BeginTable((_id + "ph_tab_1").c_str(), 6, ImGuiTableFlags_SizingStretchProp);
+						ImGui::BeginTable((_id + "ph_tab_1").c_str(), 5, ImGuiTableFlags_SizingStretchProp);
 						{
 							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
-							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##4", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
 							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
 
 							ImGui::TableNextColumn();
@@ -5206,9 +5211,24 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							// S sibilance
 							SpriteSelectGUI(SP_PH_S, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
 
+							ImGui::EndTable();
+						}
+
+						ImGui::BeginTable((_id + "ph_tab_2").c_str(), 4, ImGuiTableFlags_SizingStretchProp);
+						{
+							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
+
+							ImGui::TableNextColumn();
 							ImGui::TableNextColumn();
 							// P/B plosive
 							SpriteSelectGUI(SP_PH_P, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// P/B plosive
+							SpriteSelectGUI(SP_PH_W, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
 
 							ImGui::EndTable();
 						}

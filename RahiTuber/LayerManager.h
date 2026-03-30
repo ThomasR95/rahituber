@@ -32,6 +32,7 @@ enum PhonemeMask : int
 	PH_E = 1 << 1,
 	PH_S = 1 << 2,
 	PH_P = 1 << 3,
+	PH_W = 1 << 4
 };
 
 class EffectManager;
@@ -97,20 +98,22 @@ enum SpriteType : int
 	SP_PH_E,
 	SP_PH_S,
 	SP_PH_P,
+	SP_PH_W,
 
 	SP_SC_PH_A,
 	SP_SC_PH_E,
 	SP_SC_PH_S,
 	SP_SC_PH_P,
+	SP_SC_PH_W,
 
 	SP_END
 };
 
 static const char* const g_spriteNames[SP_END] = {
-	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "Vowel 'A'", "Vowel 'E'", "Sibilance 'S'", "Plosive 'P/B'","Vowel 'A'", "Vowel 'E'", "Sibilance 'S'", "Plosive 'P/B'"
+	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "Open 'A'", "Wide 'E'", "Sibilance 'S'", "Plosive 'P/B'", "Narrow 'oo'", "Open 'A'", "Wide 'E'", "Sibilance 'S'", "Plosive 'P/B'", "Narrow 'oo'",
 };
 static const char* const g_spriteElements[SP_END] = {
-	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "VowelA", "VowelE", "SibilanceS", "PlosivePB","VowelAScream", "VowelEScream", "SibilanceSScream", "PlosivePBScream",
+	"Idle", "Talk", "Blink", "TalkBlink", "Scream", "Open", "Wide", "Sibilance", "Plosive", "Narrow", "OpenScream", "WideScream", "SibilanceScream", "PlosiveScream", "NarrowScream"
 };
 
 class LayerManager

@@ -1956,11 +1956,11 @@ public:
 	{
 		PhonemeMask phMask = PH_NONE;
 
-		if (audioConfig->_midShortAverage > audioConfig->_bassShortAverage && audioConfig->_midShortAverage > audioConfig->_trebleShortAverage)
+		if (audioConfig->_midShortAverage > audioConfig->_subShortAverage*3 && audioConfig->_midShortAverage > audioConfig->_bassShortAverage*3 && audioConfig->_midShortAverage > audioConfig->_trebleShortAverage)
 		{
 			phMask = PH_E;
 		}
-		if (audioConfig->_trebleShortAverage > audioConfig->_midShortAverage * 0.8)
+		if (audioConfig->_trebleShortAverage > audioConfig->_midShortAverage * 0.8 && audioConfig->_subShortAverage < audioConfig->_midShortAverage)
 		{
 			phMask = PH_S;
 		}
@@ -1968,9 +1968,14 @@ public:
 		{
 			phMask = PH_A;
 		}
-		if (audioConfig->_subHi > audioConfig->_subLongAverage * 2 && audioConfig->_subHi > audioConfig->_bassShortAverage && audioConfig->_subHi > audioConfig->_midShortAverage)
+		if ((audioConfig->_subHi > audioConfig->_subShortAverage || audioConfig->_bassHi > audioConfig->_bassShortAverage)
+			&& audioConfig->_subHi > audioConfig->_bassShortAverage*0.8 && audioConfig->_subHi > audioConfig->_midShortAverage)
 		{
 			phMask = PH_P;
+		}
+		if (audioConfig->_subShortAverage > 0.6* audioConfig->_bassShortAverage && audioConfig->_bassShortAverage > 0.6*audioConfig->_subShortAverage && audioConfig->_subHi > audioConfig->_midShortAverage)
+		{
+			phMask = PH_W;
 		}
 
 		auto& lastPh = audioConfig->_lastPhonemes;
@@ -1983,6 +1988,7 @@ public:
 		int countE = 0;
 		int countS = 0;
 		int countP = 0;
+		int countW = 0;
 
 		for (int ph : lastPh)
 		{
@@ -1990,6 +1996,8 @@ public:
 			countE += ph == PH_E ? 1 : 0;
 			countS += ph == PH_S ? 1 : 0;
 			countP += ph == PH_P ? 1 : 0;
+			countW += ph == PH_W ? 1 : 0;
+
 		}
 
 		phMask = (PhonemeMask)audioConfig->_prevPhoneme;
@@ -2005,6 +2013,12 @@ public:
 
 		if (countP > lastPh.size() / 8)
 			phMask = PH_P;
+
+		if (countW > lastPh.size() / 6)
+			phMask = PH_W;
+
+
+
 
 		audioConfig->_prevPhoneme = phMask;
 
