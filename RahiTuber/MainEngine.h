@@ -635,7 +635,7 @@ public:
 	{
 		float UIUnit = ImGui::GetFrameHeight();
 
-		if (ImGui::Button("Advanced", { -1, ImGui::GetFrameHeight() }))
+		if (ImGui::Button("Preferences", { -1, ImGui::GetFrameHeight() }))
 		{
 			float h = ImGui::GetWindowHeight();
 			ImGui::SetNextWindowSize({ UIUnit * 24, h });
@@ -649,7 +649,7 @@ public:
 			{
 				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - UIUnit*12, appConfig->_scrH/2 - uiConfig->_advancedMenuHeight/2 });
 			}
-			ImGui::OpenPopup("Advanced Settings");
+			ImGui::OpenPopup("Preferences");
 		}
 		ImGui::SetNextWindowSize({ UIUnit * 24,-1 });
 
@@ -657,7 +657,7 @@ public:
 		uiConfig->_advancedMenuShowing = false;
 
 		bool p_open = true;
-		if (ImGui::BeginPopupModal("Advanced Settings", &p_open, ImGuiWindowFlags_NoResize))
+		if (ImGui::BeginPopupModal("Preferences", &p_open, ImGuiWindowFlags_NoResize))
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,2 });
 
@@ -855,7 +855,7 @@ public:
 			{
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
-				ToolTip("Create layers without any default movement or additional sprites", &appConfig->_hoverTimer);
+				ToolTip("Recommended when creating more complex 'paper doll' style rigs","New layers begin without any default movement or additional sprites", &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
@@ -874,11 +874,15 @@ public:
 				if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
 				{
 					for (auto& numType : uiConfig->_numbertypes)
+					{
 						if (ImGui::Selectable(numType.second.c_str(), numType.first == uiConfig->_numberEditType))
 						{
 							uiConfig->_numberEditType = numType.first;
 							UpdateToolTipHint(uiConfig->_numbertooltips[uiConfig->_numberEditType].c_str());
 						}
+						ToolTip(uiConfig->_numbertooltips[numType.first].c_str(), &appConfig->_hoverTimer);
+
+					}
 
 					ImGui::EndCombo();
 				}
@@ -902,9 +906,8 @@ public:
 					ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
 				}
 
-
-				ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
-				ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
+				//ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
+				//ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
 			}
 
 			ImGui::SeparatorText("Integration");
@@ -924,7 +927,7 @@ public:
 						appConfig->_webSocket->Stop();
 					}
 				}
-				ToolTip(("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+				ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
 				ImGui::BeginDisabled(!appConfig->_listenHTTP);
