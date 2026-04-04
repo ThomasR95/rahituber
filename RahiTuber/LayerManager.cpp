@@ -5659,7 +5659,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								if (_bounceType != BounceNone)
 								{
-									AddResetButton("bounceMoveReset", _bounceMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
+									AddResetButton("bounceMoveReset", _bounceMove, sf::Vector2f( 0.0, 0.0 ), _parent->_appConfig, &style);
 									float data[2] = { _bounceMove.x, _bounceMove.y };
 									if (Float2SliderDrag("Move##talkingMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_bounceMove = { data[0], data[1] };
@@ -5669,7 +5669,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									FloatSliderDrag("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathscale", _bounceScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
+									AddResetButton("breathscale", _bounceScale, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 									float data2[2] = { _bounceScale.x, _bounceScale.y };
 									if (Float2SliderDrag("Scale##talkingScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
@@ -5758,7 +5758,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								ImGui::Checkbox("Do Idle Motion", &_idleMotionEnabled);
 								if (_idleMotionEnabled)
 								{
-									AddResetButton("breathmove", _breathMove, { 0.0, 0.0 }, _parent->_appConfig, &style);
+									AddResetButton("breathmove", _breathMove, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 									float data[2] = { _breathMove.x, _breathMove.y };
 									if (Float2SliderDrag("Move##idleMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 										_breathMove = { data[0], data[1] };
@@ -5768,7 +5768,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									FloatSliderDrag("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
 									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathscale", _breathScale, { 0.0, 0.0 }, _parent->_appConfig, &style);
+									AddResetButton("breathscale", _breathScale, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
 									float data2[2] = { _breathScale.x, _breathScale.y };
 									if (Float2SliderDrag("Scale##idleScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
 									{
@@ -6763,7 +6763,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		ImGui::PushItemWidth(120 * uiScale);
 
-		AddResetButton("gridreset", _animGrid, { anim.GridSize().x, anim.GridSize().y }, _parent->_appConfig);
+		AddResetButton("gridreset", _animGrid, std::vector<int>( anim.GridSize().x, anim.GridSize().y ), _parent->_appConfig);
 		if (ImGui::InputInt2("Sheet Columns/Rows", _animGrid.data()))
 		{
 			if (_animGrid[0] != anim.GridSize().x || _animGrid[1] != anim.GridSize().y)
@@ -6790,7 +6790,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			ImGui::PopStyleColor();
 		}
 
-		AddResetButton("framereset", anim._frameSizeSetting, { -1, -1 }, _parent->_appConfig);
+		AddResetButton("framereset", anim._frameSizeSetting, sf::Vector2f(-1, -1 ), _parent->_appConfig);
 		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", &anim._frameSizeSetting.x);
 		ToolTip("The size of each animation frame (set to -1,-1 to calculate automatically)", &_parent->_appConfig->_hoverTimer);
 
@@ -6860,7 +6860,7 @@ void LayerManager::LayerInfo::OffsetPopup(SpriteSheet& sprite, bool& open, bool&
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 3, uiScale * 3 });
 
 		ImGui::PushItemWidth(120 * uiScale);
-		AddResetButton("offsetreset", sprite._offsetFromIdle, { 0, 0 }, _parent->_appConfig);
+		AddResetButton("offsetreset", sprite._offsetFromIdle, sf::Vector2f( 0, 0 ), _parent->_appConfig);
 		Float2SliderDrag("Offset from Idle Sprite", &sprite._offsetFromIdle.x, -1000, 1000, "%.1f", 0, _parent->_uiConfig->_numberEditType);
 		ToolTip("The offset between this sprite and the Idle sprite", &_parent->_appConfig->_hoverTimer);
 		ImGui::PopItemWidth();

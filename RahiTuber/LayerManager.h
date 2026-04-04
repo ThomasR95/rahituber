@@ -937,65 +937,6 @@ static sf::Texture* _pinIcon = nullptr;
 static sf::Texture* _pinOffIcon = nullptr;
 
 
-template <typename T>
-inline bool AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
-{
-	bool pressed = false;
-	auto curPos = ImGui::GetCursorPos();
-
-	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
-
-	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-	if (style)
-		col = style->Colors[ImGuiCol_Text];
-
-	sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
-
-	ImGui::PushID(id);
-	if (ImGui::ImageButton(id, *_resetIcon, sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
-		if (enabled)
-		{
-			pressed = true;
-			value = resetValue;
-		}
-	ImGui::PopID();
-	float btnIndent = ImGui::GetItemRectSize().x + (style ? style->ItemSpacing.x : 0);
-
-	
-	if (zeroValue != nullptr)
-	{
-		ImGui::SameLine();
-		ImGui::PushID(id + 1);
-		if (ImGui::Button("0"))
-			if (enabled)
-			{
-				pressed = true;
-				value = {};
-			}
-		ImGui::PopID();
-
-		curPos.x += btnIndent;
-	}
-	
-	if (cursorPos)
-	{
-		*cursorPos = ImGui::GetCursorPos();
-		cursorPos->x += btnIndent;
-	}
-
-	ToolTip("Reset this value", &appConfig->_hoverTimer);
-
-	curPos.x += btnIndent;
-
-	ImGui::SetCursorPos(curPos);
-
-	float w = ImGui::CalcItemWidth();
-	ImGui::SetNextItemWidth(w - btnIndent);
-
-	return pressed;
-
-}
-
 inline float GetRandom01()
 {
 	return (0.002f * (rand() % 500));

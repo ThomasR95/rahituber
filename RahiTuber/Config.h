@@ -118,6 +118,14 @@ struct AppConfig
 
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;
+	sf::RectangleShape bar_subShrtAv;
+	sf::RectangleShape bar_subLongAv;
+	sf::RectangleShape bar_bassShrtAv;
+	sf::RectangleShape bar_bassLongAv;
+	sf::RectangleShape bar_midShrtAv;
+	sf::RectangleShape bar_midLongAv;
+	sf::RectangleShape bar_trebShrtAv;
+	sf::RectangleShape bar_trebLongAv;
 
 	TextureManager _textureMan;
 
@@ -197,6 +205,26 @@ struct AudioConfig
 	SAMPLE _midSoftFall = 0.0f;
 	SAMPLE _midShortAverage = 0.0f;
 	SAMPLE _midLongAverage = 0.0f;
+
+	float _subSplit = 58.82;
+	float _bassSplit = 23.25;
+	float _midSplit = 6.09;
+	float _trebleSplit = 2;
+
+	float peakPTolerance = 0.1459;
+	float subPTolerance = -0.676;
+	float midSTolerance = -0.261;
+	float balanceWTolerance = -0.410;
+	float balanceETolerance = -0.763;
+
+	float AConfidenceBoost = 3;
+	float EConfidenceBoost = 3;
+	float SConfidenceBoost = 6;
+	float PConfidenceBoost = 8;
+	float WConfidenceBoost = 6;
+
+	sf::Clock phSinceChanged;
+	float phSwitchDelay = 0.1;
 
 	std::vector<int> _lastPhonemes;
 	int _prevPhoneme;
@@ -379,6 +407,8 @@ struct UIConfig
 	};
 
 	int _numberEditType = 1;
+
+	bool _showDebugBars = false;
 };
 
 static void logToFile(AppConfig* appCfg, const std::string& msg, bool clear = false)
@@ -431,5 +461,65 @@ static void logFmtToFile(AppConfig* appCfg, const char* fmt, ...)
 	vsnprintf(buf, 512, fmt, args);
 	va_end(args);
 	logToFile(appCfg, std::string(buf), false);
+
+}
+
+
+template <typename T>
+inline bool AddResetButton(const char* id, T& value, T resetValue, AppConfig* appConfig, ImGuiStyle* style = nullptr, bool enabled = true, ImVec2* cursorPos = nullptr, T* zeroValue = nullptr)
+{
+	bool pressed = false;
+	auto curPos = ImGui::GetCursorPos();
+
+	float btnSize = ImGui::GetFont()->FontSize * ImGui::GetIO().FontGlobalScale;
+
+	ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+	if (style)
+		col = style->Colors[ImGuiCol_Text];
+
+	sf::Color btnColor = { sf::Uint8(255 * col.x), sf::Uint8(255 * col.y), sf::Uint8(255 * col.z) };
+
+	ImGui::PushID(id);
+	if (ImGui::ImageButton(id, *(appConfig->_textureMan.GetIcon(TextureManager::ICON_RESET)), sf::Vector2f(btnSize, btnSize), sf::Color::Transparent, btnColor))
+		if (enabled)
+		{
+			pressed = true;
+			value = resetValue;
+		}
+	ImGui::PopID();
+	float btnIndent = ImGui::GetItemRectSize().x + (style ? style->ItemSpacing.x : 0);
+
+
+	if (zeroValue != nullptr)
+	{
+		ImGui::SameLine();
+		ImGui::PushID(id + 1);
+		if (ImGui::Button("0"))
+			if (enabled)
+			{
+				pressed = true;
+				value = {};
+			}
+		ImGui::PopID();
+
+		curPos.x += btnIndent;
+	}
+
+	if (cursorPos)
+	{
+		*cursorPos = ImGui::GetCursorPos();
+		cursorPos->x += btnIndent;
+	}
+
+	ToolTip("Reset this value", &appConfig->_hoverTimer);
+
+	curPos.x += btnIndent;
+
+	ImGui::SetCursorPos(curPos);
+
+	float w = ImGui::CalcItemWidth();
+	ImGui::SetNextItemWidth(w - btnIndent);
+
+	return pressed;
 
 }

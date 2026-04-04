@@ -663,315 +663,387 @@ public:
 
 			uiConfig->_advancedMenuShowing = true;
 
-			ImGui::SeparatorText("Window Options");
 
-			ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
+			ImGui::BeginTabBar("##AdvMenuTabs");
 
-			ImGui::TableNextColumn();
-			ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
-			ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+			if (ImGui::BeginTabItem("Window"))
+			{
+
+				ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
+
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
+				ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
 
 #ifdef _WIN32
-			ImGui::TableNextColumn();
-			if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
-			{
-
-				HWND hwnd = appConfig->_window.getSystemHandle();
-
-				if (appConfig->_alwaysOnTop)
-					SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-				else
-					SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-			}
-			ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
-#endif
-
-			ImGui::TableNextColumn();
-			if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
-			{
-				initWindow();
-			}
-			ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
-
-			ImGui::TableNextColumn();
-			ImGui::BeginDisabled(appConfig->_enableVSync);
-			ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
-			if (ImGui::IsItemDeactivatedAfterEdit())
-			{
-				initWindow();
-			}
-			ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
-			ImGui::EndDisabled();
-
-			ImGui::TableNextColumn();
-			if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
-			{
-				appConfig->_nameLock.lock();
-				if (appConfig->_nameWindowWithSet)
-					appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
-				else
-					appConfig->windowName = "RahiTuber";
-				appConfig->_pendingNameChange = true;
-				appConfig->_pendingSpoutNameChange = true;
-				appConfig->_nameLock.unlock();
-			}
-			ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
-
-			ImGui::EndTable();
-
-			ImGui::SeparatorText("Appearance");
-
-			if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
-			{
-				for (auto& theme : uiConfig->_themes)
-					if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
-						uiConfig->_theme = theme.first;
-
-				ImGui::EndCombo();
-			}
-			ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
-
-			//ImGui::SetNextItemWidth(-1);
-			if (ImGui::BeginCombo("Layer Set UI", (uiConfig->_layerUITypeNames[uiConfig->_layersUIType]).c_str()))
-			{
-				for (auto& ltype : uiConfig->_layerUITypeNames)
-					if (ImGui::Selectable(ltype.second.c_str(), uiConfig->_layersUIType == ltype.first))
-						uiConfig->_layersUIType = ltype.first;
-
-				ImGui::EndCombo();
-			}
-			ToolTip("Choose the UI for Layer Set controls.", &appConfig->_hoverTimer);
-
-			if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
-			{
 				ImGui::TableNextColumn();
-				float transChkBoxPos = ImGui::GetCursorPosY();
-				if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
+				if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
 				{
-					if (appConfig->_transparent)
-					{
-#ifdef WIN32
-						if (appConfig->_isFullScreen)
-						{
-							appConfig->_scrW = appConfig->_fullScrW + 1;
-							appConfig->_scrH = appConfig->_fullScrH + 1;
-							appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), appConfig->windowName, 0);
-							appConfig->_window.setIcon((int)uiConfig->_ico.getSize().x, (int)uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
-							appConfig->_window.setSize({ (sf::Uint16)appConfig->_scrW, (sf::Uint16)appConfig->_scrH });
-							appConfig->_window.setPosition({ 0,0 });
-							sf::View v = appConfig->_window.getView();
-							v.setSize({ appConfig->_scrW, appConfig->_scrH });
-							v.setCenter({ appConfig->_scrW / 2, appConfig->_scrH / 2 });
-							appConfig->_window.setView(v);
-						}
 
-						auto hwnd = appConfig->_window.getSystemHandle();
+					HWND hwnd = appConfig->_window.getSystemHandle();
 
-						setWindowTransparency(hwnd, true);
-
-						// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
-// #else
-						//             Display* display = XOpenDisplay(NULL);
-						//             if (display != NULL)
-						//             {
-						//                 Window wind = appConfig->_window.getSystemHandle();
-
-						//                 setWindowTransparency(display, wind, appConfig->_transparent);
-						//                 setWindowProperties(display, wind);
-
-						//                 enableWindow(display, wind, true);
-						//                 XCloseDisplay(display);
-						//             }
-#endif
-					}
+					if (appConfig->_alwaysOnTop)
+						SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 					else
-					{
-#ifdef WIN32
-						setWindowTransparency(appConfig->_window.getSystemHandle(), false);
+						SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+				}
+				ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
 #endif
-					}
 
-
-				}
-				ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
-
-				ImVec4 imCol = toImVec4(appConfig->_bgColor);
 				ImGui::TableNextColumn();
-				ImGui::BeginDisabled(appConfig->_transparent);
-				if (ImGui::Button("Background Color", { -1, ImGui::GetFrameHeight() })) {
-					ImGui::OpenPopup("BGColorEdit");
-				}
-
-				if (ImGui::BeginPopup("BGColorEdit"))
+				if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
 				{
-					if (ImGui::ColorPicker3("##bgColor", &imCol.x, ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_DisplayRGB))
-					{
-						appConfig->_bgColor = toSFColor(imCol);
-					}
-					ImGui::EndPopup();
+					initWindow();
 				}
-				ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
+				ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(appConfig->_enableVSync);
+				ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
+				if (ImGui::IsItemDeactivatedAfterEdit())
+				{
+					initWindow();
+				}
+				ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
 				ImGui::EndDisabled();
 
 				ImGui::TableNextColumn();
-				ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
-				ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Highlight Hovered", &uiConfig->_hilightHovered);
-				ToolTip("Highlight the layer bounds when the layer's menu\nis expanded or hovered", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
-				ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
-				ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::BeginDisabled(appConfig->_transparent);
-				ImGui::Checkbox("Composite onto Background", &appConfig->_compositeOntoBackground);
-				ToolTip("Composite the layers onto the application background color.", &appConfig->_hoverTimer);
-				ImGui::EndDisabled();
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
-				ToolTip("Multiply the output (captured) color by the alpha value.\nDisabling is useful for glow effects etc.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("FXAA", &appConfig->_FXAA);
-				ToolTip("Use Fast approXimate Anti Aliasing.", &appConfig->_hoverTimer);
+				if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
+				{
+					appConfig->_nameLock.lock();
+					if (appConfig->_nameWindowWithSet)
+						appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
+					else
+						appConfig->windowName = "RahiTuber";
+					appConfig->_pendingNameChange = true;
+					appConfig->_pendingSpoutNameChange = true;
+					appConfig->_nameLock.unlock();
+				}
+				ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
 
 				ImGui::EndTable();
+
+				ImGui::EndTabItem();
 			}
-			FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
-			ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.", &appConfig->_hoverTimer);
 
-			ImGui::SeparatorText("Behaviour");
-
-			if (ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame))
+			if (ImGui::BeginTabItem("Appearance"))
 			{
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
-				ToolTip("Recommended when creating more complex 'paper doll' style rigs","New layers begin without any default movement or additional sprites", &appConfig->_hoverTimer);
 
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
-				ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
-				ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
-				ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
-
-				ImGui::EndTable();
-
-				if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
+				if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
 				{
-					for (auto& numType : uiConfig->_numbertypes)
-					{
-						if (ImGui::Selectable(numType.second.c_str(), numType.first == uiConfig->_numberEditType))
-						{
-							uiConfig->_numberEditType = numType.first;
-							UpdateToolTipHint(uiConfig->_numbertooltips[uiConfig->_numberEditType].c_str());
-						}
-						ToolTip(uiConfig->_numbertooltips[numType.first].c_str(), &appConfig->_hoverTimer);
-
-					}
+					for (auto& theme : uiConfig->_themes)
+						if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
+							uiConfig->_theme = theme.first;
 
 					ImGui::EndCombo();
 				}
-				ToolTip("Change the input method for most number fields", &appConfig->_hoverTimer);
+				ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
 
-				if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
+				//ImGui::SetNextItemWidth(-1);
+				if (ImGui::BeginCombo("Layer Set UI", (uiConfig->_layerUITypeNames[uiConfig->_layersUIType]).c_str()))
 				{
-					if (appConfig->_unloadTimeoutEnabled)
-						appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+					for (auto& ltype : uiConfig->_layerUITypeNames)
+						if (ImGui::Selectable(ltype.second.c_str(), uiConfig->_layersUIType == ltype.first))
+							uiConfig->_layersUIType = ltype.first;
 
-					layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
-
+					ImGui::EndCombo();
 				}
-				ToolTip("Remove images from RAM while they're not being used.\n  WARNING: expect a delay in visibility\n  while an unloaded image is reloading!", &appConfig->_hoverTimer);
-				if (appConfig->_unloadTimeoutEnabled)
+				ToolTip("Choose the UI for Layer Set controls.", &appConfig->_hoverTimer);
+
+				if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
-					if(ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeoutSetting, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
-						appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+					ImGui::TableNextColumn();
+					float transChkBoxPos = ImGui::GetCursorPosY();
+					if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
+					{
+						if (appConfig->_transparent)
+						{
+#ifdef WIN32
+							if (appConfig->_isFullScreen)
+							{
+								appConfig->_scrW = appConfig->_fullScrW + 1;
+								appConfig->_scrH = appConfig->_fullScrH + 1;
+								appConfig->_window.create(sf::VideoMode(appConfig->_scrW, appConfig->_scrH), appConfig->windowName, 0);
+								appConfig->_window.setIcon((int)uiConfig->_ico.getSize().x, (int)uiConfig->_ico.getSize().y, uiConfig->_ico.getPixelsPtr());
+								appConfig->_window.setSize({ (sf::Uint16)appConfig->_scrW, (sf::Uint16)appConfig->_scrH });
+								appConfig->_window.setPosition({ 0,0 });
+								sf::View v = appConfig->_window.getView();
+								v.setSize({ appConfig->_scrW, appConfig->_scrH });
+								v.setCenter({ appConfig->_scrW / 2, appConfig->_scrH / 2 });
+								appConfig->_window.setView(v);
+							}
 
-					layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
-					ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
+							auto hwnd = appConfig->_window.getSystemHandle();
+
+							setWindowTransparency(hwnd, true);
+
+							// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
+	// #else
+							//             Display* display = XOpenDisplay(NULL);
+							//             if (display != NULL)
+							//             {
+							//                 Window wind = appConfig->_window.getSystemHandle();
+
+							//                 setWindowTransparency(display, wind, appConfig->_transparent);
+							//                 setWindowProperties(display, wind);
+
+							//                 enableWindow(display, wind, true);
+							//                 XCloseDisplay(display);
+							//             }
+#endif
+						}
+						else
+						{
+#ifdef WIN32
+							setWindowTransparency(appConfig->_window.getSystemHandle(), false);
+#endif
+						}
+
+
+					}
+					ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
+
+					ImVec4 imCol = toImVec4(appConfig->_bgColor);
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(appConfig->_transparent);
+					if (ImGui::Button("Background Color", { -1, ImGui::GetFrameHeight() })) {
+						ImGui::OpenPopup("BGColorEdit");
+					}
+
+					if (ImGui::BeginPopup("BGColorEdit"))
+					{
+						if (ImGui::ColorPicker3("##bgColor", &imCol.x, ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_DisplayRGB))
+						{
+							appConfig->_bgColor = toSFColor(imCol);
+						}
+						ImGui::EndPopup();
+					}
+					ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
+					ImGui::EndDisabled();
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
+					ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Highlight Hovered", &uiConfig->_hilightHovered);
+					ToolTip("Highlight the layer bounds when the layer's menu\nis expanded or hovered", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
+					ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
+					ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(appConfig->_transparent);
+					ImGui::Checkbox("Composite onto Background", &appConfig->_compositeOntoBackground);
+					ToolTip("Composite the layers onto the application background color.", &appConfig->_hoverTimer);
+					ImGui::EndDisabled();
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
+					ToolTip("Multiply the output (captured) color by the alpha value.\nDisabling is useful for glow effects etc.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("FXAA", &appConfig->_FXAA);
+					ToolTip("Use Fast approXimate Anti Aliasing.", &appConfig->_hoverTimer);
+
+					ImGui::EndTable();
 				}
+				FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
+				ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.", &appConfig->_hoverTimer);
 
-				//ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
-				//ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
+				ImGui::EndTabItem();
 			}
 
-			ImGui::SeparatorText("Integration");
-
-			std::string portString = std::to_string(appConfig->_httpPort);
-			if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
+			if (ImGui::BeginTabItem("Behaviour"))
 			{
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
+
+				if (ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
-					if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
+					ToolTip("Recommended when creating more complex 'paper doll' style rigs", "New layers begin without any default movement or additional sprites", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
+					ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
+					ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
+					ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
+
+					ImGui::EndTable();
+
+					if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
 					{
-						appConfig->_webSocket->Start(appConfig->_httpPort);
+						for (auto& numType : uiConfig->_numbertypes)
+						{
+							if (ImGui::Selectable(numType.second.c_str(), numType.first == uiConfig->_numberEditType))
+							{
+								uiConfig->_numberEditType = numType.first;
+								UpdateToolTipHint(uiConfig->_numbertooltips[uiConfig->_numberEditType].c_str());
+							}
+							ToolTip(uiConfig->_numbertooltips[numType.first].c_str(), &appConfig->_hoverTimer);
+
+						}
+
+						ImGui::EndCombo();
 					}
-					else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+					ToolTip("Change the input method for most number fields", &appConfig->_hoverTimer);
+
+					if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
+					{
+						if (appConfig->_unloadTimeoutEnabled)
+							appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+
+						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+
+					}
+					ToolTip("Remove images from RAM while they're not being used.\n  WARNING: expect a delay in visibility\n  while an unloaded image is reloading!", &appConfig->_hoverTimer);
+					if (appConfig->_unloadTimeoutEnabled)
+					{
+						if (ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeoutSetting, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
+							appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
+
+						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
+						ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
+					}
+
+					//ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
+					//ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Integration"))
+			{
+
+				std::string portString = std::to_string(appConfig->_httpPort);
+				if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
+				{
+					ImGui::TableNextColumn();
+					if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
+					{
+						if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+						{
+							appConfig->_webSocket->Start(appConfig->_httpPort);
+						}
+						else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+						{
+							appConfig->_webSocket->Stop();
+						}
+					}
+					ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(!appConfig->_listenHTTP);
+					ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
+					if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
 					{
 						appConfig->_webSocket->Stop();
+						appConfig->_webSocket->Start(appConfig->_httpPort);
 					}
-				}
-				ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
-
-				ImGui::TableNextColumn();
-				ImGui::BeginDisabled(!appConfig->_listenHTTP);
-				ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
-				if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
-				{
-					appConfig->_webSocket->Stop();
-					appConfig->_webSocket->Start(appConfig->_httpPort);
-				}
-				ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
-				ImGui::EndDisabled();
+					ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
+					ImGui::EndDisabled();
 
 #ifdef _WIN32
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-				ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
 
-				ImGui::TableNextColumn();
-				ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit*2);
-				if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
-				{
-					for (int api = 0; api < GAMEPAD_API_END; api++)
-						if (api != GAMEPAD_API_XINPUT)
-						{
-							if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_gamepadAPI == api))
+					ImGui::TableNextColumn();
+					ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit * 2);
+					if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
+					{
+						for (int api = 0; api < GAMEPAD_API_END; api++)
+							if (api != GAMEPAD_API_XINPUT)
 							{
-								appConfig->_gamepadAPI = api;
-								GamePad::setAPI(GamepadAPI(api));
+								if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_gamepadAPI == api))
+								{
+									appConfig->_gamepadAPI = api;
+									GamePad::setAPI(GamepadAPI(api));
+								}
+								ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
 							}
-							ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
-						}
 
-					ImGui::EndCombo();
-				}
-				ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
+						ImGui::EndCombo();
+					}
+					ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
 
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
-				ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
-				
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
+					ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
+
 #endif
 
-				ImGui::EndTable();
+					ImGui::EndTable();
+				}
+
+				ImGui::EndTabItem();
 			}
+
+			if (ImGui::BeginTabItem("Phonemes"))
+			{
+
+				ImGui::Checkbox("Show Debug Audio Display", &uiConfig->_showDebugBars);
+
+				AddResetButton("subReset", audioConfig->_subSplit, 58.82f, appConfig, &style);
+				float subSplit = 100 / audioConfig->_subSplit;
+				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 50, "%.1f"))
+				{
+					audioConfig->_subSplit = 100.0 / subSplit;
+				}
+
+				AddResetButton("bassReset", audioConfig->_bassSplit, 23.25f, appConfig, &style);
+				float bassSplit = 100 / audioConfig->_bassSplit;
+				if (ImGui::SliderFloat("Bass Split", &bassSplit, 1, 50, "%.1f"))
+				{
+					audioConfig->_bassSplit = 100.0 / bassSplit;
+				}
+
+				AddResetButton("midReset", audioConfig->_midSplit, 6.09f, appConfig, &style);
+				float midSplit = 100 / audioConfig->_midSplit;
+				if (ImGui::SliderFloat("Mid Split", &midSplit, 1, 50, "%.1f"))
+				{
+					audioConfig->_midSplit = 100.0 / midSplit;
+				}
+
+				AddResetButton("eSensReset", audioConfig->balanceETolerance, -0.763f, appConfig, &style);
+				FloatSliderDrag("E sensitivity", &audioConfig->balanceETolerance, -1, 1, 0, uiConfig->_numberEditType);
+				AddResetButton("sSensReset", audioConfig->midSTolerance, -0.261f, appConfig, &style);
+				FloatSliderDrag("S sensitivity", &audioConfig->midSTolerance, -1, 1, 0, uiConfig->_numberEditType);
+				AddResetButton("wSensReset", audioConfig->balanceWTolerance, -0.410f, appConfig, &style);
+				FloatSliderDrag("W sensitivity", &audioConfig->balanceWTolerance, -1, 1, 0, uiConfig->_numberEditType);
+				AddResetButton("pPkSensReset", audioConfig->peakPTolerance, 0.1459f, appConfig, &style);
+				FloatSliderDrag("P peak sensitivity", &audioConfig->peakPTolerance, -1, 1, 0, uiConfig->_numberEditType);
+				AddResetButton("pSubSensReset", audioConfig->subPTolerance, -0.676f, appConfig, &style);
+				FloatSliderDrag("P sensitivity", &audioConfig->subPTolerance, -1, 1, 0, uiConfig->_numberEditType);
+
+				AddResetButton("aConfReset", audioConfig->AConfidenceBoost, 3.f, appConfig, &style);
+				ImGui::SliderFloat("A Conf. Boost", &audioConfig->AConfidenceBoost, 1, 10, "%.1f");
+				AddResetButton("eConfReset", audioConfig->EConfidenceBoost, 3.f, appConfig, &style);
+				ImGui::SliderFloat("E Conf. Boost", &audioConfig->EConfidenceBoost, 1, 10, "%.1f");
+				AddResetButton("sConfReset", audioConfig->EConfidenceBoost, 6.f, appConfig, &style);
+				ImGui::SliderFloat("S Conf. Boost", &audioConfig->SConfidenceBoost, 1, 10, "%.1f");
+				AddResetButton("pConfReset", audioConfig->EConfidenceBoost, 8.f, appConfig, &style);
+				ImGui::SliderFloat("P Conf. Boost", &audioConfig->PConfidenceBoost, 1, 10, "%.1f");
+				AddResetButton("wConfReset", audioConfig->EConfidenceBoost, 6.f, appConfig, &style);
+				ImGui::SliderFloat("W Conf. Boost", &audioConfig->WConfidenceBoost, 1, 10, "%.1f");
+
+				ImGui::EndTabItem();
+			}
+
+			ImGui::EndTabBar();
 
 			if (ImGui::Button("OK", { -1, ImGui::GetFrameHeight() }))
 			{
@@ -1784,43 +1856,11 @@ public:
 			ImGui::SFML::Render(appConfig->_menuRT);
 		}
 
-#ifdef _DEBUG
 		//draw debug audio bars
+		if(uiConfig->_showDebugBars)
 		{
-			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
-			auto FFTSize = audioConfig->_frequencyData.size();
-
-			float barW = appConfig->_scrW / (FFTSize / 2);
-
-			for (UINT bar = 0; bar < FFTSize / 2; bar++)
-			{
-				auto re = audioConfig->_frequencyData[bar].real();
-				auto im = audioConfig->_frequencyData[bar].imag();
-				auto magnitude = std::sqrt(re * re + im * im);
-
-
-				float point = bar / 20 + 0.3f;
-				magnitude = magnitude * pow(atan(point), 2);
-				if (bar == 0) magnitude *= 0.7f;
-
-				float height = (magnitude / audioConfig->_bassMax) * appConfig->_scrH;
-				appConfig->bars[bar].setSize({ barW, height });
-				appConfig->bars[bar].setOrigin({ 0.f, height });
-				appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
-
-				if (bar > 1 && bar < FFTSize / 50)
-					appConfig->bars[bar].setFillColor(sf::Color::Blue);
-				if (bar > FFTSize / 50 && bar < FFTSize / 25)
-					appConfig->bars[bar].setFillColor(sf::Color::Red);
-				if (bar > FFTSize / 25 && bar < FFTSize / 5)
-					appConfig->bars[bar].setFillColor(sf::Color::Yellow);
-				if (bar > FFTSize / 5 && bar < FFTSize / 2)
-					appConfig->bars[bar].setFillColor(sf::Color::Green);
-
-				appConfig->_menuRT.draw(appConfig->bars[bar]);
-			}
+			DrawDebugBars();
 		}
-#endif
 
 		if (uiConfig->_cornerGrabbed.first)
 		{
@@ -1955,28 +1995,152 @@ public:
 		}
 	}
 
+	void DrawDebugBars()
+	{
+		size_t FFTSize = 0;
+		float barW = 0;
+		{
+			std::lock_guard<std::mutex> guard(audioConfig->_freqDataMutex);
+			FFTSize = audioConfig->_frequencyData.size();
+			barW = appConfig->_scrW / (FFTSize / 2);
+
+			for (UINT bar = 0; bar < FFTSize / 2; bar++)
+			{
+				auto re = audioConfig->_frequencyData[bar].real();
+				auto im = audioConfig->_frequencyData[bar].imag();
+				auto magnitude = std::sqrt(re * re + im * im);
+
+
+				float point = bar / 20 + 0.3f;
+				magnitude = magnitude * pow(atan(point), 2);
+				if (bar == 0) magnitude *= 0.7f;
+
+				float height = (magnitude / audioConfig->_bassMax) * appConfig->_scrH;
+				appConfig->bars[bar].setSize({ barW, height });
+				appConfig->bars[bar].setOrigin({ 0.f, height });
+				appConfig->bars[bar].setPosition({ barW * bar, appConfig->_scrH });
+
+				if (bar > 1 && bar < FFTSize / audioConfig->_subSplit)
+					appConfig->bars[bar].setFillColor(sf::Color::Blue);
+				if (bar > FFTSize / audioConfig->_subSplit && bar < FFTSize / audioConfig->_bassSplit)
+					appConfig->bars[bar].setFillColor(sf::Color::Red);
+				if (bar > FFTSize / audioConfig->_bassSplit && bar < FFTSize / audioConfig->_midSplit)
+					appConfig->bars[bar].setFillColor(sf::Color::Yellow);
+				if (bar > FFTSize / audioConfig->_midSplit && bar < FFTSize / audioConfig->_trebleSplit)
+					appConfig->bars[bar].setFillColor(sf::Color::Green);
+
+				appConfig->_menuRT.draw(appConfig->bars[bar]);
+			}
+		}
+
+		if (audioConfig->_bassMax != 0 && FFTSize != 0)
+		{
+			float subW = barW * (FFTSize / audioConfig->_subSplit);
+			float bassW = barW * ((FFTSize / audioConfig->_bassSplit) - (FFTSize/audioConfig->_subSplit));
+			float midW = barW * ((FFTSize / audioConfig->_midSplit) - (FFTSize/audioConfig->_bassSplit));
+			float trebW = barW * ((FFTSize / audioConfig->_trebleSplit) - (FFTSize/audioConfig->_midSplit));
+
+			float subSAvH = (audioConfig->_subShortAverage / audioConfig->_bassMax) * appConfig->_scrH;
+			float subLAvH = (audioConfig->_subLongAverage / audioConfig->_bassMax) * appConfig->_scrH;
+
+			appConfig->bar_subShrtAv.setFillColor(sf::Color(0, 0, 255, 100));
+			appConfig->bar_subShrtAv.setSize({ subW, subSAvH });
+			appConfig->bar_subShrtAv.setOrigin({ 0.f, subSAvH });
+			appConfig->bar_subShrtAv.setPosition({ 0, appConfig->_scrH });
+			appConfig->bar_subLongAv.setFillColor(sf::Color(0, 0, 255, 0));
+			appConfig->bar_subLongAv.setOutlineColor(sf::Color::White);
+			appConfig->bar_subLongAv.setOutlineThickness(1);
+			appConfig->bar_subLongAv.setSize({ subW, subLAvH });
+			appConfig->bar_subLongAv.setOrigin({ 0.f, subLAvH });
+			appConfig->bar_subLongAv.setPosition({ 0, appConfig->_scrH });
+
+			appConfig->_menuRT.draw(appConfig->bar_subShrtAv);
+			appConfig->_menuRT.draw(appConfig->bar_subLongAv);
+
+			float bassSAvH = (audioConfig->_bassShortAverage / audioConfig->_bassMax) * appConfig->_scrH;
+			float bassLAvH = (audioConfig->_bassLongAverage / audioConfig->_bassMax) * appConfig->_scrH;
+
+			appConfig->bar_bassShrtAv.setFillColor(sf::Color(255, 0, 0, 100));
+			appConfig->bar_bassShrtAv.setSize({ bassW, bassSAvH });
+			appConfig->bar_bassShrtAv.setOrigin({ 0.f, bassSAvH });
+			appConfig->bar_bassShrtAv.setPosition({ subW, appConfig->_scrH });
+			appConfig->bar_bassLongAv.setFillColor(sf::Color(255, 0, 0, 0));
+			appConfig->bar_bassLongAv.setOutlineColor(sf::Color::White);
+			appConfig->bar_bassLongAv.setOutlineThickness(1);
+			appConfig->bar_bassLongAv.setSize({ bassW, bassLAvH });
+			appConfig->bar_bassLongAv.setOrigin({ 0.f, bassLAvH });
+			appConfig->bar_bassLongAv.setPosition({ subW, appConfig->_scrH });
+
+			appConfig->_menuRT.draw(appConfig->bar_bassShrtAv);
+			appConfig->_menuRT.draw(appConfig->bar_bassLongAv);
+
+			float midSAvH = (audioConfig->_midShortAverage / audioConfig->_bassMax) * appConfig->_scrH;
+			float midLAvH = (audioConfig->_midLongAverage / audioConfig->_bassMax) * appConfig->_scrH;
+
+			appConfig->bar_midShrtAv.setFillColor(sf::Color(255, 255, 0, 100));
+			appConfig->bar_midShrtAv.setSize({ midW, midSAvH });
+			appConfig->bar_midShrtAv.setOrigin({ 0.f, midSAvH });
+			appConfig->bar_midShrtAv.setPosition({ subW+bassW, appConfig->_scrH });
+			appConfig->bar_midLongAv.setFillColor(sf::Color(255, 255, 0, 0));
+			appConfig->bar_midLongAv.setOutlineColor(sf::Color::White);
+			appConfig->bar_midLongAv.setOutlineThickness(1);
+			appConfig->bar_midLongAv.setSize({ midW, midLAvH });
+			appConfig->bar_midLongAv.setOrigin({ 0.f, midLAvH });
+			appConfig->bar_midLongAv.setPosition({ subW+bassW, appConfig->_scrH });
+
+			appConfig->_menuRT.draw(appConfig->bar_midShrtAv);
+			appConfig->_menuRT.draw(appConfig->bar_midLongAv);
+
+			float trebleSAvH = (audioConfig->_trebleShortAverage / audioConfig->_bassMax) * appConfig->_scrH;
+			float trebleLAvH = (audioConfig->_trebleLongAverage / audioConfig->_bassMax) * appConfig->_scrH;
+
+			appConfig->bar_trebShrtAv.setFillColor(sf::Color(0, 255, 0, 100));
+			appConfig->bar_trebShrtAv.setSize({ trebW, trebleSAvH });
+			appConfig->bar_trebShrtAv.setOrigin({ 0.f, trebleSAvH });
+			appConfig->bar_trebShrtAv.setPosition({ subW + bassW + midW, appConfig->_scrH });
+			appConfig->bar_trebLongAv.setFillColor(sf::Color(0, 255, 0, 0));
+			appConfig->bar_trebLongAv.setOutlineColor(sf::Color::White);
+			appConfig->bar_trebLongAv.setOutlineThickness(1);
+			appConfig->bar_trebLongAv.setSize({ trebW, trebleLAvH });
+			appConfig->bar_trebLongAv.setOrigin({ 0.f, trebleLAvH });
+			appConfig->bar_trebLongAv.setPosition({ subW + bassW + midW, appConfig->_scrH });
+
+			appConfig->_menuRT.draw(appConfig->bar_trebShrtAv);
+			appConfig->_menuRT.draw(appConfig->bar_trebLongAv);
+
+
+		}
+
+	}
+
 	PhonemeMask SelectPhoneme()
 	{
 		PhonemeMask phMask = PH_NONE;
 
-		if (audioConfig->_midShortAverage > audioConfig->_subShortAverage*3 && audioConfig->_midShortAverage > audioConfig->_bassShortAverage*3 && audioConfig->_midShortAverage > audioConfig->_trebleShortAverage)
-		{
-			phMask = PH_E;
-		}
-		if (audioConfig->_trebleShortAverage > audioConfig->_midShortAverage * 0.8 && audioConfig->_subShortAverage < audioConfig->_midShortAverage)
+		float eTolerance = 3 + audioConfig->balanceETolerance * 3;
+		float sTolerance = 0.8 + audioConfig->midSTolerance * 0.8;
+		float pPeakTolerance = 1 + 3 * audioConfig->peakPTolerance;
+		float pSubTolerance = 0.8 + audioConfig->subPTolerance * 0.8;
+		float wTolerance = 0.6 + audioConfig->balanceWTolerance * 0.6;
+
+		if (audioConfig->_trebleShortAverage > audioConfig->_midShortAverage * sTolerance && audioConfig->_subShortAverage < audioConfig->_midShortAverage)
 		{
 			phMask = PH_S;
+		}
+		if (audioConfig->_bassShortAverage > audioConfig->_bassShortAverage* eTolerance && audioConfig->_midShortAverage > audioConfig->_bassShortAverage* eTolerance && audioConfig->_midShortAverage > audioConfig->_trebleShortAverage)
+		{
+			phMask = PH_E;
 		}
 		if (audioConfig->_bassShortAverage > audioConfig->_midShortAverage && audioConfig->_bassShortAverage > audioConfig->_trebleShortAverage)
 		{
 			phMask = PH_A;
 		}
-		if ((audioConfig->_subHi > audioConfig->_subShortAverage || audioConfig->_bassHi > audioConfig->_bassShortAverage)
-			&& audioConfig->_subHi > audioConfig->_bassShortAverage*0.8 && audioConfig->_subHi > audioConfig->_midShortAverage)
+		if ((audioConfig->_subHi > audioConfig->_subShortAverage * pPeakTolerance || audioConfig->_bassHi > audioConfig->_bassShortAverage * pPeakTolerance)
+			&& audioConfig->_subHi > audioConfig->_bassShortAverage* pSubTolerance && audioConfig->_subHi > audioConfig->_midShortAverage)
 		{
 			phMask = PH_P;
 		}
-		if (audioConfig->_subShortAverage > 0.6* audioConfig->_bassShortAverage && audioConfig->_bassShortAverage > 0.6*audioConfig->_subShortAverage && audioConfig->_subHi > audioConfig->_midShortAverage)
+		if (audioConfig->_subShortAverage > wTolerance * audioConfig->_bassShortAverage && audioConfig->_bassShortAverage > wTolerance *audioConfig->_subShortAverage && audioConfig->_subHi > audioConfig->_midShortAverage)
 		{
 			phMask = PH_W;
 		}
@@ -2005,23 +2169,25 @@ public:
 
 		phMask = (PhonemeMask)audioConfig->_prevPhoneme;
 
-		if (countA > lastPh.size() / 3)
-			phMask = PH_A;
+		if (audioConfig->phSinceChanged.getElapsedTime().asSeconds() > audioConfig->phSwitchDelay)
+		{
+			audioConfig->phSinceChanged.restart();
 
-		if (countE > lastPh.size() / 3)
-			phMask = PH_E;
+			if (countA > lastPh.size() / audioConfig->AConfidenceBoost)
+				phMask = PH_A;
 
-		if (countS > lastPh.size() / 6)
-			phMask = PH_S;
+			if (countE > lastPh.size() / audioConfig->EConfidenceBoost)
+				phMask = PH_E;
 
-		if (countP > lastPh.size() / 8)
-			phMask = PH_P;
+			if (countS > lastPh.size() / audioConfig->SConfidenceBoost)
+				phMask = PH_S;
 
-		if (countW > lastPh.size() / 6)
-			phMask = PH_W;
+			if (countP > lastPh.size() / audioConfig->PConfidenceBoost)
+				phMask = PH_P;
 
-
-
+			if (countW > lastPh.size() / audioConfig->WConfidenceBoost)
+				phMask = PH_W;
+		}
 
 		audioConfig->_prevPhoneme = phMask;
 
@@ -2397,19 +2563,19 @@ public:
 				//audioConfig->_frequencyData.push_back(magnitude);
 
 				//store data for bass and treble
-				if (it > 1 && it < FFTsize / 50 && magnitude > audioConfig->_subHi)
+				if (it > 1 && it < FFTsize / audioConfig->_subSplit && magnitude > audioConfig->_subHi)
 					audioConfig->_subHi = magnitude;
 
-				if (it > FFTsize / 50 && it < FFTsize / 25 && magnitude > audioConfig->_bassHi)
+				if (it > FFTsize / audioConfig->_subSplit && it < FFTsize / audioConfig->_bassSplit && magnitude > audioConfig->_bassHi)
 					audioConfig->_bassHi = magnitude;
 
-				if (it > FFTsize / 25 && it < FFTsize / 5 && magnitude > audioConfig->_midHi)
+				if (it > FFTsize / audioConfig->_bassSplit && it < FFTsize / audioConfig->_midSplit && magnitude > audioConfig->_midHi)
 					audioConfig->_midHi = magnitude;
 
-				if (it > FFTsize / 5 && it < FFTsize / 2 && magnitude > audioConfig->_trebleHi)
+				if (it > FFTsize / audioConfig->_midSplit && it < FFTsize / audioConfig->_trebleSplit && magnitude > audioConfig->_trebleHi)
 					audioConfig->_trebleHi = magnitude;
 
-				if (magnitude > audioConfig->_overallHi && it < FFTsize / 2)
+				if (magnitude > audioConfig->_overallHi && it < FFTsize / audioConfig->_trebleSplit)
 					audioConfig->_overallHi = magnitude;
 			}
 		}

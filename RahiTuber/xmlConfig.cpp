@@ -166,6 +166,25 @@ bool xmlConfigLoader::loadCommon()
 	if (theme != NULL && _uiConfig->_themes.count(theme) != 0)
 		_uiConfig->_theme = theme;
 
+	auto PhonemeCfg = common->FirstChildElement("PhonemeConfig");
+	if (PhonemeCfg) {
+		PhonemeCfg->QueryAttribute("subSplit", &_audioConfig->_subSplit);
+		PhonemeCfg->QueryAttribute("bassSplit", &_audioConfig->_bassSplit);
+		PhonemeCfg->QueryAttribute("midSplit", &_audioConfig->_midSplit);
+		PhonemeCfg->QueryAttribute("trebleSplit", &_audioConfig->_trebleSplit);
+		PhonemeCfg->QueryAttribute("peakPTolerance", &_audioConfig->peakPTolerance);
+		PhonemeCfg->QueryAttribute("subPTolerance", &_audioConfig->subPTolerance);
+		PhonemeCfg->QueryAttribute("midSTolerance", &_audioConfig->midSTolerance);
+		PhonemeCfg->QueryAttribute("balanceWTolerance", &_audioConfig->balanceWTolerance);
+		PhonemeCfg->QueryAttribute("balanceETolerance", &_audioConfig->balanceETolerance);
+		PhonemeCfg->QueryAttribute("AConfidenceBoost", &_audioConfig->AConfidenceBoost);
+		PhonemeCfg->QueryAttribute("EConfidenceBoost", &_audioConfig->EConfidenceBoost);
+		PhonemeCfg->QueryAttribute("SConfidenceBoost", &_audioConfig->SConfidenceBoost);
+		PhonemeCfg->QueryAttribute("PConfidenceBoost", &_audioConfig->PConfidenceBoost);
+		PhonemeCfg->QueryAttribute("WConfidenceBoost", &_audioConfig->WConfidenceBoost);
+	}
+
+
 	return true;
 }
 
@@ -273,7 +292,26 @@ bool xmlConfigLoader::saveCommon()
 				themeElmt->SetAttribute("font", theme.second.fontName.c_str());
 				themeElmt->SetAttribute("fontSize", theme.second.fontSize);
 			}
-			
+
+
+			auto PhonemeCfg = common->FirstChildElement("PhonemeConfig");
+			if (!PhonemeCfg) PhonemeCfg = common->InsertNewChildElement("PhonemeConfig");
+			PhonemeCfg->SetAttribute("subSplit", _audioConfig->_subSplit);
+			PhonemeCfg->SetAttribute("bassSplit", _audioConfig->_bassSplit);
+			PhonemeCfg->SetAttribute("midSplit", _audioConfig->_midSplit);
+			PhonemeCfg->SetAttribute("trebleSplit", _audioConfig->_trebleSplit);
+
+			PhonemeCfg->SetAttribute("peakPTolerance", _audioConfig->peakPTolerance);
+			PhonemeCfg->SetAttribute("subPTolerance", _audioConfig->subPTolerance);
+			PhonemeCfg->SetAttribute("midSTolerance", _audioConfig->midSTolerance);
+			PhonemeCfg->SetAttribute("balanceWTolerance", _audioConfig->balanceWTolerance);
+			PhonemeCfg->SetAttribute("balanceETolerance", _audioConfig->balanceETolerance);
+
+			PhonemeCfg->SetAttribute("AConfidenceBoost", _audioConfig->AConfidenceBoost);
+			PhonemeCfg->SetAttribute("EConfidenceBoost", _audioConfig->EConfidenceBoost);
+			PhonemeCfg->SetAttribute("SConfidenceBoost", _audioConfig->SConfidenceBoost);
+			PhonemeCfg->SetAttribute("PConfidenceBoost", _audioConfig->PConfidenceBoost);
+			PhonemeCfg->SetAttribute("WConfidenceBoost", _audioConfig->WConfidenceBoost);
 
 		}
 	}
