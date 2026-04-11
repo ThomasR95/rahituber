@@ -999,24 +999,36 @@ public:
 
 				AddResetButton("subReset", audioConfig->_subSplit, 58.82f, appConfig, &style);
 				float subSplit = 100 / audioConfig->_subSplit;
-				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 50, "%.1f"))
+				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 100.f/audioConfig->_bassSplit, "%.1f"))
 				{
 					audioConfig->_subSplit = 100.0 / subSplit;
+					uiConfig->_showDebugBars = true;
 				}
+				ToolTip("Adjust where the border is between sub and bass frequencies.\
+\nShow the debug audio bars to see the border.\nSub (blue) should be louder when saying 'oo',\
+\nand bass (red) should be louder when saying 'Ah'.", &appConfig->_hoverTimer);
 
 				AddResetButton("bassReset", audioConfig->_bassSplit, 23.25f, appConfig, &style);
 				float bassSplit = 100 / audioConfig->_bassSplit;
-				if (ImGui::SliderFloat("Bass Split", &bassSplit, 1, 50, "%.1f"))
+				if (ImGui::SliderFloat("Bass Split", &bassSplit, 100.f/audioConfig->_subSplit, 100.f/audioConfig->_midSplit, "%.1f"))
 				{
 					audioConfig->_bassSplit = 100.0 / bassSplit;
+					uiConfig->_showDebugBars = true;
 				}
+				ToolTip("Adjust where the border is between bass and mid frequencies.\
+\nShow the debug audio bars to see the border.\nBass (red) should be louder when saying 'Ah',\
+\nand mid (yellow) should be louder when saying 'Ee'.", &appConfig->_hoverTimer);
 
 				AddResetButton("midReset", audioConfig->_midSplit, 6.09f, appConfig, &style);
 				float midSplit = 100 / audioConfig->_midSplit;
-				if (ImGui::SliderFloat("Mid Split", &midSplit, 1, 50, "%.1f"))
+				if (ImGui::SliderFloat("Mid Split", &midSplit, 100.f/audioConfig->_bassSplit, 50, "%.1f"))
 				{
 					audioConfig->_midSplit = 100.0 / midSplit;
+					uiConfig->_showDebugBars = true;
 				}
+				ToolTip("Adjust where the border is between mid and treble frequencies.\
+\nShow the debug audio bars to see the border.\nMid (yellow) should be louder when saying 'Ee',\
+\nand treble (green) should be louder when saying 'SS'.", &appConfig->_hoverTimer);
 
 				if (ImGui::BeginTable("Adjustment", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
 				{
