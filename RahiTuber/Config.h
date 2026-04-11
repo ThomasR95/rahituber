@@ -211,16 +211,23 @@ struct AudioConfig
 	float _midSplit = 6.09;
 	float _trebleSplit = 2;
 
-	float peakPTolerance = 0.1459;
-	float subPTolerance = -0.676;
-	float midSTolerance = -0.261;
-	float balanceWTolerance = -0.410;
-	float balanceETolerance = -0.763;
+#define peakPTDefault 0.85f
+#define subPTDefault 0.676f
+#define midSTDefault -0.261f
+#define balWTDefault -0.410f
+#define balETDefault -0.763f
+
+
+	float peakPTolerance = peakPTDefault;
+	float subPTolerance = subPTDefault;
+	float midSTolerance = midSTDefault;
+	float balanceWTolerance = balWTDefault;
+	float balanceETolerance = balETDefault;
 
 	float AConfidenceBoost = 3;
 	float EConfidenceBoost = 3;
 	float SConfidenceBoost = 6;
-	float PConfidenceBoost = 8;
+	float PConfidenceBoost = 40;
 	float WConfidenceBoost = 6;
 
 	sf::Clock phSinceChanged;

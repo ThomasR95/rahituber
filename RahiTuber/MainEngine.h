@@ -1018,27 +1018,51 @@ public:
 					audioConfig->_midSplit = 100.0 / midSplit;
 				}
 
-				AddResetButton("eSensReset", audioConfig->balanceETolerance, -0.763f, appConfig, &style);
-				FloatSliderDrag("E sensitivity", &audioConfig->balanceETolerance, -1, 1, 0, uiConfig->_numberEditType);
-				AddResetButton("sSensReset", audioConfig->midSTolerance, -0.261f, appConfig, &style);
-				FloatSliderDrag("S sensitivity", &audioConfig->midSTolerance, -1, 1, 0, uiConfig->_numberEditType);
-				AddResetButton("wSensReset", audioConfig->balanceWTolerance, -0.410f, appConfig, &style);
-				FloatSliderDrag("W sensitivity", &audioConfig->balanceWTolerance, -1, 1, 0, uiConfig->_numberEditType);
-				AddResetButton("pPkSensReset", audioConfig->peakPTolerance, 0.1459f, appConfig, &style);
-				FloatSliderDrag("P peak sensitivity", &audioConfig->peakPTolerance, -1, 1, 0, uiConfig->_numberEditType);
-				AddResetButton("pSubSensReset", audioConfig->subPTolerance, -0.676f, appConfig, &style);
-				FloatSliderDrag("P sensitivity", &audioConfig->subPTolerance, -1, 1, 0, uiConfig->_numberEditType);
+				if (ImGui::BeginTable("Adjustment", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+				{
+					ImGui::TableSetupColumn("Phoneme", 0, 0.8);
+					ImGui::TableSetupColumn("Sensitivity", 0, 2);
+					ImGui::TableSetupColumn("Confidence", 0, 2);
 
-				AddResetButton("aConfReset", audioConfig->AConfidenceBoost, 3.f, appConfig, &style);
-				ImGui::SliderFloat("A Conf. Boost", &audioConfig->AConfidenceBoost, 1, 10, "%.1f");
-				AddResetButton("eConfReset", audioConfig->EConfidenceBoost, 3.f, appConfig, &style);
-				ImGui::SliderFloat("E Conf. Boost", &audioConfig->EConfidenceBoost, 1, 10, "%.1f");
-				AddResetButton("sConfReset", audioConfig->EConfidenceBoost, 6.f, appConfig, &style);
-				ImGui::SliderFloat("S Conf. Boost", &audioConfig->SConfidenceBoost, 1, 10, "%.1f");
-				AddResetButton("pConfReset", audioConfig->EConfidenceBoost, 8.f, appConfig, &style);
-				ImGui::SliderFloat("P Conf. Boost", &audioConfig->PConfidenceBoost, 1, 10, "%.1f");
-				AddResetButton("wConfReset", audioConfig->EConfidenceBoost, 6.f, appConfig, &style);
-				ImGui::SliderFloat("W Conf. Boost", &audioConfig->WConfidenceBoost, 1, 10, "%.1f");
+					ImGui::TableHeadersRow();
+
+					ImGui::TableNextColumn();
+
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("E");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("S");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("oo");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("P");
+					//ImGui::AlignTextToFramePadding();
+					//ImGui::Text("P (low)");
+
+					ImGui::TableNextColumn();
+
+					SensitivitySlider("eSensReset", audioConfig->balanceETolerance, balETDefault, style, "##E Sensitivity");
+					SensitivitySlider("sSensReset", audioConfig->midSTolerance, midSTDefault, style, "##S Sensitivity");
+					SensitivitySlider("wSensReset", audioConfig->balanceWTolerance, balWTDefault, style, "##W Sensitivity");
+					SensitivitySlider("pPkSensReset", audioConfig->peakPTolerance, peakPTDefault, style, "burst##P peak Sensitivity", false);
+					SensitivitySlider("pSensReset", audioConfig->subPTolerance, subPTDefault, style, "low##P Sensitivity", false);
+
+					ImGui::TableNextColumn();
+
+					//AddResetButton("aConfReset", audioConfig->AConfidenceBoost, 3.f, appConfig, &style);
+					//ImGui::SliderFloat("##A Conf. Boost", &audioConfig->AConfidenceBoost, 1, 50, "%.1f");
+
+
+					ConfidenceSlider("eConfReset", audioConfig->EConfidenceBoost, 3.f, style, "##E Conf. Boost");
+					ConfidenceSlider("sConfReset", audioConfig->SConfidenceBoost, 3.f, style, "##S Conf. Boost");
+					ConfidenceSlider("wConfReset", audioConfig->WConfidenceBoost, 3.f, style, "##W Conf. Boost");
+					ConfidenceSlider("pConfReset", audioConfig->PConfidenceBoost, 3.f, style, "##P Conf. Boost", false);
+
+					ImGui::EndTable();
+				}
 
 				ImGui::EndTabItem();
 			}
@@ -1056,6 +1080,31 @@ public:
 
 			ImGui::EndPopup();
 		}
+	}
+
+	void ConfidenceSlider(const char* id, float& value, float default, ImGuiStyle& style, const char* label, bool doSeparator = true)
+	{
+		AddResetButton(id, value, default, appConfig, &style);
+		FloatSliderDrag(label, &value, 1, 50, "%.1f", 0, 0);
+
+		ToolTip("Adjust Confidence", "Boost confidence for detecting this phoneme\n(i.e. reduces how many frames a phoneme must be detected\nbefore being displayed)", &appConfig->_hoverTimer);
+
+
+		if (doSeparator)
+			ImGui::Separator();
+	}
+
+	void SensitivitySlider(const char* id, float& value, float defVal, ImGuiStyle& style, const char* label, bool doSeparator = true)
+	{
+		AddResetButton(id, value, defVal, appConfig, &style);
+		float temp = value - defVal;
+		if (FloatSliderDrag(label, &temp, -1, 1, "%.2f", 0, 0))
+			value = temp + defVal;
+
+		ToolTip("Adjust Sensitivity", "Raise or lower the sensitivity for detecting this phoneme", &appConfig->_hoverTimer);
+
+		if(doSeparator)
+			ImGui::Separator();
 	}
 
 	void menuAudio(ImGuiStyle& style)
@@ -2135,8 +2184,8 @@ public:
 		{
 			phMask = PH_A;
 		}
-		if ((audioConfig->_subHi > audioConfig->_subShortAverage * pPeakTolerance || audioConfig->_bassHi > audioConfig->_bassShortAverage * pPeakTolerance)
-			&& audioConfig->_subHi > audioConfig->_bassShortAverage* pSubTolerance && audioConfig->_subHi > audioConfig->_midShortAverage)
+		if ((audioConfig->_subHi * pPeakTolerance > audioConfig->_subShortAverage || audioConfig->_bassHi * pPeakTolerance > audioConfig->_bassShortAverage)
+			&& audioConfig->_subShortAverage * pSubTolerance > audioConfig->_bassShortAverage && audioConfig->_subShortAverage * pSubTolerance > audioConfig->_midShortAverage)
 		{
 			phMask = PH_P;
 		}
@@ -2173,19 +2222,19 @@ public:
 		{
 			audioConfig->phSinceChanged.restart();
 
-			if (countA > lastPh.size() / audioConfig->AConfidenceBoost)
+			if (audioConfig->AConfidenceBoost*countA > lastPh.size())
 				phMask = PH_A;
 
-			if (countE > lastPh.size() / audioConfig->EConfidenceBoost)
+			if (audioConfig->EConfidenceBoost*countE > lastPh.size())
 				phMask = PH_E;
 
-			if (countS > lastPh.size() / audioConfig->SConfidenceBoost)
+			if (audioConfig->SConfidenceBoost*countS > lastPh.size())
 				phMask = PH_S;
 
-			if (countP > lastPh.size() / audioConfig->PConfidenceBoost)
+			if (audioConfig->PConfidenceBoost*countP > lastPh.size())
 				phMask = PH_P;
 
-			if (countW > lastPh.size() / audioConfig->WConfidenceBoost)
+			if (audioConfig->WConfidenceBoost*countW > lastPh.size())
 				phMask = PH_W;
 		}
 
