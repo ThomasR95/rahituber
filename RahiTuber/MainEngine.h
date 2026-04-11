@@ -638,7 +638,7 @@ public:
 		if (ImGui::Button("Preferences", { -1, ImGui::GetFrameHeight() }))
 		{
 			float h = ImGui::GetWindowHeight();
-			ImGui::SetNextWindowSize({ UIUnit * 24, h });
+			ImGui::SetNextWindowSize({ UIUnit * 22, h });
 
 			if (appConfig->_menuWindow.isOpen())
 			{
@@ -651,7 +651,7 @@ public:
 			}
 			ImGui::OpenPopup("Preferences");
 		}
-		ImGui::SetNextWindowSize({ UIUnit * 24,-1 });
+		ImGui::SetNextWindowSize({ UIUnit * 22,-1 });
 
 
 		uiConfig->_advancedMenuShowing = false;
@@ -750,8 +750,13 @@ public:
 				}
 				ToolTip("Choose the UI for Layer Set controls.", &appConfig->_hoverTimer);
 
+				ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
+				ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
+
 				if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
+					ImGui::TableSetupColumn("#L", ImGuiTableColumnFlags_WidthFixed, UIUnit * 11);
+
 					ImGui::TableNextColumn();
 					float transChkBoxPos = ImGui::GetCursorPosY();
 					if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
@@ -833,10 +838,6 @@ public:
 					ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
 					ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
 
-					ImGui::TableNextColumn();
-					ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
-					ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
-
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::BeginDisabled(appConfig->_transparent);
@@ -849,11 +850,12 @@ public:
 					ToolTip("Multiply the output (captured) color by the alpha value.\nDisabling is useful for glow effects etc.", &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("FXAA", &appConfig->_FXAA);
+					ImGui::Checkbox("FXAA (Anti-Aliasing)", &appConfig->_FXAA);
 					ToolTip("Use Fast approXimate Anti Aliasing.", &appConfig->_hoverTimer);
 
 					ImGui::EndTable();
 				}
+				ImGui::SetNextItemWidth(UIUnit * 11);
 				FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
 				ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.", &appConfig->_hoverTimer);
 

@@ -612,7 +612,7 @@ static inline void TextCentered(const std::string& text)
 
 inline float Luminosity(const ImVec4& col)
 {
-	return (0.3*col.x + 0.59*col.y + 0.11*col.z);
+	return (0.3f*col.x + 0.59f*col.y + 0.11f*col.z);
 }
 
 inline sf::Color toSFColor(const ImVec4& col)
@@ -682,7 +682,7 @@ inline sf::Vector2f toSFVector(const ImVec2& vec)
 ////////////////////////////////////////////////////////////
 inline ImVec4 operator *(const ImVec4& left, const double& right)
 {
-	return ImVec4(left.x * right, left.y * right, left.z * right, left.w * right);
+	return ImVec4(left.x * (float)right, left.y * (float)right, left.z * (float)right, left.w * (float)right);
 }
 
 inline ImVec4 operator *(const ImVec4& left, const ImVec4& right)
@@ -747,7 +747,7 @@ inline bool GreaterButton(const char* label, const ImVec2& size_arg = ImVec2(0, 
 	auto& style = ImGui::GetStyle();
 	if (border)
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
-	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(1.4, 1.4, 1.4, 1.0);
+	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(1.4f, 1.4f, 1.4f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
 	ImGui::PushStyleColor(ImGuiCol_Button, lessCol);
 	bool res = ImGui::Button(label, size_arg);
@@ -762,7 +762,7 @@ inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags =
 {
 	auto& style = ImGui::GetStyle();
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
-	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(0.8, 0.8, 0.8, 1.0);
+	ImVec4 lessCol = style.Colors[ImGuiCol_Button] * ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Border, style.Colors[ImGuiCol_Button]);
 	ImGui::PushStyleColor(ImGuiCol_Header, lessCol);
 	bool res = ImGui::CollapsingHeader(label, flags);
@@ -818,15 +818,15 @@ static inline int ConfirmModal(const std::string& title, bool* value, bool openN
 inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
 {
 	float diff = (v_max - v_min);
-	float speed = (diff * 0.004);
+	float speed = (diff * 0.004f);
 	if(diff > 100)
 		speed = 5;
 	else if (diff <= 100 && diff > 10)
 		speed = 1;
 	else if (diff <= 10 && diff > 1)
-		speed = 0.1;
+		speed = 0.1f;
 	else
-		speed = 0.005;
+		speed = 0.005f;
 
 	if (type == 0)
 		return ImGui::SliderFloat(label, v, v_min, v_max, format, flags);
@@ -846,15 +846,15 @@ inline bool FloatSliderDrag(const char* label, float* v, float v_min, float v_ma
 inline bool Float2SliderDrag(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", ImGuiSliderFlags flags = 0, int type = 0)
 {
 	float diff = (v_max - v_min);
-	float speed = (diff * 0.004);
+	float speed = (diff * 0.004f);
 	if (diff > 100)
 		speed = 5;
 	else if (diff <= 100 && diff > 10)
 		speed = 1;
 	else if (diff <= 10 && diff > 1)
-		speed = 0.1;
+		speed = 0.1f;
 	else
-		speed = 0.005;
+		speed = 0.005f;
 
 	if (type == 0)
 		return ImGui::SliderFloat2(label, v, v_min, v_max, format, flags);
@@ -904,7 +904,7 @@ inline bool SwapButtons(const char* label, const std::vector<SwapButtonDef>& opt
 
 		ImGui::TableNextColumn();
 
-		if (ImGui::BeginTable("##tableBtns", options.size(), ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_PreciseWidths))
+		if (ImGui::BeginTable("##tableBtns", (int)options.size(), ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX | ImGuiTableFlags_PreciseWidths))
 		{
 			for (auto& opt : options)
 			{
@@ -943,17 +943,17 @@ inline std::string ANSIToUTF8(const std::string& input)
 {
 #ifdef _WIN32
 	int size = MultiByteToWideChar(CP_ACP, 0, input.c_str(),
-		input.length(), nullptr, 0);
+		(int)input.length(), nullptr, 0);
 	std::wstring utf16_str(size, '\0');
 	MultiByteToWideChar(CP_ACP, 0, input.c_str(),
-		input.length(), &utf16_str[0], size);
+		(int)input.length(), &utf16_str[0], size);
 
 	int utf8_size = WideCharToMultiByte(CP_UTF8, 0, utf16_str.c_str(),
-		utf16_str.length(), nullptr, 0,
+		(int)utf16_str.length(), nullptr, 0,
 		nullptr, nullptr);
 	std::string utf8_str(utf8_size, '\0');
 	WideCharToMultiByte(CP_UTF8, 0, utf16_str.c_str(),
-		utf16_str.length(), &utf8_str[0], utf8_size,
+		(int)utf16_str.length(), &utf8_str[0], utf8_size,
 		nullptr, nullptr);
 
 	return utf8_str;
@@ -967,17 +967,17 @@ inline std::string UTF8ToANSI(const std::string& input)
 {
     #ifdef _WIN32
 	int size = MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
-		input.length(), nullptr, 0);
+		(int)input.length(), nullptr, 0);
 	std::wstring utf16_str(size, '\0');
 	MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
-		input.length(), &utf16_str[0], size);
+		(int)input.length(), &utf16_str[0], size);
 
 	int ansi_size = WideCharToMultiByte(CP_ACP, 0, utf16_str.c_str(),
-		utf16_str.length(), nullptr, 0,
+		(int)utf16_str.length(), nullptr, 0,
 		nullptr, nullptr);
 	std::string ansi_str(ansi_size, '\0');
 	WideCharToMultiByte(CP_ACP, 0, utf16_str.c_str(),
-		utf16_str.length(), &ansi_str[0], ansi_size,
+		(int)utf16_str.length(), &ansi_str[0], ansi_size,
 		nullptr, nullptr);
 
 	return ansi_str;
@@ -1047,7 +1047,7 @@ inline float EllipseRadius(float angle, const sf::Vector2f& axes)
 {
 	// calculate radius of ellipse from x and y radius components
 	float radius = (axes.x * axes.y) /
-		pow((pow(axes.x, 2) * pow(sin(angle), 2) + pow(axes.y, 2) * pow(cos(angle), 2)), 0.5);
+		pow((pow(axes.x, 2.f) * pow(sin(angle), 2.f) + pow(axes.y, 2.f) * pow(cos(angle), 2.f)), 0.5f);
 
 	return radius;
 }

@@ -16,6 +16,7 @@ namespace imgui_ext {
   struct file {
     std::string alias;
     fs::path path;
+    bool isDir = false;
   };
 
   class file_browser_modal final {

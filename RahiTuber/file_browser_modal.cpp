@@ -231,12 +231,13 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
     if(fs::is_directory(dirPath))
       files.push_back({
           dirPath.filename().u8string() + "/",
-          dirPath
+          dirPath,
+          true
         });
   }
 
-  for (const fs::directory_entry& dirEntry : fs::directory_iterator(path)) {
-    const fs::path& dirPath = dirEntry.path();
+  for (const fs::directory_entry& dirEntry2 : fs::directory_iterator(path)) {
+    const fs::path& dirPath = dirEntry2.path();
 
     if (!fs::is_directory(dirPath))
     {
@@ -252,7 +253,8 @@ static void get_files_in_path(const fs::path& path, std::vector<file>& files, st
       if(accepted)
       files.push_back({
           " " + dirPath.filename().u8string(),
-          dirPath
+          dirPath,
+          false
         });
     }
       
@@ -293,7 +295,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
   auto& style = ImGui::GetStyle();
   auto& io = ImGui::GetIO();
   float fontSize = ImGui::GetFont()->FontSize;
-  float fontFrameHeight = style.FramePadding.y * 2 + fontSize * 0.5 + style.ItemSpacing.y * 0.5;
+  float fontFrameHeight = style.FramePadding.y * 2.f + fontSize * 0.5f + style.ItemSpacing.y * 0.5f;
   float uiScale = io.FontGlobalScale * 2;
 
   if (m_oldVisibility != isVisible) {
@@ -303,13 +305,17 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     if (isVisible) {
       //Only run when the visibility state changes to visible.
 
+      std::error_code ec;
+
       //Reset the path to the initial path.
-      if(m_chosenDir.empty())
-        m_currentPath = fs::current_path();
+      if (m_chosenDir.empty())
+      {
+        m_currentPath = fs::current_path(ec);
+      }
       else
         m_currentPath = m_chosenDir;
 
-      m_currentPathIsDir = fs::is_directory(m_currentPath);
+      m_currentPathIsDir = fs::is_directory(m_currentPath, ec);
 
       m_savingName = "";
 
@@ -322,14 +328,26 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
       if (initDirectory.empty() || initDirectory == "")
       {
-        m_currentPath = fs::current_path();
+        m_currentPath = fs::current_path(ec);
         m_currentPathIsDir = true;
       }
 
       
 
       //Update paths based on current path
-      get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
+      try {
+        get_files_in_path(initDirectory, m_filesInScope, _acceptedExt);
+      }
+      catch (...)
+      {
+#ifdef WIN32
+        std::wstring msg = L"In file_browser_modal::render / start - Could not list the files in the current directory: ";
+        msg = msg + initDirectory.wstring();
+        msg = msg + L". Please report this bug :)";
+        MessageBox(0, L"Error while listing files", msg.c_str(), MB_OK);
+        return false;
+#endif
+      }
 
       ImVec2 wSize = ImGui::GetWindowSize();
       ImVec2 wPos = ImGui::GetWindowPos();
@@ -353,8 +371,10 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     ImGui::SetWindowSize({ m_width * uiScale, -1 });
 
+    std::error_code ec;
+
     std::string dir = m_currentPath.parent_path().u8string();
-    if(fs::is_directory(m_currentPath))
+    if(fs::is_directory(m_currentPath, ec))
       dir = m_currentPath.u8string();
 
     ImGui::PushItemWidth(-1);
@@ -372,11 +392,23 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       if (valid)
       {
         m_currentPath = newPath;
-        m_currentPathIsDir = fs::is_directory(m_currentPath);
+        m_currentPathIsDir = fs::is_directory(m_currentPath, ec);
 
         //If the selection is a directory, repopulate the list with the contents of that directory.
         if (m_currentPathIsDir) {
-          get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
+          try {
+            get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
+          }
+          catch (...)
+          {
+#ifdef WIN32
+            std::wstring msg = L"In file_browser_modal::render / BeginPopupModal - Could not list the files in the current directory: ";
+            msg = msg + m_currentPath.wstring();
+            msg = msg + L". Please report this bug :)";
+            MessageBox(0, L"Error while listing files", msg.c_str(), MB_OK);
+            return false;
+#endif
+          }
           m_selection = 0;
         }
       }
@@ -395,16 +427,30 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     }
     
     ImGui::PushID(m_currentPath.u8string().c_str());
-    if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, m_filesInScope.size(), 20)) {
+    if (ImGui::ListBox("##", &m_selection, vector_file_items_getter, &m_filesInScope, (int)m_filesInScope.size(), 20)) {
+
+      std::error_code ec;
 
       //Update current path to the selected list item.
       m_currentPath = m_filesInScope[m_selection].path;
-      m_currentPathIsDir = fs::is_directory(m_currentPath);
+      m_currentPathIsDir = fs::is_directory(m_currentPath, ec);
 
       //If the selection is a directory, repopulate the list with the contents of that directory.
       if (m_currentPathIsDir) 
       {
+        try{
         get_files_in_path(m_currentPath, m_filesInScope, _acceptedExt);
+        }
+        catch (...)
+        {
+#ifdef WIN32
+          std::wstring msg = L"In file_browser_modal::render / ListBox - Could not list the files in the current directory: ";
+          msg = msg + m_currentPath.wstring();
+          msg = msg + L". Please report this bug :)";
+          MessageBox(0, L"Error while listing files", msg.c_str(), MB_OK);
+          return false;
+#endif
+        }
         m_selection = 0;
       }
       else
@@ -429,7 +475,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     std::string selectBtn = "Confirm";
     if (saving)
     {
-        if (!fs::is_directory(m_currentPath))
+        if (!fs::is_directory(m_currentPath, ec))
             filepath = m_currentPath.string();
         else if (m_savingName != "")
             filepath = fs::path(m_currentPath).append(m_savingName).replace_extension(".xml").string();
@@ -437,7 +483,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       ImGui::TextWrapped(ANSIToUTF8(filepath).data());
 
       std::string editName = m_savingName;
-      if (!fs::is_directory(m_currentPath))
+      if (!fs::is_directory(m_currentPath, ec))
           editName = m_currentPath.filename().replace_extension("").string();
 
       char editBuf[MAX_PATH] = " ";
@@ -459,7 +505,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
           m_currentPath.replace_extension(".xml");
         }
         
-        m_currentPathIsDir = fs::is_directory(m_currentPath);
+        m_currentPathIsDir = fs::is_directory(m_currentPath, ec);
       }
 
       std::error_code ec;
@@ -472,7 +518,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
     {
       float pathYPos = ImGui::GetCursorPosY();
 
-      if (!fs::is_directory(m_currentPath))
+      if (!fs::is_directory(m_currentPath, ec))
         filepath = m_currentPath.filename().u8string();
       ImGui::TextWrapped(filepath.data());
 
