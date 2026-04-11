@@ -1071,9 +1071,9 @@ public:
 
 
 					ConfidenceSlider("eConfReset", audioConfig->EConfidenceBoost, 3.f, style, "##E Conf. Boost");
-					ConfidenceSlider("sConfReset", audioConfig->SConfidenceBoost, 3.f, style, "##S Conf. Boost");
-					ConfidenceSlider("wConfReset", audioConfig->WConfidenceBoost, 3.f, style, "##W Conf. Boost");
-					ConfidenceSlider("pConfReset", audioConfig->PConfidenceBoost, 3.f, style, "##P Conf. Boost", false);
+					ConfidenceSlider("sConfReset", audioConfig->SConfidenceBoost, 6.f, style, "##S Conf. Boost");
+					ConfidenceSlider("wConfReset", audioConfig->WConfidenceBoost, 6.f, style, "##W Conf. Boost");
+					ConfidenceSlider("pConfReset", audioConfig->PConfidenceBoost, 40.f, style, "##P Conf. Boost", false);
 
 					ImGui::EndTable();
 				}
@@ -1096,9 +1096,9 @@ public:
 		}
 	}
 
-	void ConfidenceSlider(const char* id, float& value, float default, ImGuiStyle& style, const char* label, bool doSeparator = true)
+    void ConfidenceSlider(const char* id, float& value, float defVal, ImGuiStyle& style, const char* label, bool doSeparator = true)
 	{
-		AddResetButton(id, value, default, appConfig, &style);
+        AddResetButton(id, value, defVal, appConfig, &style);
 		FloatSliderDrag(label, &value, 1, 50, "%.1f", 0, 0);
 
 		ToolTip("Adjust Confidence", "Boost confidence for detecting this phoneme\n(i.e. reduces how many frames a phoneme must be detected\nbefore being displayed)", &appConfig->_hoverTimer);
@@ -2067,7 +2067,7 @@ public:
 			FFTSize = audioConfig->_frequencyData.size();
 			barW = appConfig->_scrW / (FFTSize / 2);
 
-			for (UINT bar = 0; bar < FFTSize / 2; bar++)
+            for (unsigned int bar = 0; bar < FFTSize / 2; bar++)
 			{
 				auto re = audioConfig->_frequencyData[bar].real();
 				auto im = audioConfig->_frequencyData[bar].imag();

@@ -969,7 +969,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 				{
 					_globalScale = { scale[1] , scale[1] };
 				}
-				_globalScale = Max(_globalScale, { 0.0001,0.0001 });
+                _globalScale = Max(_globalScale, sf::Vector2f(0.0001f,0.0001f));
 			}
 			ToolTip("Change the scale for all layers", &_appConfig->_hoverTimer, true);
 

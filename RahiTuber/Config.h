@@ -21,6 +21,8 @@
 #include <thread>
 
 #include "simple_fft/fft_settings.h"
+#include "imgui-SFML.h"
+
 
 // typedefing vectors
 typedef std::vector<real_type> RealArray1D;

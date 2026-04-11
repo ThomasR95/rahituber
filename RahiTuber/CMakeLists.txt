@@ -81,6 +81,10 @@ if(MSVC)
         _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
         __USE_SQUARE_BRACKETS_FOR_ELEMENT_ACCESS_OPERATOR
     )
+else()
+    target_compile_definitions(RahiTuber PRIVATE
+        __USE_SQUARE_BRACKETS_FOR_ELEMENT_ACCESS_OPERATOR
+    )
 endif()
 
 target_link_libraries(RahiTuber PRIVATE ${OPENGL_LIBRARY}
