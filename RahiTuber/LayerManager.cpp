@@ -1329,7 +1329,8 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 
 		for (int sp = SP_IDLE; sp < SP_END; sp++)
 		{
-			newLayer._sprites[(SpriteType)sp] = toCopy->_sprites.at((SpriteType)sp).Copy();
+			if(toCopy->_sprites.count((SpriteType)sp) > 0)
+				newLayer._sprites[(SpriteType)sp] = toCopy->_sprites.at((SpriteType)sp).Copy();
 		}
 
 		newLayer.SyncAnims(newLayer._animsSynced);
