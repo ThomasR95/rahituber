@@ -290,11 +290,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipState.shader = _blendingShader.get();
 				}
 
-				clipLayer->_sprites[SP_IDLE]->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_sprites[SP_TALK]->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_sprites[SP_BLINK]->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_sprites[SP_TALKBLINK]->Draw(&clipRTs._clipRT, clipState);
-				clipLayer->_sprites[SP_SCREAM]->Draw(&clipRTs._clipRT, clipState);
+				// Draw layer to be clipped onto an empty canvas
+				for (auto& csp : clipLayer->_sprites)
+				{
+					csp.second->Draw(&clipRTs._clipRT, clipState);
+				}
 
 				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
 				layer._clipRect.setPosition({ 0,0 });
@@ -313,11 +313,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 
 				// Draw layer to be clipped onto an empty canvas
-				layer._sprites[SP_IDLE]->Draw(&clipRTs._soloLayerRT, state);
-				layer._sprites[SP_TALK]->Draw(&clipRTs._soloLayerRT, state);
-				layer._sprites[SP_BLINK]->Draw(&clipRTs._soloLayerRT, state);
-				layer._sprites[SP_TALKBLINK]->Draw(&clipRTs._soloLayerRT, state);
-				layer._sprites[SP_SCREAM]->Draw(&clipRTs._soloLayerRT, state);
+				for (auto& sp : layer._sprites)
+				{
+					sp.second->Draw(&clipRTs._soloLayerRT, state);
+				}
 
 				clipRTs._soloLayerRT.display();
 				layer._clipRect.setTexture(&clipRTs._soloLayerRT.getTexture(), true);
@@ -347,11 +346,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		}
 		else
 		{
-			layer._sprites[SP_IDLE]->Tick();
-			layer._sprites[SP_TALK]->Tick();
-			layer._sprites[SP_BLINK]->Tick();
-			layer._sprites[SP_TALKBLINK]->Tick();
-			layer._sprites[SP_SCREAM]->Tick();
+			for (auto& sp : layer._sprites)
+			{
+				sp.second->Tick();
+			}
 		}
 
 		layer._oldVisible = visible;
@@ -5192,7 +5190,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (_usePhonemes)
 					{
-						ImGui::BeginTable((_id + "ph_tab_1").c_str(), 5, ImGuiTableFlags_SizingStretchProp);
+						if(ImGui::BeginTable((_id + "ph_tab_1").c_str(), 5, ImGuiTableFlags_SizingStretchProp))
 						{
 							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
 							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
@@ -5216,7 +5214,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::EndTable();
 						}
 
-						ImGui::BeginTable((_id + "ph_tab_2").c_str(), 4, ImGuiTableFlags_SizingStretchProp);
+						if(ImGui::BeginTable((_id + "ph_tab_2").c_str(), 4, ImGuiTableFlags_SizingStretchProp))
 						{
 							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
 							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
@@ -5254,13 +5252,12 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (_usePhonemes)
 					{
-						ImGui::BeginTable((_id + "ph_tab_2").c_str(), 6, ImGuiTableFlags_SizingStretchProp);
+						if (ImGui::BeginTable((_id + "phsc_tab_1").c_str(), 5, ImGuiTableFlags_SizingStretchProp))
 						{
 							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
-							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
-							ImGui::TableSetupColumn("##4", ImGuiTableColumnFlags_WidthFixed, UIUnit * 5);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##3", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
 							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
 
 							ImGui::TableNextColumn();
@@ -5276,9 +5273,24 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							// S sibilance
 							SpriteSelectGUI(SP_SC_PH_S, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
 
+							ImGui::EndTable();
+						}
+
+						if (ImGui::BeginTable((_id + "phsc_tab_2").c_str(), 4, ImGuiTableFlags_SizingStretchProp))
+						{
+							ImGui::TableSetupColumn("##padL", ImGuiTableColumnFlags_WidthStretch);
+							ImGui::TableSetupColumn("##1", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##2", ImGuiTableColumnFlags_WidthFixed, UIUnit * 6);
+							ImGui::TableSetupColumn("##padR", ImGuiTableColumnFlags_WidthStretch);
+
+							ImGui::TableNextColumn();
 							ImGui::TableNextColumn();
 							// P/B plosive
 							SpriteSelectGUI(SP_SC_PH_P, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
+
+							ImGui::TableNextColumn();
+							// P/B plosive
+							SpriteSelectGUI(SP_SC_PH_W, smlImageBtnWidth, animBtnWidth, btnColor, uiScale, false, !_separatePhonemeTints);
 
 							ImGui::EndTable();
 						}
