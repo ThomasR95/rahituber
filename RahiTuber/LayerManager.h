@@ -12,6 +12,7 @@
 #include "tinyxml2.h"
 
 #include <deque>
+#include <unordered_set>
 
 #include "Config.h"
 
@@ -173,6 +174,10 @@ public:
 		bool _oldVisible = false;
 		std::string _name = "Layer";
 
+		std::unordered_set<std::string> _tags = {};
+		bool _addingTag = false;
+		char tagBuf[256];
+
 		bool _swapWhenTalking = false;
 		float _talkThreshold = 0.15f;
 		bool _restartTalkAnim = false;
@@ -305,6 +310,8 @@ public:
 		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
+
+		void DrawRenamePopupGUI();
 
 		void SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised = false, bool disableTint = false);
 
@@ -620,6 +627,8 @@ public:
 
 	void ResetStates();
 
+	int TabCompletionTextCallback(ImGuiInputTextCallbackData* data);
+
 	void CloseAllPopups()
 	{
 		_statesMenuOpen = false;
@@ -678,6 +687,8 @@ private:
 	std::deque<StatesInfo> _states;
 
 	std::deque<LayerInfo> _layers;
+
+	std::unordered_set<std::string> _tagList;
 
 	struct ClipRenderTextures {
 		sf::RenderTexture _clipRT;

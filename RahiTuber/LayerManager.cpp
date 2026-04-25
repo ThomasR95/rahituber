@@ -6401,7 +6401,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			_renamingString = _name;
 			_renamePopupOpen = true;
 			_renameFirstOpened = true;
-			ImGui::SetNextWindowSize({ 200 * uiScale,80 * uiScale });
 			ImGui::OpenPopup("Rename Layer");
 		}
 		ToolTip("Rename or Color the layer", &_parent->_appConfig->_hoverTimer);
@@ -6415,90 +6414,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ToolTip("Duplicate the layer", &_parent->_appConfig->_hoverTimer);
 		ImGui::PopStyleColor();
 
-		if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar))
-		{
-			ImGui::PopStyleVar(2);
-
-			char inputStr[32] = " ";
-			ANSIToUTF8(_renamingString).copy(inputStr, 32);
-			if (_renameFirstOpened)
-			{
-				ImGui::SetKeyboardFocusHere();
-				_renameFirstOpened = false;
-			}
-
-			bool edited = false;
-			if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
-			{
-				edited = true;
-			}
-			_renamingString = UTF8ToANSI(inputStr);
-			ImGui::SameLine();
-
-			bool saved = ImGui::Button("Save");
-
-			ImGui::Separator();
-
-			if (ImGui::BeginTable("colorPickerTable", 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX))
-			{
-				float fp = ImGui::GetStyle().FramePadding.y;
-				ImVec2 btnSize = { ImGui::GetFrameHeight(), ImGui::GetFrameHeight() };
-				sf::Vector2f imgBtnSize = { ImGui::GetFrameHeight() - fp * 2,ImGui::GetFrameHeight() - fp * 2 };
-				auto textCol = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
-
-				ImGui::TableNextColumn();
-
-				ImVec2 colPos = ImGui::GetCursorPos();
-				if (ImGui::ColorButton("delbtn", ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0, 0, 0, 0 };
-
-				ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
-				ImGui::Image(*_delIcon, imgBtnSize, textCol);
-
-
-				ImGui::TableNextColumn();
-				colPos = ImGui::GetCursorPos();
-				if (ImGui::ColorEdit3("##customCol", &_layerColor.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
-					_layerColor.w = 1.f;
-
-				ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
-				ImGui::Image(*_editIcon, imgBtnSize, textCol);
-
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("red", { 0.5, 0.0, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.5, 0.0, 0.1, 1 };
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("yellow", { 0.5, 0.35, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.5, 0.35, 0.1, 1 };
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("green", { 0.1, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.1, 0.4, 0.1, 1 };
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("cyan", { 0.1, 0.4, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.1, 0.4, 0.4, 1 };
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("blue", { 0.1, 0.2, 0.5, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.1, 0.2, 0.5, 1 };
-				ImGui::TableNextColumn();
-				if (ImGui::ColorButton("magenta", { 0.5, 0.1, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
-					_layerColor = { 0.5, 0.1, 0.4, 1 };
-
-
-				ImGui::EndTable();
-			}
-
-			if (saved || edited)
-			{
-				_renamePopupOpen = false;
-				_name = _renamingString;
-				ImGui::CloseCurrentPopup();
-			}
-
-			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
-
-			ImGui::EndPopup();
-		}
+		DrawRenamePopupGUI();
 
 		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Button, { 0.5,0.1,0.1,1.0 });
@@ -6579,6 +6495,180 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}ImGui::PopID();
 
 	return allowContinue;
+}
+
+int LayerManager::TabCompletionTextCallback(ImGuiInputTextCallbackData* data) 
+{
+	for (std::string t : _tagList)
+	{
+		if (t.find(std::string(data->Buf)) == 0)
+		{
+			std::memcpy(data->Buf, t.c_str(), Min((int)t.length(), data->BufSize));
+			data->BufDirty = true;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+void LayerManager::LayerInfo::DrawRenamePopupGUI()
+{
+	auto uiUnit = ImGui::GetFrameHeightWithSpacing();
+
+	if (ImGui::BeginPopupModal("Rename Layer", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus))
+	{
+		ImGui::SetWindowSize({ uiUnit*12,uiUnit*12 });
+
+		ImGui::PopStyleVar(2);
+
+		char inputStr[32] = " ";
+		ANSIToUTF8(_renamingString).copy(inputStr, 32);
+		if (_renameFirstOpened)
+		{
+			ImGui::SetKeyboardFocusHere();
+			_renameFirstOpened = false;
+		}
+
+		bool edited = false;
+		if (ImGui::InputText("##renamebox", inputStr, 32, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue))
+		{
+			edited = true;
+		}
+		_renamingString = UTF8ToANSI(inputStr);
+		ImGui::SameLine();
+
+		bool saved = ImGui::Button("Save");
+
+		ImGui::Separator();
+
+		if (ImGui::BeginTable("colorPickerTable", 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadInnerX))
+		{
+			float fp = ImGui::GetStyle().FramePadding.y;
+			ImVec2 btnSize = { ImGui::GetFrameHeight(), ImGui::GetFrameHeight() };
+			sf::Vector2f imgBtnSize = { ImGui::GetFrameHeight() - fp * 2,ImGui::GetFrameHeight() - fp * 2 };
+			auto textCol = toSFColor(ImGui::GetStyleColorVec4(ImGuiCol_Text));
+
+			ImGui::TableNextColumn();
+
+			ImVec2 colPos = ImGui::GetCursorPos();
+			if (ImGui::ColorButton("delbtn", ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0, 0, 0, 0 };
+
+			ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+			ImGui::Image(*_delIcon, imgBtnSize, textCol);
+
+
+			ImGui::TableNextColumn();
+			colPos = ImGui::GetCursorPos();
+			if (ImGui::ColorEdit3("##customCol", &_layerColor.x, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs))
+				_layerColor.w = 1.f;
+
+			ImGui::SetCursorPos(colPos + ImVec2(fp, fp));
+			ImGui::Image(*_editIcon, imgBtnSize, textCol);
+
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("red", { 0.5, 0.0, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.5, 0.0, 0.1, 1 };
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("yellow", { 0.5, 0.35, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.5, 0.35, 0.1, 1 };
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("green", { 0.1, 0.4, 0.1, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.1, 0.4, 0.1, 1 };
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("cyan", { 0.1, 0.4, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.1, 0.4, 0.4, 1 };
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("blue", { 0.1, 0.2, 0.5, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.1, 0.2, 0.5, 1 };
+			ImGui::TableNextColumn();
+			if (ImGui::ColorButton("magenta", { 0.5, 0.1, 0.4, 1 }, ImGuiColorEditFlags_NoTooltip, btnSize))
+				_layerColor = { 0.5, 0.1, 0.4, 1 };
+
+
+			ImGui::EndTable();
+		}
+
+		ImGui::SeparatorText("Tags");
+
+		auto uiTagSet = _tags;
+		int tagCount = 0;
+		float lastCursorPos = ImGui::GetCursorPos().x;
+		for (auto& tag : uiTagSet)
+		{
+			std::string tagLabel(tag);
+			float textWidth = ImGui::CalcTextSize(tagLabel.c_str()).x;
+			if (tagCount > 0 && (ImGui::GetContentRegionAvail().x- lastCursorPos) > textWidth)
+				ImGui::SameLine();
+
+			lastCursorPos = ImGui::GetCursorPos().x + textWidth;
+
+			if (ImGui::Button(tagLabel.c_str()))
+			{
+				_tags.erase(tag);
+			}
+			tagCount++;
+		}
+
+		if (ImGui::Button("+"))
+		{
+			_addingTag = true;
+			tagBuf[0] = 0;
+			ImGui::SetKeyboardFocusHere(); // actually sets it to the next element which is the textbox
+		}
+		
+		if (_addingTag)
+		{
+			bool editBoxConfirm = ImGui::InputText("##inputTagTxt", tagBuf, 256, ImGuiInputTextFlags_EnterReturnsTrue);
+			ImGui::SameLine(0);
+
+			if (editBoxConfirm)
+			{
+				_addingTag = false;
+				_tags.insert(tagBuf);
+				_parent->_tagList.insert(tagBuf);
+			}
+
+			if (_addingTag)
+			{
+				if(!ImGui::IsPopupOpen("##inputTag"))
+					ImGui::OpenPopup("##inputTag");
+				
+				ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos());
+			}
+
+			if(ImGui::BeginPopup("##inputTag", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysVerticalScrollbar ))
+			{
+				for (std::string t : _parent->_tagList)
+				{
+					if (tagBuf == "" || t.find(std::string(tagBuf)) == 0)
+					{
+						if (ImGui::Selectable(t.c_str(), false)) {
+							_tags.insert(t);
+						}
+					}
+				}
+
+				if (editBoxConfirm)
+					ImGui::CloseCurrentPopup();
+
+				ImGui::EndPopup();
+			}
+		}
+
+		if (saved || edited)
+		{
+			_renamePopupOpen = false;
+			_name = _renamingString;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
+		ImGui::EndPopup();
+	}
 }
 
 void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnWidth, float animBtnWidth, sf::Color& btnColor, float uiScale, bool minimised, bool disableTint)
