@@ -12,7 +12,7 @@
 #include "tinyxml2.h"
 
 #include <deque>
-#include <unordered_set>
+#include <set>
 
 #include "Config.h"
 
@@ -174,7 +174,7 @@ public:
 		bool _oldVisible = false;
 		std::string _name = "Layer";
 
-		std::unordered_set<std::string> _tags = {};
+		std::set<std::string> _tags = {};
 		bool _addingTag = false;
 		char tagBuf[256];
 
@@ -499,6 +499,7 @@ public:
 		float _intervalVariation = 0.0;
 		float _currentIntervalTime = 0.0;
 		std::map<std::string, State> _layerStates;
+		std::map<std::string, State> _tagStates;
 		bool _awaitingHotkey = false;
 
 		bool _wasTriggered = false;
@@ -688,7 +689,7 @@ private:
 
 	std::deque<LayerInfo> _layers;
 
-	std::unordered_set<std::string> _tagList;
+	std::set<std::string> _tagList;
 
 	struct ClipRenderTextures {
 		sf::RenderTexture _clipRT;
@@ -736,6 +737,8 @@ private:
 
 	bool _statesMenuOpen = false;
 	bool _oldStatesMenuOpen = false;
+	float _statesMenuLeftoverSpace = 0;
+
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
 	sf::Keyboard::Scan::Scancode _pendingKeyScan = sf::Keyboard::Scan::Unknown;

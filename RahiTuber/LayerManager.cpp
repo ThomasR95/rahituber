@@ -142,6 +142,20 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					layer->_visible = st.second;
 				}
 			}
+
+			for (auto& ts : state->_tagStates)
+			{
+				const std::string& tag = ts.first;
+				if (ts.second != StatesInfo::NoChange)
+				{
+					for(auto& layer : _layers)
+						if (layer._tags.find(tag) != layer._tags.end())
+						{
+							layer._visible = ts.second;
+						}
+				}
+			}
+
 		}
 
 		++stateIdx;
@@ -2024,6 +2038,13 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 		SaveColor(thisLayer, &doc, "layerColor", layer._layerColor);
 
+		auto tagsElement = thisLayer->InsertNewChildElement("TagList");
+		for (auto& t : layer._tags)
+		{
+			auto tagElement = tagsElement->InsertNewChildElement("Tag");
+			tagElement->SetText(t.c_str());
+		}
+
 		if (layer._isFolder == false)
 		{
 			thisLayer->SetAttribute("talking", layer._swapWhenTalking);
@@ -2319,6 +2340,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 				}
 			}
+			for (auto& tagState : stateInfo._tagStates)
+			{
+				if (tagState.second != StatesInfo::State::NoChange)
+				{
+					auto thisState = thisHotkey->InsertEndChild(doc.NewElement("tagState"))->ToElement();
+					thisState->SetAttribute("tagId", tagState.first.c_str());
+					thisState->SetAttribute("state", tagState.second);
+				}
+			}
 		}
 	}
 
@@ -2448,6 +2478,21 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				layer._name = name;
 				thisLayer->QueryAttribute("visible", &layer._visible);
 				_loadingProgress = name;
+
+				auto tagsElement = thisLayer->FirstChildElement("TagList");
+				if (tagsElement)
+				{
+					auto tagElement = tagsElement->FirstChildElement("Tag");
+					while (tagElement)
+					{
+						auto tag = tagElement->GetText();
+						layer._tags.insert(tag);
+						_tagList.insert(tag);
+
+						tagElement = tagElement->NextSiblingElement("Tag");
+					}
+				}
+				
 
 				thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
 				thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
@@ -2878,6 +2923,34 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					thisLayerState = thisLayerState->NextSiblingElement("state");
 					++stateIdx;
 				}
+
+				auto thisTagState = thisHotkey->FirstChildElement("tagState");
+				stateIdx = 0;
+				while (thisTagState)
+				{
+					std::string tagId;
+					bool vis = true;
+					int state = StatesInfo::NoChange;
+
+					const char* tagName = thisTagState->Attribute("tagId");
+					if (tagName)
+						tagId = tagName;
+
+					if (tagId != "")
+					{
+						thisTagState->QueryIntAttribute("state", &state);
+
+						{
+							std::scoped_lock lockState(_stateLocks[stateIdx]);
+							hkey._tagStates[tagId] = (StatesInfo::State)state;
+						}
+					}
+
+					thisTagState = thisTagState->NextSiblingElement("tagState");
+					++stateIdx;
+				}
+
+
 
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
@@ -3449,6 +3522,8 @@ void LayerManager::DrawStatesGUI()
 		}
 		ToolTip("Add a new state", &_appConfig->_hoverTimer);
 
+		bool anyTableDrawn = false;
+
 		int stateIdx = 0;
 		while (stateIdx < _states.size())
 		{
@@ -3782,73 +3857,146 @@ void LayerManager::DrawStatesGUI()
 
 					ImGui::Separator();
 
-					if (ImGui::BeginTable("hotkeystates", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, 200.f * uiScale }))
+					float tableHeight = (200.f * uiScale) + _statesMenuLeftoverSpace;
+
+					if (ImGui::BeginTabBar("StateAffectTabs"))
 					{
-						ImGui::TableSetupColumn("Layer Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
-						ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-						ImGui::TableSetupColumn("Hide", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-						ImGui::TableSetupColumn("No Change", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-						ImGui::TableSetupScrollFreeze(0, 1);
-						ImGui::TableHeadersRow();
-
-						int layerIdx = 0;
-						for (auto& l : _layers)
+						if (ImGui::BeginTabItem("Layers"))
 						{
+							if (ImGui::BeginTable("hotkeystates", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, tableHeight }))
 							{
-								std::scoped_lock lockState(_stateLocks[stateIdx]);
-								if (state._layerStates.count(l._id) == 0)
-									state._layerStates[l._id] = StatesInfo::NoChange;
-							}
+								anyTableDrawn = true;
 
-							if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
-								continue;
+								ImGui::TableSetupColumn("Layer Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
+								ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupColumn("Hide", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupColumn("No Change", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupScrollFreeze(0, 1);
+								ImGui::TableHeadersRow();
 
-							bool customColor = l._layerColor != ImVec4(0, 0, 0, 0);
-							if (customColor)
-							{
-								ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, l._layerColor);
-								ImGui::PushStyleColor(ImGuiCol_TableRowBg, l._layerColor * 0.8);
-							}
-
-							ImGui::PushID(l._id.c_str()); {
-
-								ImGui::TableNextColumn();
-
-								ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
-
-								//if (++layerIdx % 2)
-								//	ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
-
-								ImGui::AlignTextToFramePadding();
-								ImGui::Text(ANSIToUTF8(l._name).c_str());
-
+								int layerIdx = 0;
+								for (auto& l : _layers)
 								{
-									std::scoped_lock lockState(_stateLocks[stateIdx]);
+									{
+										std::scoped_lock lockState(_stateLocks[stateIdx]);
+										if (state._layerStates.count(l._id) == 0)
+											state._layerStates[l._id] = StatesInfo::NoChange;
+									}
 
-									ImGui::TableNextColumn();
-									ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
-									ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
+									if (_statesHideUnaffected && state._layerStates[l._id] == StatesInfo::NoChange)
+										continue;
 
-									ImGui::TableNextColumn();
-									ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
-									ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+									bool customColor = l._layerColor != ImVec4(0, 0, 0, 0);
+									if (customColor)
+									{
+										ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, l._layerColor);
+										ImGui::PushStyleColor(ImGuiCol_TableRowBg, l._layerColor * 0.8);
+									}
 
-									ImGui::TableNextColumn();
-									ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
-									ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+									ImGui::PushID(l._id.c_str()); {
+
+										ImGui::TableNextColumn();
+
+										ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
+
+										//if (++layerIdx % 2)
+										//	ImGui::DrawRectFilled(sf::FloatRect(0, 0, 400, 20), toSFColor(col));
+
+										ImGui::AlignTextToFramePadding();
+										ImGui::Text(ANSIToUTF8(l._name).c_str());
+
+										{
+											std::scoped_lock lockState(_stateLocks[stateIdx]);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##Show", (int*)&state._layerStates[l._id], (int)StatesInfo::Show);
+											ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##Hide", (int*)&state._layerStates[l._id], (int)StatesInfo::Hide);
+											ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##NoChange", (int*)&state._layerStates[l._id], (int)StatesInfo::NoChange);
+											ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+										}
+
+									}ImGui::PopID();
+
+									ImGui::TableNextRow();
+
+									if (customColor)
+										ImGui::PopStyleColor(2);
 								}
 
-							}ImGui::PopID();
-
-							ImGui::TableNextRow();
-
-							if (customColor)
-								ImGui::PopStyleColor(2);
+								ImGui::EndTable();
+							}
+						
+							ImGui::EndTabItem();
 						}
+						ToolTip("Show/Hide individual layers", &_appConfig->_hoverTimer);
 
-						ImGui::EndTable();
+						if (ImGui::BeginTabItem("Tags"))
+						{
+							if (ImGui::BeginTable("hotkeystates", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, tableHeight }))
+							{
+								anyTableDrawn = true;
+
+								ImGui::TableSetupColumn("Tag Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
+								ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupColumn("Hide", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupColumn("No Change", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+								ImGui::TableSetupScrollFreeze(0, 1);
+								ImGui::TableHeadersRow();
+
+								int layerIdx = 0;
+								for (auto& t : _tagList)
+								{
+									{
+										std::scoped_lock lockState(_stateLocks[stateIdx]);
+										if (state._tagStates.count(t) == 0)
+											state._tagStates[t] = StatesInfo::NoChange;
+									}
+
+									ImGui::PushID(t.c_str()); {
+
+										ImGui::TableNextColumn();
+
+										ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
+
+										ImGui::AlignTextToFramePadding();
+										ImGui::Text(ANSIToUTF8(t).c_str());
+
+										{
+											std::scoped_lock lockState(_stateLocks[stateIdx]);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##Show", (int*)&state._tagStates[t], (int)StatesInfo::Show);
+											ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##Hide", (int*)&state._tagStates[t], (int)StatesInfo::Hide);
+											ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
+
+											ImGui::TableNextColumn();
+											ImGui::RadioButton("##NoChange", (int*)&state._tagStates[t], (int)StatesInfo::NoChange);
+											ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
+										}
+
+									}ImGui::PopID();
+
+									ImGui::TableNextRow();
+								}
+
+								ImGui::EndTable();
+							}
+
+							ImGui::EndTabItem();
+						}
+						ToolTip("Show/Hide layers by tag\nNOTE: This supercedes individual layer state", &_appConfig->_hoverTimer);
+
+						ImGui::EndTabBar();
 					}
-
 				}
 				else
 					ImGui::PopStyleColor();
@@ -3927,6 +4075,19 @@ void LayerManager::DrawStatesGUI()
 				break;
 
 			stateIdx++;
+		}
+
+		if (anyTableDrawn)
+		{
+			float curPos = ImGui::GetCursorPosY();
+			float popupHeight = ImGui::GetWindowHeight();
+			float space = popupHeight - curPos;
+			if (space > _statesMenuLeftoverSpace)
+				_statesMenuLeftoverSpace = space;
+		}
+		else
+		{
+			_statesMenuLeftoverSpace = 0;
 		}
 
 		ImGui::EndPopup();
