@@ -5123,6 +5123,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		if (_layerColor.w != 0)
 			ImGui::PushStyleColor(ImGuiCol_Header, _layerColor);
 		ImGui::SetNextItemStorageID(ImGui::GetID(_id.c_str()));
+
+		float nameEnd = ImGui::CalcTextSize(name.c_str()).x + UIUnit;
+
 		if (ImGui::CollapsingHeader(ANSIToUTF8(name).c_str(), ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowOverlap))
 		{
 			if (_scrollToHere)
@@ -6493,8 +6496,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		auto oldCursorPos = ImGui::GetCursorPos();
 		
 
+		if (_tags.size() > 0)
+		{
+			ImGui::SetCursorPos(ImVec2(nameEnd, headerButtonsPos.y + style.FramePadding.y));
+			ImGui::TextColored(style.Colors[ImGuiCol_ButtonActive], (*_tags.begin()).c_str());
+		}
+
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
+
 
 		if (_parent->_appConfig->_unloadTimeoutEnabled && !_isFolder)
 		{
