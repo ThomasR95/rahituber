@@ -692,6 +692,9 @@ private:
 	std::map<std::string, bool> _tagDefaults;
 	std::map<std::string, bool> _tagFilters;
 
+	bool _tagDeleteOpen = false;
+	std::string deleteTag = "";
+
 	struct ClipRenderTextures {
 		sf::RenderTexture _clipRT;
 		sf::RenderTexture _soloLayerRT;
@@ -948,6 +951,9 @@ static sf::Texture* _statesIcon = nullptr;
 static sf::Texture* _plusIcon = nullptr;
 static sf::Texture* _moveIcon = nullptr;
 static sf::Texture* _dropIcon = nullptr;
+
+static sf::Texture* _filterOnIcon = nullptr;
+static sf::Texture* _filterOffIcon = nullptr;
 
 static sf::Texture* _lockOpenIcon = nullptr;
 static sf::Texture* _lockClosedIcon = nullptr;

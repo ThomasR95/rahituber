@@ -773,7 +773,7 @@ inline bool LesserCollapsingHeader(const char* label, ImGuiTreeNodeFlags flags =
 }
 
 
-static inline int ConfirmModal(const std::string& title, bool* value, bool openNow, const std::string& extraMsg = "", const char* customYes = nullptr, const char* customNo = nullptr)
+static inline int ConfirmModal(const std::string& title, bool* value, bool& openNow, const std::string& extraMsg = "", const char* customYes = nullptr, const char* customNo = nullptr)
 {
 
 	if(openNow)
@@ -806,11 +806,15 @@ static inline int ConfirmModal(const std::string& title, bool* value, bool openN
 		if (result != -1)
 		{
 			ImGui::CloseCurrentPopup();
-			*value = result == 1;
+			if(value)
+				*value = result == 1;
 		}
 
 		ImGui::EndPopup();
 	}
+
+	if (result != -1)
+		openNow = false;
 
 	return result;
 }

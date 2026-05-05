@@ -56,7 +56,10 @@ public:
 		ICON_PIN_OFF,
 		ICON_REFRESH,
 		ICON_MOVE,
-		ICON_DROP
+		ICON_DROP,
+		ICON_FILTER_ON,
+		ICON_FILTER_OFF,
+		ICON_TAG
 	};
 
 	void LoadIcons(const std::string& appLocation);

@@ -186,7 +186,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			{
 				LayerInfo& checkLayer = _layers[l];
 				//check if any layer relies on it as a parent
-				if (checkLayer._motionParent != layer->_id)
+				if (checkLayer._motionParent == layer->_id)
 				{
 					calculate = true;
 					break;
@@ -377,20 +377,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		{
 			LayerInfo& layer = _layers[l];
 
-			bool visible = layer._visible;
-			if (layer._hideWithParent)
-			{
-				LayerInfo* mp = GetLayer(layer._motionParent);
-				if (mp)
-					visible &= mp->_visible;
-			}
-
-			if (layer._inFolder != "")
-			{
-				LayerInfo* folder = GetLayer(layer._inFolder);
-				if (folder)
-					visible &= folder->_visible;
-			}
+			bool visible = layer.EvaluateLayerVisibility();
 
 			if (visible && layer._isFolder == false)
 			{
@@ -972,20 +959,18 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		if (_tagsBarOpen)
 		{
-			if (ImGui::BeginTable("tagSettings", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, ImGui::GetFrameHeight()*5 }))
+			if (ImGui::BeginTable("tagSettings", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, ImGui::GetFrameHeight()*6.f }))
 			{
 				ImGui::TableSetupColumn("Tag Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
 
 				ImGui::TableSetupColumn("Visible", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("Filter", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
 				ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
-				ImGui::TableSetupScrollFreeze(0, 1);
 
 				sf::Vector2f headerBtnSize = { ImGui::GetFrameHeight() - 2, ImGui::GetFrameHeight() - 2 };
 				auto btnColor = toSFColor(style.Colors[ImGuiCol_Text]);
 
 				int layerIdx = 0;
-				std::vector<std::string> deletions;
 				for (auto& t : _tagList)
 				{
 					ImGui::PushID(t.first.c_str()); {
@@ -1008,7 +993,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 						ImGui::TableNextColumn();
 
-						if (ImGui::ImageButton("filter", _tagFilters[t.first] ? *_eyeOpenIcon : *_eyeClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+						if (ImGui::ImageButton("filter", _tagFilters[t.first] ? *_filterOnIcon : *_filterOffIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 						{
 							_tagFilters[t.first] = !_tagFilters[t.first];
 						}
@@ -1017,7 +1002,8 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 						if (ImGui::ImageButton("delete", *_delIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 						{
-							deletions.push_back(t.first);
+							deleteTag = t.first;
+							_tagDeleteOpen = true;
 						}
 						ImGui::PopStyleColor();
 
@@ -1026,8 +1012,16 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 					ImGui::TableNextRow();
 				}
 
-				for (auto& s : deletions)
-					_tagList.erase(s);
+				if (ConfirmModal("Delete Tag", nullptr, _tagDeleteOpen, "Are you sure you want to delete the tag '" + deleteTag + "' from all layers?") == 1)
+				{
+					_tagList.erase(deleteTag);
+
+					for (auto& l : _layers)
+						l._tags.erase(deleteTag);
+
+					for (auto& st : _states)
+						st._tagStates.erase(deleteTag);
+				}
 
 				ImGui::EndTable();
 			}
@@ -1160,9 +1154,10 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 					bool filtered = false;
 					if (anyfiltered)
 					{
+						filtered = true;
 						for (auto& t : layer._tags)
-							if (_tagFilters[t] == false)
-								filtered = true;
+							if (_tagFilters[t] == true)
+								filtered = false;
 					}
 
 					if (filtered) // skip if filtered away.
@@ -3562,7 +3557,8 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_moveIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_MOVE);
 		_dropIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_DROP);
 
-
+		_filterOnIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_FILTER_ON);
+		_filterOffIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_FILTER_OFF);
 
 		_lockOpenIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_OPEN);
 		_lockClosedIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_LOCK_CLOSED);
@@ -4321,7 +4317,13 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 		for (int mpIdx = _lastCalculatedParents.size()-1; mpIdx > -1; mpIdx--)
 		{
 			auto& mp = _lastCalculatedParents[mpIdx];
-			visible &= mp->_visible;
+			bool mpVisible = mp->_visible;
+			for (auto& t : mp->_tags)
+			{
+				mpVisible &= _parent->_tagList[t];
+			}
+
+			visible &= mpVisible;
 
 			if (!visible)
 				return false;
@@ -4336,7 +4338,15 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 	{
 		LayerInfo* folder = _parent->GetLayer(_inFolder);
 		if (folder)
-			visible &= folder->_visible;
+		{
+			bool fVisible = folder->_visible;
+			for (auto& t : folder->_tags)
+			{
+				fVisible &= _parent->_tagList[t];
+			}
+			visible &= fVisible;
+
+		}
 	}
 
 	for (auto& t : _tags)
@@ -6610,11 +6620,18 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 		auto oldCursorPos = ImGui::GetCursorPos();
 		
-
 		if (_tags.size() > 0)
 		{
+			std::string extra = "";
+			if (_tags.size() > 1)
+				extra = " + " + std::to_string(_tags.size() - 1);
+
+			auto tagCol = style.Colors[ImGuiCol_ButtonActive] * 0.7 + style.Colors[ImGuiCol_Text] * 0.3;
+
 			ImGui::SetCursorPos(ImVec2(nameEnd, headerButtonsPos.y + style.FramePadding.y));
-			ImGui::TextColored(style.Colors[ImGuiCol_ButtonActive], (*_tags.begin()).c_str());
+			ImGui::Image(*_parent->_textureMan->GetIcon(TextureManager::ICON_TAG), {UIUnit*0.7f, UIUnit*0.7f}, toSFColor(tagCol));
+			ImGui::SetCursorPos(ImVec2(nameEnd + UIUnit, headerButtonsPos.y + style.FramePadding.y));
+			ImGui::TextColored(tagCol, (*_tags.begin() + extra).c_str());
 		}
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
@@ -6899,6 +6916,7 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 				_addingTag = false;
 				_tags.insert(tagBuf);
 				_parent->_tagList[tagBuf] = true;
+				_parent->_tagDefaults[tagBuf] = true;
 				_parent->_tagFilters[tagBuf] = false;
 			}
 
@@ -6918,6 +6936,7 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 					{
 						if (ImGui::Selectable(t.first.c_str(), false)) {
 							_tags.insert(t.first);
+							_addingTag = false;
 						}
 					}
 				}
