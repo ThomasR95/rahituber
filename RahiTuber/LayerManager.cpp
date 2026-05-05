@@ -959,7 +959,13 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		if (_tagsBarOpen)
 		{
-			if (ImGui::BeginTable("tagSettings", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, ImGui::GetFrameHeight()*6.f }))
+			if (_tagList.size() == 0)
+			{
+				ImGui::NewLine();
+				ImGui::TextWrapped("No tags yet! Add some using the rename menu on each layer.");
+				ImGui::NewLine();
+			}
+			else if (ImGui::BeginTable("tagSettings", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, ImGui::GetFrameHeight()*6.f }))
 			{
 				ImGui::TableSetupColumn("Tag Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
 
