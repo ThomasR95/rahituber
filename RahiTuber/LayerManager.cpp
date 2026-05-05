@@ -4980,7 +4980,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	}
 	else if (_sprites[SP_SCREAM]->HasTexture() && screaming)
 	{
-		activeType - SP_SCREAM;
+		activeType = SP_SCREAM;
 
 		if (_usePhonemes)
 		{
