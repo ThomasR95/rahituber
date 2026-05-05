@@ -113,6 +113,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			state._timer.restart();
 	}
 
+	// Do tag visibility
+	for (auto& t : _tagList)
+	{
+		const std::string& tag = t.first;
+		t.second = _tagDefaults[t.first];
+	}
+
 	// progressively display the states in order of activation
 	auto statesOrderCopy = _statesOrder;
 	int stateIdx = 0;
@@ -145,14 +152,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 			for (auto& ts : state->_tagStates)
 			{
-				const std::string& tag = ts.first;
 				if (ts.second != StatesInfo::NoChange)
 				{
-					for(auto& layer : _layers)
-						if (layer._tags.find(tag) != layer._tags.end())
-						{
-							layer._visible = ts.second;
-						}
+					_tagList[ts.first] = ts.second;
 				}
 			}
 
@@ -940,8 +942,98 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 
 		ImGui::Separator();
 
+		if(ImGui::BeginTable("canvastagsheaders", 2, ImGuiTableFlags_SizingStretchSame))
+		{
+			ImGui::TableNextColumn();
 
-		if (ImGui::CollapsingHeader("Canvas Settings"))
+			ImGui::SetNextItemOpen(_canvasBarOpen);
+			_canvasBarOpen = ImGui::CollapsingHeader("Canvas Settings", ImGuiTreeNodeFlags_FramePadding);
+			ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
+
+			ImGui::TableNextColumn();
+
+			ImGui::SetNextItemOpen(_tagsBarOpen);
+			_tagsBarOpen = ImGui::CollapsingHeader("Tags & Filters", ImGuiTreeNodeFlags_FramePadding);
+
+			ImGui::EndTable();
+		}
+
+		if (_canvasBarOpen && _tagsBarOpen)
+		{
+			if (!_tagsBarWasOpen)
+				_canvasBarOpen = false;
+
+			if (!_canvasBarWasOpen)
+				_tagsBarOpen = false;
+		}
+
+		_tagsBarWasOpen = _tagsBarOpen;
+		_canvasBarWasOpen = _canvasBarOpen;
+
+		if (_tagsBarOpen)
+		{
+			if (ImGui::BeginTable("tagSettings", 4, ImGuiTableFlags_BordersV | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg, { 0.0f, ImGui::GetFrameHeight()*5 }))
+			{
+				ImGui::TableSetupColumn("Tag Name", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch);
+
+				ImGui::TableSetupColumn("Visible", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("Filter", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupScrollFreeze(0, 1);
+
+				sf::Vector2f headerBtnSize = { ImGui::GetFrameHeight() - 2, ImGui::GetFrameHeight() - 2 };
+				auto btnColor = toSFColor(style.Colors[ImGuiCol_Text]);
+
+				int layerIdx = 0;
+				std::vector<std::string> deletions;
+				for (auto& t : _tagList)
+				{
+					ImGui::PushID(t.first.c_str()); {
+
+						ImGui::TableNextColumn();
+
+						ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
+
+						ImGui::AlignTextToFramePadding();
+						ImGui::Text(ANSIToUTF8(t.first).c_str());
+
+						ImGui::TableNextColumn();
+							
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0.5));
+						if (ImGui::ImageButton("visible", t.second ? *_eyeOpenIcon : *_eyeClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+						{
+							t.second = !t.second;
+							_tagDefaults[t.first] = t.second;
+						}
+
+						ImGui::TableNextColumn();
+
+						if (ImGui::ImageButton("filter", _tagFilters[t.first] ? *_eyeOpenIcon : *_eyeClosedIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+						{
+							_tagFilters[t.first] = !_tagFilters[t.first];
+						}
+
+						ImGui::TableNextColumn();
+
+						if (ImGui::ImageButton("delete", *_delIcon, headerBtnSize, sf::Color::Transparent, btnColor))
+						{
+							deletions.push_back(t.first);
+						}
+						ImGui::PopStyleColor();
+
+					}ImGui::PopID();
+
+					ImGui::TableNextRow();
+				}
+
+				for (auto& s : deletions)
+					_tagList.erase(s);
+
+				ImGui::EndTable();
+			}
+		}
+
+		if (_canvasBarOpen && !_tagsBarOpen)
 		{
 			ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
 
@@ -988,8 +1080,6 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			ImGui::Checkbox("Constrain", &_globalKeepAspect);
 			ToolTip("Keeps the Scale x/y values the same.", &_appConfig->_hoverTimer);
 		}
-		else
-			ToolTip("Global position/scale/rotation settings\n(to change the size/position of the whole scene).", &_appConfig->_hoverTimer);
 
 		ImGui::Separator();
 
@@ -1052,6 +1142,10 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
 			}
 
+			bool anyfiltered = false;
+			for (auto& t : _tagFilters)
+				anyfiltered |= t.second;
+
 			for (int l = 0; l < _layers.size(); l++)
 			{
 				auto& layer = _layers[l];
@@ -1062,6 +1156,17 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 					layer._lastHeaderPos = { -1,-1 };
 					layer._lastHeaderScreenPos = { -1,-1 };
 					layer._lastHeaderSize = { 0,0 };
+
+					bool filtered = false;
+					if (anyfiltered)
+					{
+						for (auto& t : layer._tags)
+							if (_tagFilters[t] == false)
+								filtered = true;
+					}
+
+					if (filtered) // skip if filtered away.
+						continue;
 
 					if (!layer.DrawGUI(style, l))
 						break;
@@ -2043,6 +2148,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		{
 			auto tagElement = tagsElement->InsertNewChildElement("Tag");
 			tagElement->SetText(t.c_str());
+			tagElement->SetAttribute("visible", _tagDefaults[t]);
 		}
 
 		if (layer._isFolder == false)
@@ -2487,7 +2593,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					{
 						auto tag = tagElement->GetText();
 						layer._tags.insert(tag);
-						_tagList.insert(tag);
+						_tagList[tag] = true;
+						_tagFilters[tag] = false;
+						tagElement->QueryAttribute("visible", &_tagDefaults[tag]);
 
 						tagElement = tagElement->NextSiblingElement("Tag");
 					}
@@ -3952,34 +4060,35 @@ void LayerManager::DrawStatesGUI()
 								int layerIdx = 0;
 								for (auto& t : _tagList)
 								{
+									auto& tagName = t.first;
 									{
 										std::scoped_lock lockState(_stateLocks[stateIdx]);
-										if (state._tagStates.count(t) == 0)
-											state._tagStates[t] = StatesInfo::NoChange;
+										if (state._tagStates.count(tagName) == 0)
+											state._tagStates[tagName] = StatesInfo::NoChange;
 									}
 
-									ImGui::PushID(t.c_str()); {
+									ImGui::PushID(tagName.c_str()); {
 
 										ImGui::TableNextColumn();
 
 										ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_BorderShadow);
 
 										ImGui::AlignTextToFramePadding();
-										ImGui::Text(ANSIToUTF8(t).c_str());
+										ImGui::Text(ANSIToUTF8(tagName).c_str());
 
 										{
 											std::scoped_lock lockState(_stateLocks[stateIdx]);
 
 											ImGui::TableNextColumn();
-											ImGui::RadioButton("##Show", (int*)&state._tagStates[t], (int)StatesInfo::Show);
+											ImGui::RadioButton("##Show", (int*)&state._tagStates[tagName], (int)StatesInfo::Show);
 											ToolTip("Show this layer when the state is activated", &_appConfig->_hoverTimer);
 
 											ImGui::TableNextColumn();
-											ImGui::RadioButton("##Hide", (int*)&state._tagStates[t], (int)StatesInfo::Hide);
+											ImGui::RadioButton("##Hide", (int*)&state._tagStates[tagName], (int)StatesInfo::Hide);
 											ToolTip("Hide this layer when the state is activated", &_appConfig->_hoverTimer);
 
 											ImGui::TableNextColumn();
-											ImGui::RadioButton("##NoChange", (int*)&state._tagStates[t], (int)StatesInfo::NoChange);
+											ImGui::RadioButton("##NoChange", (int*)&state._tagStates[tagName], (int)StatesInfo::NoChange);
 											ToolTip("Do not affect this layer when the state is activated", &_appConfig->_hoverTimer);
 										}
 
@@ -4229,6 +4338,12 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 		if (folder)
 			visible &= folder->_visible;
 	}
+
+	for (auto& t : _tags)
+	{
+		visible &= _parent->_tagList[t];
+	}
+
 	return visible;
 }
 
@@ -6668,21 +6783,6 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	return allowContinue;
 }
 
-int LayerManager::TabCompletionTextCallback(ImGuiInputTextCallbackData* data) 
-{
-	for (std::string t : _tagList)
-	{
-		if (t.find(std::string(data->Buf)) == 0)
-		{
-			std::memcpy(data->Buf, t.c_str(), Min((int)t.length(), data->BufSize));
-			data->BufDirty = true;
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
 void LayerManager::LayerInfo::DrawRenamePopupGUI()
 {
 	auto uiUnit = ImGui::GetFrameHeightWithSpacing();
@@ -6798,7 +6898,8 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 			{
 				_addingTag = false;
 				_tags.insert(tagBuf);
-				_parent->_tagList.insert(tagBuf);
+				_parent->_tagList[tagBuf] = true;
+				_parent->_tagFilters[tagBuf] = false;
 			}
 
 			if (_addingTag)
@@ -6811,12 +6912,12 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 
 			if(ImGui::BeginPopup("##inputTag", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysVerticalScrollbar ))
 			{
-				for (std::string t : _parent->_tagList)
+				for (auto& t : _parent->_tagList)
 				{
-					if (tagBuf == "" || t.find(std::string(tagBuf)) == 0)
+					if (tagBuf == "" || t.first.find(std::string(tagBuf)) == 0)
 					{
-						if (ImGui::Selectable(t.c_str(), false)) {
-							_tags.insert(t);
+						if (ImGui::Selectable(t.first.c_str(), false)) {
+							_tags.insert(t.first);
 						}
 					}
 				}

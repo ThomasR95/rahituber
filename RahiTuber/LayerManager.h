@@ -130,7 +130,6 @@ public:
 		sf::Vector2u origSize = {};
 		sf::IntRect cropRect = sf::IntRect(0,0,0,0);
 	};
-	
 
 	struct SpriteInfo
 	{
@@ -689,7 +688,9 @@ private:
 
 	std::deque<LayerInfo> _layers;
 
-	std::set<std::string> _tagList;
+	std::map<std::string, bool> _tagList;
+	std::map<std::string, bool> _tagDefaults;
+	std::map<std::string, bool> _tagFilters;
 
 	struct ClipRenderTextures {
 		sf::RenderTexture _clipRT;
@@ -734,6 +735,12 @@ private:
 	bool _editStatesOpen = false;
 	bool _clearStatesOpen = false;
 	std::string _layerSetName = "lastLayers";
+
+	bool _canvasBarOpen = false;
+	bool _tagsBarOpen = false;
+
+	bool _canvasBarWasOpen = false;
+	bool _tagsBarWasOpen = false;
 
 	bool _statesMenuOpen = false;
 	bool _oldStatesMenuOpen = false;
