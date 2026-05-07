@@ -6720,6 +6720,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			_renamePopupOpen = true;
 			_renameFirstOpened = true;
 			ImGui::OpenPopup("Rename Layer");
+			ImGui::SetNextWindowFocus();
 		}
 		ToolTip("Rename or Color the layer", &_parent->_appConfig->_hoverTimer);
 
@@ -6829,6 +6830,8 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 		ANSIToUTF8(_renamingString).copy(inputStr, 32);
 		if (_renameFirstOpened)
 		{
+			ImGui::BringWindowToFocusFront(ImGui::GetCurrentWindow());
+			ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 			ImGui::SetKeyboardFocusHere();
 			_renameFirstOpened = false;
 		}
