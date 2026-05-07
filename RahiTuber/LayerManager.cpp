@@ -1164,7 +1164,20 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 						for (auto& t : layer._tags)
 							if (_tagFilters[t] == true)
 								filtered = false;
+
+						//continue showing if it's a folder containing filtered tags
+						if (filtered && layer._isFolder)
+						{
+							for (auto& l : layer._folderContents)
+							{
+								for (auto& t : GetLayer(l)->_tags)
+									if (_tagFilters[t] == true)
+										filtered = false;
+							}
+						}
 					}
+
+
 
 					if (filtered) // skip if filtered away.
 						continue;
@@ -5285,12 +5298,32 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PopStyleVar(2);
 				ImGui::PopStyleColor();
 
+				bool anyFiltered = false;
+				for (auto& filter : _parent->_tagFilters)
+					anyFiltered |= filter.second;
+
+
 				for (int l = 0; l < _folderContents.size(); l++)
 				{
 					int layerIdx = 0;
 					auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
 					if (layer != nullptr)
+					{
+						bool filtered = false;
+						if (anyFiltered)
+						{
+							filtered = true;
+							for (auto& t : layer->_tags)
+								if (_parent->_tagFilters[t] == true)
+									filtered = false;
+						}
+
+						if (filtered)
+							continue;
+
 						layer->DrawGUI(style, layerIdx);
+					}
+						
 				}
 			}
 			else
