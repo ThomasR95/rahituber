@@ -3471,6 +3471,15 @@ void LayerManager::CheckHotkeys()
 								_defaultLayerStates[layerId] = state.second;
 						}
 					}
+					for (auto& tagState : stateInfo._tagStates)
+					{
+						bool exists = _tagList.count(tagState.first) > 0;
+						if (exists && tagState.second != StatesInfo::NoChange)
+						{
+							_tagList[tagState.first] = tagState.second;
+							_tagDefaults[tagState.first] = tagState.second;
+						}
+					}
 					// never "activates" because it can't be undone
 					stateInfo._active = false;
 				}
@@ -6926,7 +6935,7 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 				_parent->_tagFilters[tagBuf] = false;
 			}
 
-			if (_addingTag)
+			if (_addingTag && _parent->_tagList.size() > 0)
 			{
 				if(!ImGui::IsPopupOpen("##inputTag"))
 					ImGui::OpenPopup("##inputTag");
