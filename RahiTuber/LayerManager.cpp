@@ -6948,6 +6948,7 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 
 			if(ImGui::BeginPopup("##inputTag", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysVerticalScrollbar ))
 			{
+				ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 				for (auto& t : _parent->_tagList)
 				{
 					if (tagBuf == "" || t.first.find(std::string(tagBuf)) == 0)
