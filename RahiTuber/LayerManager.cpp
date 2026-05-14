@@ -4926,6 +4926,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screaming, ImVec4& activeSpriteCol, float& talkAmount, PhonemeMask phMask)
 {
+	SpriteType activeType = SP_IDLE;
 
 	bool blinkAvailable = _sprites[SP_BLINK]->HasTexture() && !talking && !screaming;
 	bool talkBlinkAvailable = _blinkWhileTalking && _sprites[SP_TALKBLINK]->HasTexture() && talking && !screaming;
@@ -4933,18 +4934,21 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	bool canStartBlinking = (talkBlinkAvailable || blinkAvailable) && !_isBlinking && _useBlinkFrame;
 
 	bool shouldBlink = canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay;
-
-	SpriteType activeType = SP_IDLE;
+	float blinkDur = _blinkDuration;
 
 	if (blinkSyncID != "")
-		_isBlinking = _parent->GetLayer(blinkSyncID)->_isBlinking;
-	else if (shouldBlink)
+	{
+		auto blinkSync = _parent->GetLayer(blinkSyncID);
+		shouldBlink = canStartBlinking && (blinkSync->_isBlinking || _blinkTimer.getElapsedTime().asSeconds() > blinkSync->_blinkDelay + blinkSync->_blinkVarDelay);
+		blinkDur = blinkSync->_blinkDuration;
+	}
+
+	if (shouldBlink)
 	{
 		_isBlinking = true;
 		_blinkTimer.restart();
 		if (!_sprites[SP_BLINK]->IsSynced())
 			_sprites[SP_BLINK]->Restart();
-		_blinkVarDelay = GetRandom11() * _blinkVariation;
 	}
 
 	if (_isBlinking)
@@ -4962,8 +4966,12 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 			activeSpriteCol = _sprites[activeType].tint;
 		}
 
-		if (_blinkTimer.getElapsedTime().asSeconds() > _blinkDuration)
+
+		if (_blinkTimer.getElapsedTime().asSeconds() > blinkDur)
+		{
 			_isBlinking = false;
+			_blinkVarDelay = GetRandom11() * _blinkVariation;
+		}
 	}
 
 	if ((_sprites[SP_TALK]->HasTexture() || _usePhonemes) && !_isBlinking && _swapWhenTalking && talking)
