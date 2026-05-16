@@ -362,6 +362,33 @@ static bool runProcess(const std::string& cmd, bool wait = false) {
 #endif
 }
 
+// Function to compare two characters in a case-insensitive
+// manner
+inline bool caseInsensitiveCharCompare(char a, char b)
+{
+	// Convert both characters to lower case and compare
+	// them
+	return tolower(a) == tolower(b);
+}
+
+// Function to perform a case-insensitive search for a
+// substring in a string
+inline bool caseInsensitiveSubstringSearch(const std::string& str,
+	const std::string& substr)
+{
+	// Use the search function with the case-insensitive
+	// character comparison function
+	auto it
+		= std::search(str.begin(), str.end(), substr.begin(),
+			substr.end(), caseInsensitiveCharCompare);
+
+	// Return true if the substring was found, false
+	// otherwise
+	return it != str.end();
+}
+
+
+
 ////////////////////////////////////////////////////////////
 /// \relates Vector2
 /// \brief Overload of binary operator *

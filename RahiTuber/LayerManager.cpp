@@ -5486,48 +5486,17 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						LayerInfo* oldClip = _parent->GetLayer(_clipID);
 						std::string clipName = oldClip ? oldClip->_name : "Off";
-						if (ImGui::BeginCombo("Clip Layer", ANSIToUTF8(clipName).c_str()))
-						{
-							float comboW = ImGui::GetContentRegionAvail().x;
+						const char* comboID = "Clip Layer";
+						std::string& selectID = _clipID;
+						std::function<bool(const LayerManager::LayerInfo&)> comboFilter = [&](const LayerManager::LayerInfo& fLayer) {
+							if (fLayer._id != _id && fLayer._clipID != _id && fLayer._isFolder == false)
+								return true;
 
-							ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+							return false;
+							};
 
-							int btnIdx = 0;
+						LayerSelectCombo(comboID, clipName, selectID, comboFilter);
 
-							if (ImGui::Selectable("Off", (_clipID == "")))
-								_clipID = "";
-							for (auto& layer : _parent->GetLayers())
-							{
-								if (layer._id != _id && layer._clipID != _id && layer._isFolder == false)
-								{
-									bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
-									if (customColor)
-										ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
-
-									ImGui::PushID(btnIdx++);
-
-									bool clicked = false;
-									if (_clipID == layer._id)
-										clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
-									else
-										clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
-
-									ImGui::PopID();
-
-									if (customColor)
-										ImGui::PopStyleColor();
-
-									if (clicked)
-									{
-										_clipID = layer._id;
-										ImGui::CloseCurrentPopup();
-									}
-								}
-							}
-							ImGui::PopStyleVar(2);
-							ImGui::EndCombo();
-						}
 						ToolTip("Clip this layer to the transparency\nof any other layer", &_parent->_appConfig->_hoverTimer);
 
 					}
@@ -5961,70 +5930,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				LayerInfo* oldMp = _parent->GetLayer(_motionParent);
 				std::string mpName = oldMp ? oldMp->_name : "Off";
 				ImGui::SetNextItemWidth(headerBtnSize.x * 7);
+				std::function<bool(const LayerManager::LayerInfo&)> mpComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
+					if (fLayer._id != _id && fLayer._motionParent != _id && fLayer._isFolder == false)
+						return true;
 
-				if (ImGui::BeginCombo("##MotionInherit", ANSIToUTF8(mpName).c_str()))
-				{
-					float comboW = ImGui::GetContentRegionAvail().x;
+					return false;
+					};
 
-					ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+				LayerSelectCombo("##MotionInherit", mpName, _motionParent, mpComboFilter);
 
-					if (ImGui::Selectable("Off", !hasParent))
-						_motionParent = "-1";
-
-					int btnIdx = 0;
-
-					for (auto& layer : _parent->_layers)
-					{
-						if (layer._id != _id && layer._motionParent != _id && layer._isFolder == false)
-						{
-							if (layer._motionParent != "")
-							{
-								// If the selection layer has a parent, check the hierarchy to ensure it's not already beneath this one
-								auto& parents = layer._lastCalculatedParents;
-								if (std::find_if(parents.begin(), parents.end(), [&](const LayerInfo* lyr) {
-										return lyr->_id == _id;
-									}) != parents.end())
-								{
-									// Is a child, can't be a parent
-									continue;
-								}
-							}
-
-							bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
-							if (customColor)
-								ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
-
-							ImGui::PushID(btnIdx);
-
-							bool clicked = false;
-							if (_motionParent == layer._id)
-								clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit });
-							else
-								clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { UIUnit * 8, UIUnit }, false);
-
-							ImGui::PopID();
-							btnIdx++;
-
-							if (customColor)
-								ImGui::PopStyleColor();
-
-							if (clicked)
-							{
-								_motionParent = layer._id;
-								ImGui::CloseCurrentPopup();
-
-								//recalculate the depths
-								for (auto& layer : _parent->_layers)
-								{
-									layer.CalculateLayerDepth();
-								}
-							}
-						}
-					}
-					ImGui::PopStyleVar(2);
-					ImGui::EndCombo();
-				}
 				ImGui::SetCursorPos(oldCursorPos);
 
 				/////////////////////////////////////////////////// INDIVIDUAL MOTION ////////////////////////////////////////////////////////////////////////
@@ -6908,6 +6822,106 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}ImGui::PopID();
 
 	return allowContinue;
+}
+
+static int ImGuiTextResizeCallback(ImGuiInputTextCallbackData* data)
+{
+	if (data->EventFlag == ImGuiInputTextFlags_CallbackResize)
+	{
+		std::string* my_str = (std::string*)data->UserData;
+		IM_ASSERT(my_str->data()  == data->Buf);
+		my_str->resize(data->BufSize); // NB: On resizing calls, generally data->BufSize == data->BufTextLen + 1
+		data->Buf = my_str->data();
+	}
+	return 0;
+}
+
+void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string& selectedName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter)
+{
+	const float& uiScale = _parent->_appConfig->scalingFactor;
+	const float& UIUnit = ImGui::GetFrameHeight();
+
+	if (ImGui::BeginCombo(comboID, ANSIToUTF8(selectedName).c_str(), ImGuiComboFlags_HeightLargest))
+	{
+		float comboW = ImGui::GetContentRegionAvail().x;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+
+		int btnIdx = 0;
+
+		if(ImGui::BeginTable("##comboTable", 1, ImGuiTableFlags_SizingStretchSame))
+		{
+			ImGui::TableSetupColumn("##content");
+			ImGui::TableSetupScrollFreeze(0, 1);
+
+			ImGui::TableNextColumn();
+
+			if (_parent->_comboSearchStrings.count(comboID) == 0)
+				_parent->_comboSearchStrings[comboID] = "";
+
+			//ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			ImGui::InputTextEx("##search", "Search...", _parent->_comboSearchStrings[comboID].data(), _parent->_comboSearchStrings[comboID].size() + 1, ImVec2(-1, UIUnit), ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CallbackResize, ImGuiTextResizeCallback, (void*)(&_parent->_comboSearchStrings[comboID]));
+
+			bool offClicked = false;
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3,0,0,1.0));
+			if (selectID == "")
+				offClicked = ImGui::Button("Off", {comboW, UIUnit});
+			else
+				offClicked = LesserButton("Off", {comboW, UIUnit}, false);
+			ImGui::PopStyleColor();
+			if (offClicked)
+			{
+				selectID = "";
+				ImGui::CloseCurrentPopup();
+			}
+
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			for (auto& layer : _parent->GetLayers())
+			{
+				bool searchFound = true;
+				if (_parent->_comboSearchStrings[comboID][0] != 0)
+					if (caseInsensitiveSubstringSearch(layer._name, _parent->_comboSearchStrings[comboID].c_str()))
+						searchFound = true;
+					else
+						searchFound = false;
+
+				if (comboFilter(layer) && searchFound)
+				{
+					bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
+					if (customColor)
+						ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
+
+					ImGui::PushID(btnIdx++);
+
+					bool clicked = false;
+					if (selectID == layer._id)
+						clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+					else
+						clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+
+					ImGui::PopID();
+
+					if (customColor)
+						ImGui::PopStyleColor();
+
+					if (clicked)
+					{
+						selectID = layer._id;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+			}
+
+			ImGui::EndTable();
+		}
+
+		ImGui::PopStyleVar(2);
+		ImGui::EndCombo();
+	}
 }
 
 void LayerManager::LayerInfo::DrawRenamePopupGUI()

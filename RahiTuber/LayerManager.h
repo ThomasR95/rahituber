@@ -25,6 +25,8 @@
 namespace fs = std::filesystem;
 
 #include <thread>
+#include <functional>
+
 
 enum PhonemeMask : int
 {
@@ -309,6 +311,8 @@ public:
 		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
+
+		void LayerSelectCombo(const char* comboID, std::string& clipName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter);
 
 		void DrawRenamePopupGUI();
 
@@ -755,6 +759,8 @@ private:
 	bool _statesMenuOpen = false;
 	bool _oldStatesMenuOpen = false;
 	float _statesMenuLeftoverSpace = 0;
+
+	std::map<std::string, std::string> _comboSearchStrings;
 
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
