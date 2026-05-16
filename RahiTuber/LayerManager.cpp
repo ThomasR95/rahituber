@@ -5729,48 +5729,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					LayerInfo* oldSync = _parent->GetLayer(blinkSyncID);
 					std::string syncName = oldSync ? oldSync->_name : "Off";
-					if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
-					{
-						float comboW = ImGui::GetContentRegionAvail().x;
+					std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
+						return (fLayer._id != _id && fLayer.blinkSyncID != _id && fLayer._isFolder == false);
+						};
 
-						ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-						ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
-
-						int btnIdx = 0;
-
-						if (ImGui::Selectable("Off", (blinkSyncID == "")))
-							blinkSyncID = "";
-						for (auto& layer : _parent->GetLayers())
-						{
-							if (layer._id != _id && layer.blinkSyncID != _id && layer._isFolder == false)
-							{
-								bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
-								if (customColor)
-									ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
-
-								ImGui::PushID(btnIdx++);
-
-								bool clicked = false;
-								if (blinkSyncID == layer._id)
-									clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
-								else
-									clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
-
-								ImGui::PopID();
-
-								if (customColor)
-									ImGui::PopStyleColor();
-
-								if (clicked)
-								{
-									blinkSyncID = layer._id;
-									ImGui::CloseCurrentPopup();
-								}
-							}
-						}
-						ImGui::PopStyleVar(2);
-						ImGui::EndCombo();
-					}
+					LayerSelectCombo("Sync to layer##Blink", syncName, blinkSyncID, syncComboFilter);
 					ToolTip("Sync the blink timer of this layer to\nany other layer", &_parent->_appConfig->_hoverTimer);
 
 				}
@@ -6030,48 +5993,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								LayerInfo* oldSync = _parent->GetLayer(bounceTimerID);
 								std::string syncName = oldSync ? oldSync->_name : "Off";
-								if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
-								{
-									float comboW = ImGui::GetContentRegionAvail().x;
 
-									ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-									ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
+								std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
+									return (fLayer._id != _id && fLayer.bounceTimerID != _id && fLayer._isFolder == false);
+									};
 
-									int btnIdx = 0;
+								LayerSelectCombo("Sync to layer##Talk", syncName, bounceTimerID, syncComboFilter);
 
-									if (ImGui::Selectable("Off", (bounceTimerID == "")))
-										bounceTimerID = "";
-									for (auto& layer : _parent->GetLayers())
-									{
-										if (layer._id != _id && layer.bounceTimerID != _id && layer._isFolder == false)
-										{
-											bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
-											if (customColor)
-												ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
-
-											ImGui::PushID(btnIdx++);
-
-											bool clicked = false;
-											if (bounceTimerID == layer._id)
-												clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
-											else
-												clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
-
-											ImGui::PopID();
-
-											if (customColor)
-												ImGui::PopStyleColor();
-
-											if (clicked)
-											{
-												bounceTimerID = layer._id;
-												ImGui::CloseCurrentPopup();
-											}
-										}
-									}
-									ImGui::PopStyleVar(2);
-									ImGui::EndCombo();
-								}
 								ToolTip("Sync the talk motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
 
 								ImGui::EndTabItem();
@@ -6140,48 +6068,11 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								LayerInfo* oldSync = _parent->GetLayer(motionTimerID);
 								std::string syncName = oldSync ? oldSync->_name : "Off";
-								if (ImGui::BeginCombo("Sync to layer", ANSIToUTF8(syncName).c_str()))
-								{
-									float comboW = ImGui::GetContentRegionAvail().x;
+								std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
+									return (fLayer._id != _id && fLayer.motionTimerID != _id && fLayer._isFolder == false);
+									};
 
-									ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-									ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
-
-									int btnIdx = 0;
-
-									if (ImGui::Selectable("Off", (motionTimerID == "")))
-										motionTimerID = "";
-									for (auto& layer : _parent->GetLayers())
-									{
-										if (layer._id != _id && layer.motionTimerID != _id && layer._isFolder == false)
-										{
-											bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
-											if (customColor)
-												ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
-
-											ImGui::PushID(btnIdx++);
-
-											bool clicked = false;
-											if (motionTimerID == layer._id)
-												clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
-											else
-												clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
-
-											ImGui::PopID();
-
-											if (customColor)
-												ImGui::PopStyleColor();
-
-											if (clicked)
-											{
-												motionTimerID = layer._id;
-												ImGui::CloseCurrentPopup();
-											}
-										}
-									}
-									ImGui::PopStyleVar(2);
-									ImGui::EndCombo();
-								}
+								LayerSelectCombo("Sync to layer##Idle", syncName, motionTimerID, syncComboFilter);
 								ToolTip("Sync the idle motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
 
 								ImGui::EndTabItem();
