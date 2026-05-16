@@ -179,14 +179,14 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		// Don't calculate if invisible
 		bool calculate = layer->EvaluateLayerVisibility();
 
-		// if invisible, re-enable calculation if any other layer needs it as a parent
+		// if invisible, re-enable calculation if any other layer needs it as a parent or clip
 		if (!calculate)
 		{
 			for (int l = _layers.size() - 1; l >= 0; l--)
 			{
 				LayerInfo& checkLayer = _layers[l];
 				//check if any layer relies on it as a parent
-				if (checkLayer._motionParent == layer->_id)
+				if (checkLayer._motionParent == layer->_id || checkLayer._clipID == layer->_id)
 				{
 					calculate = true;
 					break;
