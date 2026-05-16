@@ -40,10 +40,11 @@ namespace imgui_ext {
     float m_height = 400;
 
     std::string m_savingName = "";
+    bool* m_mergeFlag = nullptr;
 
   public:
 
-    file_browser_modal(const char* title);
+    file_browser_modal(const char* title, bool* mergingPtr = nullptr);
 
     const bool render(const bool isVisible, std::string& outPath, bool saving = false);
 

@@ -922,6 +922,13 @@ public:
 
 					//ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
 					//ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
+
+					if (ImGui::Checkbox("Accept duplicate layers when merging", &appConfig->_layerManAcceptMergeDuplicates))
+					{
+						layerMan->setAcceptMergeDuplicates(appConfig->_layerManAcceptMergeDuplicates);
+					}
+					ToolTip("Merged layers with duplicate GUIDs will be\nassigned a new guid instead of being discarded.", &appConfig->_hoverTimer);
+
 				}
 
 				ImGui::EndTabItem();

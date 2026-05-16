@@ -666,22 +666,30 @@ void LayerManager::DoMenuBarLogic()
 	//////////////////////////////// OPEN ///////////////////////////////////
 
 	ImGui::PushID("openXMLBtn"); {
-		static imgui_ext::file_browser_modal fileBrowserXML("Load Layer Set");
+		static imgui_ext::file_browser_modal fileBrowserXML("Load Layer Set", &_mergingLayerSet);
 		fileBrowserXML._acceptedExt = { ".xml" };
 		//_loadXMLOpen = ImGui::Button("Open", { -1, ImGui::GetFrameHeight() });
 		if (_loadXMLOpen)
-			fileBrowserXML.SetStartingDir(_lastSavedLocation);
-		if (fileBrowserXML.render(_loadXMLOpen, _fullLoadedXMLPath))
 		{
-			fs::path xmlPath = fs::absolute(_fullLoadedXMLPath);
-			std::error_code ec;
-			_loadedXMLExists = fs::exists(xmlPath, ec);
-			_fullLoadedXMLPath = xmlPath.string();
-			_loadedXMLAbsDirectory = xmlPath.parent_path().string();
-			fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
-			_loadedXMLRelDirectory = proximateXMLPath.parent_path().string();
-			_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
-			LoadLayers(_fullLoadedXMLPath);
+			_loadingBrowserPath = _fullLoadedXMLPath;
+			fileBrowserXML.SetStartingDir(_lastSavedLocation);
+		}
+		if (fileBrowserXML.render(_loadXMLOpen, _loadingBrowserPath))
+		{
+			fs::path xmlPath = fs::absolute(_loadingBrowserPath);
+
+			if (!_mergingLayerSet)
+			{
+				std::error_code ec;
+				_loadedXMLExists = fs::exists(xmlPath, ec);
+				_fullLoadedXMLPath = xmlPath.string();
+				_loadedXMLAbsDirectory = xmlPath.parent_path().string();
+				fs::path proximateXMLPath = fs::proximate(xmlPath, appFolder);
+				_loadedXMLRelDirectory = proximateXMLPath.parent_path().string();
+				_loadedXMLRelPath = proximateXMLPath.replace_extension("").string();
+			}
+
+			LoadLayers(xmlPath.string());
 
 			UpdateWindowTitle();
 		}
@@ -807,6 +815,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		_reloadXMLOpen = false;
 		if (_loadedXMLExists)
 		{
+			_mergingLayerSet = false;
 			LoadLayers(_fullLoadedXMLPath);
 		}
 	}
@@ -1508,33 +1517,9 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 			layer->_name = "New Folder";
 	}
 
-#ifdef _WIN32
-	UUID uuid = { 0 };
 	std::string guid;
 
-	// Create uuid or load from a string by UuidFromString() function
-	::UuidCreate(&uuid);
-
-	// If you want to convert uuid to string, use UuidToString() function
-	RPC_CSTR szUuid = NULL;
-	if (::UuidToStringA(&uuid, &szUuid) == RPC_S_OK)
-	{
-		guid = (char*)szUuid;
-		::RpcStringFreeA(&szUuid);
-	}
-#else
-	// Generate a UUID
-	std::string guid = "";
-	guid.resize(60, ' ');
-
-	sprintf(guid.data(), "%x%x-%x-%x-%x-%x%x%x",
-		rand(), rand(),                 // Generates a 64-bit Hex number
-		rand(),                         // Generates a 32-bit Hex number
-		((rand() & 0x0fff) | 0x4000),   // Generates a 32-bit Hex number of the form 4xxx (4 indicates the UUID version)
-		rand() % 0x3fff + 0x8000,       // Generates a 32-bit Hex number in the range [0x8000, 0xbfff]
-		rand(), rand(), rand());
-
-#endif
+	GenerateGuid(guid);
 
 	layer->_blinkTimer.restart();
 	layer->_isBlinking = false;
@@ -1604,6 +1589,35 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	}
 
 	return layer;
+}
+
+void LayerManager::GenerateGuid(std::string& guid)
+{
+#ifdef _WIN32
+	UUID uuid = { 0 };
+
+	// Create uuid or load from a string by UuidFromString() function
+	::UuidCreate(&uuid);
+
+	// If you want to convert uuid to string, use UuidToString() function
+	RPC_CSTR szUuid = NULL;
+	if (::UuidToStringA(&uuid, &szUuid) == RPC_S_OK)
+	{
+		guid = (char*)szUuid;
+		::RpcStringFreeA(&szUuid);
+	}
+#else
+	// Generate a UUID
+	guid.resize(60, ' ');
+
+	sprintf(guid.data(), "%x%x-%x-%x-%x-%x%x%x",
+		rand(), rand(),                 // Generates a 64-bit Hex number
+		rand(),                         // Generates a 32-bit Hex number
+		((rand() & 0x0fff) | 0x4000),   // Generates a 32-bit Hex number of the form 4xxx (4 indicates the UUID version)
+		rand() % 0x3fff + 0x8000,       // Generates a 32-bit Hex number in the range [0x8000, 0xbfff]
+		rand(), rand(), rand());
+
+#endif
 }
 
 void LayerManager::RemoveLayer(int toRemove)
@@ -2569,32 +2583,64 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			_loadingFinished = false;
 
-			_statesOrder.clear();
-			_layers.clear();
-			_textureMan->Reset();
-			_croppedImages.clear();
-			_lastSavedLocation = _loadingPath;
+			if (!_mergingLayerSet)
+			{
+				_statesOrder.clear();
+				_layers.clear();
+				_textureMan->Reset();
+				_croppedImages.clear();
+				_lastSavedLocation = _loadingPath;
+			}
 
 			auto thisLayer = layers->FirstChildElement("layer");
 			int layerCount = 0;
 			while (thisLayer)
 			{
-				layerCount++;
-				_layers.emplace_back(LayerInfo());
-
-				LayerInfo& layer = _layers.back();
-
-				layer._parent = this;
-
-				const char* guid = thisLayer->Attribute("id");
-				if (!guid)
+				const char* c_guid = thisLayer->Attribute("id");
+				if (!c_guid)
 					break;
-				layer._id = guid;
+
+				std::string guid = c_guid;
 
 				const char* name = thisLayer->Attribute("name");
 				if (!name)
 					break;
 
+				if (_mergingLayerSet)
+				{
+					if (GetLayer(guid) != nullptr)
+					{
+						if (_mergeAcceptDuplicates)
+						{
+							GenerateGuid(guid);
+						}
+						else
+						{
+							thisLayer = thisLayer->NextSiblingElement("layer");
+							continue;
+						}
+					}
+				}
+
+				LayerInfo* pLayer = nullptr;
+
+				if (_mergingLayerSet)
+				{
+					_layers.insert(_layers.begin()+layerCount, LayerInfo());
+					pLayer = &_layers[layerCount];
+				}
+				else
+				{
+					_layers.emplace_back(LayerInfo());
+					pLayer = &_layers.back();
+				}
+
+				layerCount++;
+
+				LayerInfo& layer = *pLayer;
+				layer._parent = this;
+
+				layer._id = guid;
 				layer._name = name;
 				thisLayer->QueryAttribute("visible", &layer._visible);
 				_loadingProgress = name;
@@ -2932,7 +2978,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 			root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
 
-			_globalPresets.clear();
+			if(!_mergingLayerSet)
+				_globalPresets.clear();
 
 			auto canvasPresets = root->FirstChildElement("CanvasPresets");
 			if (canvasPresets)
@@ -2966,7 +3013,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				return;
 			}
 
-			_states.clear();
+			if (!_mergingLayerSet)
+				_states.clear();
 
 			auto thisHotkey = hotkeys->FirstChildElement("hotkey");
 			while (thisHotkey)
@@ -3077,24 +3125,27 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisHotkey = thisHotkey->NextSiblingElement("hotkey");
 			}
 
-			std::error_code ec = {};
-			_fullLoadedXMLPath = fs::absolute(_loadingPath, ec).string();
-			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path for " + _loadingPath);
-			_lastSavedLocation = _fullLoadedXMLPath;
-			ec = {};
-			_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation, ec).string();
-			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path: " + _fullLoadedXMLPath);
-			ec = {};
-			_loadedXMLAbsDirectory = fs::absolute(_loadingPath).parent_path().string();
-			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path directory for  " + _loadingPath);
+			if (!_mergingLayerSet)
+			{
+				std::error_code ec = {};
+				_fullLoadedXMLPath = fs::absolute(_loadingPath, ec).string();
+				if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path for " + _loadingPath);
+				_lastSavedLocation = _fullLoadedXMLPath;
+				ec = {};
+				_loadedXMLRelPath = fs::proximate(_fullLoadedXMLPath, _appConfig->_appLocation, ec).string();
+				if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path: " + _fullLoadedXMLPath);
+				ec = {};
+				_loadedXMLAbsDirectory = fs::absolute(_loadingPath).parent_path().string();
+				if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to get absolute path directory for  " + _loadingPath);
 
-			ec = {};
-			_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
-			if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path directory: " + _loadedXMLAbsDirectory);
+				ec = {};
+				_loadedXMLRelDirectory = fs::proximate(_loadedXMLAbsDirectory, _appConfig->_appLocation).string();
+				if (ec.value() != 0) logToFile(_appConfig, "LoadLayerSet: Failed to proximate path directory: " + _loadedXMLAbsDirectory);
 
-			_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
+				_layerSetName = fs::path(_loadingPath).filename().replace_extension("").string();
 
-			UpdateWindowTitle();
+				UpdateWindowTitle();
+			}
 
 			for (auto& layer : _layers)
 			{
@@ -3105,6 +3156,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 			_loadingPath = "";
 
 			_loadingFinished = true;
+
+			_mergingLayerSet = false;
 
 			if(_appConfig->_unloadTimeoutEnabled)
 				SetUnloadingTimer(_appConfig->_unloadTimeout);

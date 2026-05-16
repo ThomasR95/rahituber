@@ -135,6 +135,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("gamepadAPI", &_appConfig->_gamepadAPI);
 	common->QueryAttribute("gamepadThreaded", &_appConfig->_gamepadThreaded);
 
+	common->QueryAttribute("acceptMergeDuplicates", &_appConfig->_layerManAcceptMergeDuplicates);
 
 	auto themeElmt = common->FirstChildElement("Theme");
 
@@ -270,6 +271,9 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("gamepadAPI", _appConfig->_gamepadAPI);
 			common->SetAttribute("gamepadThreaded", _appConfig->_gamepadThreaded);
+
+			common->SetAttribute("acceptMergeDuplicates", _appConfig->_layerManAcceptMergeDuplicates);
+
 
 			auto themeElmt = common->FirstChildElement("Theme");
 

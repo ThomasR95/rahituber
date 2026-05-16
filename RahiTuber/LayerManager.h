@@ -556,6 +556,7 @@ public:
 	}
 
 	LayerInfo* AddLayer(const LayerInfo* toCopy = nullptr, bool isFolder = false, int insertPosition = -1);
+	void GenerateGuid(std::string& guid);
 	void RemoveLayer(int toRemove);
 	void MoveLayerUp(int moveUp);
 	void MoveLayerDown(int moveDown);
@@ -668,6 +669,9 @@ public:
 
 	void Init(AppConfig* appConf, UIConfig* uiConf);
 
+	bool getAcceptMergeDuplicates() { return _mergeAcceptDuplicates; }
+	void setAcceptMergeDuplicates(bool val) { _mergeAcceptDuplicates = val; }
+
 private:
 
 	bool _loadingFinished = true;
@@ -722,6 +726,7 @@ private:
 	std::string _savingXMLPath = u8"";
 	std::string _loadedXMLAbsDirectory = u8"";
 	std::string _fullLoadedXMLPath = u8"";
+	std::string _loadingBrowserPath = u8"";
 	bool _loadedXMLExists = true;
 	bool _loadXMLOpen = false;
 	bool _saveXMLOpen = false;
@@ -738,6 +743,8 @@ private:
 	bool _editStatesOpen = false;
 	bool _clearStatesOpen = false;
 	std::string _layerSetName = "lastLayers";
+	bool _mergingLayerSet = false;
+	bool _mergeAcceptDuplicates = false;
 
 	bool _canvasBarOpen = false;
 	bool _tagsBarOpen = false;

@@ -117,6 +117,7 @@ struct AppConfig
 	sf::Clock _runTime;
 
 	std::string _lastLayerSet = u8"lastLayers";
+	bool _layerManAcceptMergeDuplicates = false;
 
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;

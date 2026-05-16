@@ -279,12 +279,15 @@ ImGuiWindowFlags_NoResize |
 ImGuiWindowFlags_NoCollapse |
 ImGuiWindowFlags_NoScrollbar;
 
-file_browser_modal::file_browser_modal(const char* title) :
+file_browser_modal::file_browser_modal(const char* title, bool* mergingPtr) :
   m_title(title),
   m_oldVisibility(false),
   m_selection(0),
   m_currentPath(fs::current_path()),
   m_currentPathIsDir(true) {
+
+  if (mergingPtr != nullptr)
+    m_mergeFlag = mergingPtr;
 
 }
 
@@ -361,7 +364,6 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
       //Make the modal visible.
       ImGui::OpenPopup(m_title);
     }
-
   }
 
   bool isOpen = true;
@@ -538,6 +540,16 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     float selectBtnWidth = ImGui::CalcTextSize(selectBtn.c_str()).x + style.FramePadding.x * 2;
     float cancelBtnWidth = ImGui::CalcTextSize("Cancel").x + style.FramePadding.x * 2;
+
+    if (!saving && m_mergeFlag != nullptr)
+    {
+      ImGui::SetCursorPos({ ImGui::GetWindowContentRegionMin().x, buttonsYPos});
+      bool mergeChecked = *m_mergeFlag;
+      if (ImGui::Checkbox("Merge with current set", &mergeChecked))
+      {
+        *m_mergeFlag = mergeChecked;
+      }
+    }
 
     ImGui::SetCursorPos({ ImGui::GetContentRegionAvail().x - (selectBtnWidth + cancelBtnWidth + style.ItemSpacing.x), buttonsYPos });
 
