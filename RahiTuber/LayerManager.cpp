@@ -179,14 +179,22 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 		// Don't calculate if invisible
 		bool calculate = layer->EvaluateLayerVisibility();
 
-		// if invisible, re-enable calculation if any other layer needs it as a parent or clip
+		// if invisible, re-enable calculation if any other layer needs it as a parent, clip or sync
+		if (layer->blinkSyncID != "")
+			calculate = true;
+
 		if (!calculate)
 		{
 			for (int l = _layers.size() - 1; l >= 0; l--)
 			{
 				LayerInfo& checkLayer = _layers[l];
 				//check if any layer relies on it as a parent
-				if (checkLayer._motionParent == layer->_id || checkLayer._clipID == layer->_id)
+				if (checkLayer._motionParent == layer->_id 
+					|| checkLayer._clipID == layer->_id 
+					|| checkLayer.motionTimerID == layer->_id
+					|| checkLayer.blinkSyncID == layer->_id
+					|| checkLayer.bounceTimerID == layer->_id
+					)
 				{
 					calculate = true;
 					break;
@@ -4832,11 +4840,10 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	if (!_sprites[SP_IDLE].sprite)
 		return;
 
+	for (auto& sp : _sprites)
+		sp.second->_visible = false;
+
 	_sprites[SP_IDLE]->_visible = true;
-	_sprites[SP_BLINK]->_visible = false;
-	_sprites[SP_TALK]->_visible = false;
-	_sprites[SP_TALKBLINK]->_visible = false;
-	_sprites[SP_SCREAM]->_visible = false;
 
 	_activeSprite = _sprites[SP_IDLE].get();
 
@@ -4873,16 +4880,9 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	if (becameVisible && _restartAnimsOnVisible)
 	{
-		if (_sprites[SP_TALKBLINK])
-			_sprites[SP_TALKBLINK]->Restart();
-		if (_sprites[SP_BLINK])
-			_sprites[SP_BLINK]->Restart();
-		if (_sprites[SP_TALK])
-			_sprites[SP_TALK]->Restart();
-		if (_sprites[SP_IDLE])
-			_sprites[SP_IDLE]->Restart();
-		if (_sprites[SP_SCREAM])
-			_sprites[SP_SCREAM]->Restart();
+		for (auto& sp : _sprites)
+			if (sp.second)
+				sp.second->Restart();
 
 		_motionTimer.restart();
 	}
@@ -4994,6 +4994,8 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 		auto blinkSync = _parent->GetLayer(blinkSyncID);
 		shouldBlink = canStartBlinking && (blinkSync->_isBlinking || _blinkTimer.getElapsedTime().asSeconds() > blinkSync->_blinkDelay + blinkSync->_blinkVarDelay);
 		blinkDur = blinkSync->_blinkDuration;
+		if (!blinkSync->_isBlinking)
+			_isBlinking = false;
 	}
 
 	if (shouldBlink)
@@ -5002,6 +5004,8 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 		_blinkTimer.restart();
 		if (!_sprites[SP_BLINK]->IsSynced())
 			_sprites[SP_BLINK]->Restart();
+		if (!_sprites[SP_TALKBLINK]->IsSynced())
+			_sprites[SP_TALKBLINK]->Restart();
 	}
 
 	if (_isBlinking)
