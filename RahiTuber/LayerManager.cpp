@@ -723,7 +723,15 @@ void LayerManager::DoMenuBarLogic()
 
 		ImGui::SeparatorText("Make Portable");
 
-		ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of RahiTuber.\n\n\
+		std::string dirName = _appConfig->_savePortableRelativeToXML ? "" : " in RahiTuber's directory";
+		std::string dirName2 = _appConfig->_savePortableRelativeToXML ? " the XML's location" : " RahiTuber's directory";
+
+
+		if(_appConfig->_savePortableRelativeToXML)
+			ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of the Layer Set XML file.\n\n\
+This works best when all your sprite images are located in a subfolder of the XML's directory.\nAs long as the XML stays in the same position relative to the images, it can be saved anywhere.\n\nWould you like to copy the images to a folder alongside your new XML?");
+		else
+			ImGui::TextWrapped("This function creates a version of your layer set where all file paths are relative to the location of RahiTuber.\n\n\
 This works best when all your sprite images are located in a subfolder of RahiTuber's directory.\n\nCopy them there now?");
 
 		if (ImGui::Button("Copy files and create portable XML", { -1, ImGui::GetFrameHeight() }))
@@ -733,15 +741,15 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 			_copyImagesPortable = true;
 			ImGui::CloseCurrentPopup();
 		}
-		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory.\nThen a folder will be created with the\nsame name, and your sprites copied there.", &_appConfig->_hoverTimer);
+		ToolTip(("You will be prompted to save a new XML\nfile"+dirName+".\nA folder will be created next to it with the\nsame name, and your sprites copied there.").c_str(), &_appConfig->_hoverTimer);
 
-		if (ImGui::Button("Create portable XML only", { -1, ImGui::GetFrameHeight() }))
+		if (LesserButton("Create portable XML only", { -1, ImGui::GetFrameHeight() }))
 		{
 			_saveAsXMLOpen = true;
 			_saveLayersPortable = true;
 			ImGui::CloseCurrentPopup();
 		}
-		ToolTip("You will be prompted to save a new XML\nfile in RahiTuber's directory. \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of RahiTuber's directory.", &_appConfig->_hoverTimer);
+		ToolTip(("You will be prompted to save a new XML\nfile" + dirName + ". \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of" + dirName2 + ".").c_str(), & _appConfig->_hoverTimer);
 
 		ImGui::SeparatorText("Optimised Portable");
 
@@ -2054,9 +2062,12 @@ void LayerManager::MoveLayerDown(LayerInfo* moveDown)
 	}
 }
 
-void LayerManager::MakePortablePath(std::string& path)
+void LayerManager::MakePortablePath(std::string& path, bool xmlRelative, fs::path xmlPath)
 {
-	path = fs::proximate(path, _appConfig->_appLocation).string();
+	if(!xmlRelative)
+		path = fs::proximate(path, _appConfig->_appLocation).string();
+	else
+		path = fs::proximate(path, xmlPath).string();
 	std::replace(path.begin(), path.end(), '\\', '/');
 }
 
@@ -2079,6 +2090,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 	tinyxml2::XMLDocument doc;
 
+	bool xmlRelative = _appConfig->_savePortableRelativeToXML || _isPortableRelativeToXML;
+
 	doc.LoadFile(settingsFileName.c_str());
 
 	logToFile(_appConfig, "Saving " + settingsFileName);
@@ -2099,6 +2112,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		return false;
 	}
 
+	root->SetAttribute("XMLRelative", xmlRelative);
+
 	auto layers = root->FirstChildElement("layers");
 	if (!layers)
 		layers = root->InsertFirstChild(doc.NewElement("layers"))->ToElement();
@@ -2110,9 +2125,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		return false;
 	}
 
+	fs::path settingsFileDir = fs::path(settingsFileName).remove_filename();
+
 	if (makePortable && copyImages)
 	{
 		fs::path targetFolder(_appConfig->_appLocation);
+
+		if (xmlRelative)
+			targetFolder = settingsFileDir;
+
 		targetFolder.append(_layerSetName);
 		std::error_code cec;
 		fs::create_directory(targetFolder, cec);
@@ -2244,7 +2265,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			{
 				for (auto& sp : layer._sprites)
 				{
-					MakePortablePath(sp.second.path);
+					MakePortablePath(sp.second.path, xmlRelative, settingsFileDir);
 				}
 			}
 
@@ -2578,6 +2599,12 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				return;
 			}
 
+			bool xmlRelative = false;
+			root->QueryAttribute("XMLRelative", &xmlRelative);
+			_isPortableRelativeToXML = xmlRelative;
+			std::error_code ec;
+			fs::path settingsFileDir = fs::absolute(fs::path(_loadingPath), ec).remove_filename();
+
 			auto layers = root->FirstChildElement("layers");
 			if (!layers)
 			{
@@ -2634,7 +2661,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				if (_mergingLayerSet)
 				{
-					_layers.insert(_layers.begin()+layerCount, LayerInfo());
+					_layers.insert(_layers.begin() + layerCount, LayerInfo());
 					pLayer = &_layers[layerCount];
 				}
 				else
@@ -2668,7 +2695,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 						tagElement = tagElement->NextSiblingElement("Tag");
 					}
 				}
-				
+
 
 				thisLayer->QueryAttribute("talking", &layer._swapWhenTalking);
 				thisLayer->QueryAttribute("talkThreshold", &layer._talkThreshold);
@@ -2728,6 +2755,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				thisLayer->QueryAttribute("restartAnimsOnVisible", &layer._restartAnimsOnVisible);
 
+				fs::path oldCurrentPath = fs::current_path();
+				fs::current_path(_appConfig->_appLocation);
+				if (xmlRelative)
+					fs::current_path(settingsFileDir);
+
 #pragma region < V13.972 compatibility
 				if (const char* idlePth = thisLayer->Attribute("idlePath"))
 					layer._sprites[SP_IDLE].path = idlePth;
@@ -2739,8 +2771,6 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					layer._sprites[SP_TALKBLINK].path = talkBlkPth;
 				if (const char* screamPth = thisLayer->Attribute("screamPath"))
 					layer._sprites[SP_SCREAM].path = screamPth;
-
-				fs::current_path(_appConfig->_appLocation);
 
 				if (layer._sprites[SP_IDLE].path != "")
 					layer._sprites[SP_IDLE]->LoadFromTexture(_textureMan, TryAbsolutePath(layer._sprites[SP_IDLE].path).string(), 1, 1, 1, 1, { -1, -1 }, &_errorMessage);
@@ -2788,6 +2818,8 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 				}
 
+				fs::current_path(oldCurrentPath);
+
 				thisLayer->QueryAttribute("syncAnims", &layer._animsSynced);
 
 				if (layer._animsSynced)
@@ -2834,7 +2866,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("mouseLimitX", &layer._trackingMoveLimits.x);
 				thisLayer->QueryAttribute("mouseLimitY", &layer._trackingMoveLimits.y);
 
-				thisLayer->QueryAttribute("trackingAxis", (int*) & layer._trackingAxis);
+				thisLayer->QueryAttribute("trackingAxis", (int*)&layer._trackingAxis);
 				thisLayer->QueryAttribute("trackingDeadzone", &layer._axisDeadzone);
 
 				thisLayer->QueryAttribute("trackingSmooth", &layer._trackingSmooth);
@@ -2846,7 +2878,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("trackingRotLimitX", &layer._trackingRotation.x);
 				thisLayer->QueryAttribute("trackingRotLimitY", &layer._trackingRotation.y);
 
-				thisLayer->QueryAttribute("trackingSelect", (int*) & layer._trackingSelect);
+				thisLayer->QueryAttribute("trackingSelect", (int*)&layer._trackingSelect);
 				if (layer._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 				{
 					if (const char* ctrlrName = thisLayer->Attribute("trackingControllerName"))
@@ -2875,7 +2907,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("trackingScaleClampX", &layer._trackingScaleClamp.x);
 				thisLayer->QueryAttribute("trackingScaleClampY", &layer._trackingScaleClamp.y);
 				thisLayer->QueryAttribute("trackingScaleAbsolute", &layer._trackingScaleAbsolute);
-	
+
 
 				const char* mpguid = thisLayer->Attribute("motionParent");
 				if (mpguid)
@@ -2948,10 +2980,10 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					layer._clipID = clipGuid;
 
 
-					layer._sprites[SP_IDLE]->setSmooth(layer._scaleFiltering);
-					layer._sprites[SP_TALK]->setSmooth(layer._scaleFiltering);
-					layer._sprites[SP_BLINK]->setSmooth(layer._scaleFiltering);
-					layer._sprites[SP_TALKBLINK]->setSmooth(layer._scaleFiltering);
+				layer._sprites[SP_IDLE]->setSmooth(layer._scaleFiltering);
+				layer._sprites[SP_TALK]->setSmooth(layer._scaleFiltering);
+				layer._sprites[SP_BLINK]->setSmooth(layer._scaleFiltering);
+				layer._sprites[SP_TALKBLINK]->setSmooth(layer._scaleFiltering);
 
 				thisLayer->QueryAttribute("isFolder", &layer._isFolder);
 
@@ -2974,25 +3006,28 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer = thisLayer->NextSiblingElement("layer");
 			}
 
-			root->QueryAttribute("globalScaleX", &_globalScale.x);
-			root->QueryAttribute("globalScaleY", &_globalScale.y);
-			root->QueryAttribute("globalPosX", &_globalPos.x);
-			root->QueryAttribute("globalPosY", &_globalPos.y);
-			root->QueryAttribute("globalRot", &_globalRot);
+			if (!_mergingLayerSet)
+			{
+				root->QueryAttribute("globalScaleX", &_globalScale.x);
+				root->QueryAttribute("globalScaleY", &_globalScale.y);
+				root->QueryAttribute("globalPosX", &_globalPos.x);
+				root->QueryAttribute("globalPosY", &_globalPos.y);
+				root->QueryAttribute("globalRot", &_globalRot);
 
-			root->QueryAttribute("statesPassThrough", &_statesPassThrough);
-			root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
-			root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
+				root->QueryAttribute("statesPassThrough", &_statesPassThrough);
+				root->QueryAttribute("statesHideUnaffected", &_statesHideUnaffected);
+				root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
 
-			root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
+				root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
 
-			if(!_mergingLayerSet)
 				_globalPresets.clear();
+			}
 
 			auto canvasPresets = root->FirstChildElement("CanvasPresets");
 			if (canvasPresets)
 			{
-				canvasPresets->QueryAttribute("currentPreset", &_currentGlobalPreset);
+				if (!_mergingLayerSet)
+					canvasPresets->QueryAttribute("currentPreset", &_currentGlobalPreset);
 
 				auto thisPresetElmt = canvasPresets->FirstChildElement("Preset");
 				while (thisPresetElmt)
@@ -3000,6 +3035,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					GlobalPreset thisPreset;
 					if (const char* storedName = thisPresetElmt->Attribute("name"))
 						thisPreset._name = storedName;
+
+					if (_mergingLayerSet)
+					{
+						for(auto& ps : _globalPresets)
+							if (ps._name == thisPreset._name)
+							{
+								thisPreset._name += " (" + _layerSetName + ")";
+							}
+					}
 
 					thisPresetElmt->QueryAttribute("scaleX", &thisPreset._scale.x);
 					thisPresetElmt->QueryAttribute("scaleY", &thisPreset._scale.y);

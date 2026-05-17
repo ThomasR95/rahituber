@@ -454,6 +454,11 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 #endif
         }
         m_selection = 0;
+
+        m_currentPath.append(m_savingName);
+        if (m_currentPath.has_extension() == false)
+          m_currentPath = fs::path(m_currentPath.string() + ".xml");
+
       }
       else
       {

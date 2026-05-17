@@ -573,7 +573,7 @@ public:
 	void MoveLayerUp(LayerInfo* moveUp);
 	void MoveLayerDown(LayerInfo* moveDown);
 
-	void MakePortablePath(std::string& path);
+	void MakePortablePath(std::string& path, bool xmlRelative = false, fs::path xmlPath = fs::path());
 
 	bool SaveLayers(const std::string& settingsFileName, bool makePortable = false, bool copyImages = false, bool optimise = false);
 	bool LoadLayers(const std::string& settingsFileName);
@@ -749,6 +749,7 @@ private:
 	std::string _layerSetName = "lastLayers";
 	bool _mergingLayerSet = false;
 	bool _mergeAcceptDuplicates = false;
+	bool _isPortableRelativeToXML = false;
 
 	bool _canvasBarOpen = false;
 	bool _tagsBarOpen = false;

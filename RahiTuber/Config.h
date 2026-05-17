@@ -118,6 +118,7 @@ struct AppConfig
 
 	std::string _lastLayerSet = u8"lastLayers";
 	bool _layerManAcceptMergeDuplicates = false;
+	bool _savePortableRelativeToXML = true;
 
 	//debug audio bars
 	std::vector<sf::RectangleShape> bars;

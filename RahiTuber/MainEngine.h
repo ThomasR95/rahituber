@@ -929,6 +929,12 @@ public:
 					}
 					ToolTip("Merged layers with duplicate GUIDs will be\nassigned a new guid instead of being discarded.", &appConfig->_hoverTimer);
 
+					ImGui::Text("Make Portable saves image paths relative to:");
+					int portableRelDirFlag = appConfig->_savePortableRelativeToXML ? 1 : 0;
+					if (SwapButtons("##portableRelDir", { {"RahiTuber", "The location of RahiTuber_64.exe", 0},  {"Portable XML", "The location of the\nportable XML being created", 1} }, portableRelDirFlag, &appConfig->_hoverTimer, false))
+					{
+						appConfig->_savePortableRelativeToXML = portableRelDirFlag;
+					}
 				}
 
 				ImGui::EndTabItem();

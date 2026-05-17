@@ -136,6 +136,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("gamepadThreaded", &_appConfig->_gamepadThreaded);
 
 	common->QueryAttribute("acceptMergeDuplicates", &_appConfig->_layerManAcceptMergeDuplicates);
+	common->QueryAttribute("savePortableRelativeToXML", &_appConfig->_savePortableRelativeToXML);
 
 	auto themeElmt = common->FirstChildElement("Theme");
 
@@ -273,6 +274,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("gamepadThreaded", _appConfig->_gamepadThreaded);
 
 			common->SetAttribute("acceptMergeDuplicates", _appConfig->_layerManAcceptMergeDuplicates);
+			common->SetAttribute("savePortableRelativeToXML", _appConfig->_savePortableRelativeToXML);
 
 
 			auto themeElmt = common->FirstChildElement("Theme");
