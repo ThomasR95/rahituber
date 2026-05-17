@@ -6734,18 +6734,24 @@ static int ImGuiTextResizeCallback(ImGuiInputTextCallbackData* data)
 void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string& selectedName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter)
 {
 	const float& uiScale = _parent->_appConfig->scalingFactor;
-	const float& UIUnit = ImGui::GetFrameHeight();
+	const float& UIUnit = ImGui::GetFrameHeightWithSpacing();
 
 	if (ImGui::BeginCombo(comboID, ANSIToUTF8(selectedName).c_str(), ImGuiComboFlags_HeightLargest))
 	{
 		float comboW = ImGui::GetContentRegionAvail().x;
+
+		int itemCount = _parent->_layers.size();
+		if (_parent->_comboLengths.count(comboID))
+			itemCount = _parent->_comboLengths[comboID];
+
+		float comboH = UIUnit * Min(10.f, 1.04f*itemCount + 2.f) + ImGui::GetStyle().FramePadding.y*2;
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0, uiScale });
 
 		int btnIdx = 0;
 
-		if(ImGui::BeginTable("##comboTable", 1, ImGuiTableFlags_SizingStretchSame))
+		if (ImGui::BeginTable("##comboTable", 1, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_ScrollY, {comboW, comboH}))
 		{
 			ImGui::TableSetupColumn("##content");
 			ImGui::TableSetupScrollFreeze(0, 1);
@@ -6761,9 +6767,9 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 			bool offClicked = false;
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3,0,0,1.0));
 			if (selectID == "")
-				offClicked = ImGui::Button("Off", {comboW, UIUnit});
+				offClicked = ImGui::Button("(Off)", {comboW, UIUnit});
 			else
-				offClicked = LesserButton("Off", {comboW, UIUnit}, false);
+				offClicked = LesserButton("(Off)", {comboW, UIUnit}, false);
 			ImGui::PopStyleColor();
 			if (offClicked)
 			{
@@ -6775,6 +6781,7 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 
+			int layerCount = 0;
 			for (auto& layer : _parent->GetLayers())
 			{
 				bool searchFound = true;
@@ -6786,6 +6793,8 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 
 				if (comboFilter(layer) && searchFound)
 				{
+					layerCount++;
+
 					bool customColor = layer._layerColor != ImVec4(0, 0, 0, 0);
 					if (customColor)
 						ImGui::PushStyleColor(ImGuiCol_Button, layer._layerColor);
@@ -6810,6 +6819,8 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 					}
 				}
 			}
+
+			_parent->_comboLengths[comboID] = layerCount;
 
 			ImGui::EndTable();
 		}

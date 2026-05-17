@@ -761,6 +761,7 @@ private:
 	float _statesMenuLeftoverSpace = 0;
 
 	std::map<std::string, std::string> _comboSearchStrings;
+	std::map<std::string, int> _comboLengths;
 
 	bool _waitingForHotkey = false;
 	sf::Keyboard::Key _pendingKey = sf::Keyboard::Unknown;
