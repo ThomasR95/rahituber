@@ -436,6 +436,7 @@ public:
 		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
 		float _mouseEffect = 1.0;
+		bool _mouseNeutralFollowsWindow = false;
 
 		TrackingAxis _trackingAxis;
 		float _axisDeadzone = { 0.f };

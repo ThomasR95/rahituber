@@ -452,11 +452,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				float targetLineW = 2 * _appConfig->mainWindowScaling;
 
 				// Draw Crosshair for mouse tracking
-				if (layerHovered && layer._trackingType)
+				if (layerHovered && layer._trackingType & LayerInfo::TRACKING_MOUSE)
 				{
 					auto targetColor = toSFColor(theme.second * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
 					auto circle2 = sf::CircleShape(targetSize, 16);
-					auto targetPos = layer._mouseNeutralPos - (sf::Vector2f)_appConfig->_window.getPosition();
+					auto targetPos = layer._mouseNeutralPos - (layer._mouseNeutralFollowsWindow ? sf::Vector2f(0, 0) : (sf::Vector2f)_appConfig->_window.getPosition());
 					circle2.setPosition(targetPos);
 					circle2.setOrigin({ targetSize ,targetSize });
 					circle2.setFillColor(sf::Color::Transparent);
@@ -2336,6 +2336,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("mouseNeutralY", layer._mouseNeutralPos.y);
 			thisLayer->SetAttribute("mouseAreaX", layer._mouseAreaSize.x);
 			thisLayer->SetAttribute("mouseAreaY", layer._mouseAreaSize.y);
+			thisLayer->SetAttribute("neutralFollowsWindow", layer._mouseNeutralFollowsWindow);
+
 			thisLayer->SetAttribute("trackingAxis", layer._trackingAxis);
 			thisLayer->SetAttribute("trackingDeadzone", layer._axisDeadzone);
 			thisLayer->SetAttribute("trackingSmooth", layer._trackingSmooth);
@@ -2861,6 +2863,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				thisLayer->QueryAttribute("mouseNeutralY", &layer._mouseNeutralPos.y);
 				thisLayer->QueryAttribute("mouseAreaX", &layer._mouseAreaSize.x);
 				thisLayer->QueryAttribute("mouseAreaY", &layer._mouseAreaSize.y);
+				thisLayer->QueryAttribute("neutralFollowsWindow", &layer._mouseNeutralFollowsWindow);
 
 				//kept for compatibility
 				thisLayer->QueryAttribute("mouseLimitX", &layer._trackingMoveLimits.x);
@@ -5192,7 +5195,10 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 		if ((_trackingType & TRACKING_MOUSE) && _parent->_appConfig->_mouseTrackingEnabled)
 		{
 			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
-			sf::Vector2f mouseMove = (mousePos - _mouseNeutralPos);
+			auto neutralPos = _mouseNeutralPos;
+			if (_mouseNeutralFollowsWindow)
+				neutralPos += sf::Vector2f(_parent->_appConfig->_window.getPosition());
+			sf::Vector2f mouseMove = (mousePos - neutralPos);
 
 			const sf::Vector2f mouseMult = Clamp(mouseMove / _mouseAreaSize, -1.f, 1.f);
 
@@ -6260,9 +6266,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					{
 						ImGui::SeparatorText("Mouse");
 
-						AddResetButton("neutralPos", _mouseNeutralPos, halfFullscreen, _parent->_appConfig, &style);
+						auto trackCenter = halfFullscreen;
+						if (_mouseNeutralFollowsWindow)
+						{
+							auto size = _parent->_appConfig->_window.getSize();
+							trackCenter = sf::Vector2f(size) * 0.5f;
+						}
+
+						AddResetButton("neutralPos", _mouseNeutralPos, trackCenter, _parent->_appConfig, &style);
 						ImGui::InputFloat2("Neutral position", &_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
 						ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_parent->_appConfig->_hoverTimer);
+
+						ImGui::Checkbox("Follows Window", &_mouseNeutralFollowsWindow);
+						ToolTip("Moves the Neutral Position with the window.", &_parent->_appConfig->_hoverTimer);
 
 						AddResetButton("distFactor", _mouseAreaSize, halfFullscreen, _parent->_appConfig, &style);
 						ImGui::InputFloat2("Distance Factor", &_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);

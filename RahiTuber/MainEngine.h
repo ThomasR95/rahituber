@@ -931,7 +931,7 @@ public:
 
 					ImGui::Text("Make Portable saves image paths relative to:");
 					int portableRelDirFlag = appConfig->_savePortableRelativeToXML ? 1 : 0;
-					if (SwapButtons("##portableRelDir", { {"RahiTuber", "The location of RahiTuber_64.exe", 0},  {"Portable XML", "The location of the\nportable XML being created", 1} }, portableRelDirFlag, &appConfig->_hoverTimer, false))
+					if (SwapButtons("##portableRelDir", { {"RahiTuber", "The location of RahiTuber_64.exe\n(old behaviour)", 0},  {"Portable XML", "The location of the\nportable XML being created\n(recommended)", 1} }, portableRelDirFlag, &appConfig->_hoverTimer, false))
 					{
 						appConfig->_savePortableRelativeToXML = portableRelDirFlag;
 					}
