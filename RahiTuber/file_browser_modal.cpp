@@ -279,7 +279,7 @@ ImGuiWindowFlags_NoResize |
 ImGuiWindowFlags_NoCollapse |
 ImGuiWindowFlags_NoScrollbar;
 
-file_browser_modal::file_browser_modal(const char* title, bool* mergingPtr) :
+file_browser_modal::file_browser_modal(const char* title, bool* mergingPtr, bool* portableFlag, bool* optimiseFlag) :
   m_title(title),
   m_oldVisibility(false),
   m_selection(0),
@@ -288,6 +288,12 @@ file_browser_modal::file_browser_modal(const char* title, bool* mergingPtr) :
 
   if (mergingPtr != nullptr)
     m_mergeFlag = mergingPtr;
+
+  if (portableFlag != nullptr)
+    m_portableFlag = portableFlag;
+
+  if (optimiseFlag != nullptr)
+    m_optimiseFlag = optimiseFlag;
 
 }
 
@@ -459,6 +465,8 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
         if (m_currentPath.has_extension() == false)
           m_currentPath = fs::path(m_currentPath.string() + ".xml");
 
+        m_currentPathIsDir = fs::is_directory(m_currentPath, ec);
+
       }
       else
       {
@@ -560,6 +568,13 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
 
     if (LesserButton("Cancel"))
     {
+      // clear flags to avoid retriggering these on next save
+      if (m_portableFlag != nullptr)
+        *m_portableFlag = false;
+
+      if (m_optimiseFlag != nullptr)
+        *m_optimiseFlag = false;
+
       ImGui::CloseCurrentPopup();
     }
 

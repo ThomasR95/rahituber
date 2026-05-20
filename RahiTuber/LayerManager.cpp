@@ -682,7 +682,7 @@ void LayerManager::DoMenuBarLogic()
 			_loadingBrowserPath = _fullLoadedXMLPath;
 			fileBrowserXML.SetStartingDir(_lastSavedLocation);
 		}
-		if (fileBrowserXML.render(_loadXMLOpen, _loadingBrowserPath))
+		if (fileBrowserXML.render(_loadXMLOpen, _loadingBrowserPath, false))
 		{
 			fs::path xmlPath = fs::absolute(_loadingBrowserPath);
 
@@ -705,7 +705,7 @@ void LayerManager::DoMenuBarLogic()
 
 	//////////////////////////////// SAVE ///////////////////////////////////
 
-	static imgui_ext::file_browser_modal folderSelect("Save Layer Set");
+	static imgui_ext::file_browser_modal folderSelect("Save Layer Set", nullptr, &_saveLayersPortable, &_optimisePortable);
 	folderSelect._acceptedExt = { ".xml" };
 
 	if (_makePortableOpen)
@@ -747,6 +747,7 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		{
 			_saveAsXMLOpen = true;
 			_saveLayersPortable = true;
+			_copyImagesPortable = false;
 			ImGui::CloseCurrentPopup();
 		}
 		ToolTip(("You will be prompted to save a new XML\nfile" + dirName + ". \nThe original sprite image locations will still be used,\nso this may yield awkward results if they are not already in a \nsubfolder of" + dirName2 + ".").c_str(), & _appConfig->_hoverTimer);
@@ -771,6 +772,8 @@ This works best when all your sprite images are located in a subfolder of RahiTu
 		if (LesserButton("Cancel", { -1, ImGui::GetFrameHeight() }))
 		{
 			_saveLayersPortable = false;
+			_optimisePortable = false;
+			_copyImagesPortable = false;
 			ImGui::CloseCurrentPopup();
 		}
 		ToolTip("Cancels the popup and leaves your files unchanged.", &_appConfig->_hoverTimer);
