@@ -650,6 +650,9 @@ public:
 
 	LayerInfo* GetLayer(std::string id, int* idx = nullptr)
 	{
+		if (id == "")
+			return nullptr;
+
 		for (int l =0; l < _layers.size(); l++)
 		{
 			if (_layers[l]._id == id)

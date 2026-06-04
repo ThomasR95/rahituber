@@ -4538,9 +4538,10 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 		if (_isBouncing)
 		{
 			float motionTime = _bounceTimer.getElapsedTime().asSeconds();
-			if (bounceTimerID != "")
+			auto bounceLayer = _parent->GetLayer(bounceTimerID);
+			if (bounceLayer != nullptr)
 			{
-				motionTime = _parent->GetLayer(bounceTimerID)->_bounceTimer.getElapsedTime().asSeconds();
+				motionTime = bounceLayer->_bounceTimer.getElapsedTime().asSeconds();
 			}
 			int bounces = floor(motionTime / _bounceFrequency);
 
@@ -4587,9 +4588,10 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = true;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			if (motionTimerID != "")
+			auto motionLayer = _parent->GetLayer(motionTimerID);
+			if (motionLayer != nullptr)
 			{
-				motionTime = _parent->GetLayer(motionTimerID)->_motionTimer.getElapsedTime().asSeconds();
+				motionTime = motionLayer->_motionTimer.getElapsedTime().asSeconds();
 			}
 
 			float coolDownTime = _breathFrequency / 5;
@@ -4624,9 +4626,10 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = false;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			if (motionTimerID != "")
+			auto motionLayer = _parent->GetLayer(motionTimerID);
+			if (motionLayer != nullptr)
 			{
-				motionTime = _parent->GetLayer(motionTimerID)->_motionTimer.getElapsedTime().asSeconds();
+				motionTime = motionLayer->_motionTimer.getElapsedTime().asSeconds();
 			}
 
 			float coolDownFactor = (_breathFrequency - motionTime) / _breathFrequency;
@@ -5039,9 +5042,9 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	bool shouldBlink = canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay;
 	float blinkDur = _blinkDuration;
 
-	if (blinkSyncID != "")
+	auto blinkSync = _parent->GetLayer(blinkSyncID);
+	if (blinkSync != nullptr)
 	{
-		auto blinkSync = _parent->GetLayer(blinkSyncID);
 		shouldBlink = canStartBlinking && (blinkSync->_isBlinking || _blinkTimer.getElapsedTime().asSeconds() > blinkSync->_blinkDelay + blinkSync->_blinkVarDelay);
 		blinkDur = blinkSync->_blinkDuration;
 		if (!blinkSync->_isBlinking)
