@@ -606,6 +606,31 @@ void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem:
 	fs::path fsFilePath(filePath);
 	if (filePath != "")
 	{
+		if (fsFilePath.is_relative())
+		{
+			auto oldDir = fs::current_path();
+			fs::path absFsFilePath;
+			//should be relative to the original xml
+			fs::current_path(_loadedXMLAbsDirectory);
+			std::error_code ec;
+			absFsFilePath = fs::absolute(fsFilePath, ec);
+			std::error_code eec;
+			bool found = fs::exists(absFsFilePath, eec);
+			if (ec || !found)
+			{
+				// try relative to application instead
+				fs::current_path(_appConfig->_appLocation);
+				absFsFilePath = fs::absolute(fsFilePath, ec);
+				found = fs::exists(absFsFilePath, eec);
+			}
+			if (!ec && found)
+			{
+				fsFilePath = absFsFilePath;
+			}
+
+			fs::current_path(oldDir);
+		}
+
 		fs::copy(fsFilePath, targetFolder, copyOpts, ec);
 		filePath = targetFolder.append(fsFilePath.filename().string()).string();
 	}
@@ -7449,7 +7474,7 @@ void LayerManager::LayerInfo::OptimiseSprites()
 		const sf::Vector2f activeToCenterNew = origCornerOffset + cropPosition + 0.5f * cropSize;
 
 		// -calculate the distance between this center and the idle center to find the offset
-		sp->_offsetFromIdle = idleToCenterNew - activeToCenterNew;
+		sp->_offsetFromIdle += idleToCenterNew - activeToCenterNew;
 	}
 
 }
