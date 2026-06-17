@@ -177,7 +177,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 	for (auto layer : calculateOrder)
 	{
 		// Don't calculate if invisible
-		bool calculate = layer->EvaluateLayerVisibility();
+		bool reallyVisible = layer->EvaluateLayerVisibility();
+		bool calculate = reallyVisible;
 
 		// if invisible, re-enable calculation if any other layer needs it as a parent, clip or sync
 		if (layer->blinkSyncID != "")
@@ -204,6 +205,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 		if (calculate)
 			layer->CalculateDraw(windowHeight, windowWidth, talkLevel, talkMax, phMask);
+		else
+		{
+			//minimal update to keep things rolling
+			layer->_oldVisible = reallyVisible;
+		}
 	}
 
 
@@ -4526,7 +4532,7 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 	return visible;
 }
 
-void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, float talkAmount, double& rot, sf::Vector2<double>& motionScale, ImVec4& activeSpriteCol, sf::Vector2<double>& motionPos)
+void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, float talkAmount, double& rot, sf::Vector2<double>& motionScale, ImVec4& activeSpriteCol, sf::Vector2<double>& motionPos, bool becameVisible)
 {
 	float newMotionY = 0;
 	float newMotionX = 0;
@@ -4682,9 +4688,17 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 		motionScale = motionScale * sf::Vector2<double>(1.0, 1.0) + (double)_breathAmount.y * sf::Vector2<double>(_breathScale);
 	}
 
-	_motionY += (newMotionY - _motionY) * 0.3f;
-	_motionX += (newMotionX - _motionX) * 0.3f;
-
+	if (!becameVisible)
+	{
+		_motionY += (newMotionY - _motionY) * 0.3f;
+		_motionX += (newMotionX - _motionX) * 0.3f;
+	}
+	else
+	{
+		_motionY = newMotionY;
+		_motionX = newMotionX;
+	}
+	
 	motionPos.x += _motionX;
 	motionPos.y -= _motionY;
 }
@@ -4932,13 +4946,20 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	ImVec4 activeSpriteCol = _sprites[SP_IDLE].tint;
 
+	bool reallyVisible = EvaluateLayerVisibility();
+	bool becameVisible = (reallyVisible == true) && (_oldVisible == false);
+
 	float talkFactor = 0;
 	if (talkMax > 0)
 	{
 		talkFactor = talkLevel / talkMax;
 		talkFactor = pow(talkFactor, 0.5);
 
-		if (_smoothTalkFactor && _smoothTalkFactorSize > 0)
+		if (becameVisible)
+		{
+			_talkRunningAverage = talkFactor;
+		}
+		else if (_smoothTalkFactor && _smoothTalkFactorSize > 0)
 		{
 			_talkRunningAverage -= _talkRunningAverage / _smoothTalkFactorSize;
 			_talkRunningAverage += talkFactor / _smoothTalkFactorSize;
@@ -4951,16 +4972,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 	float talkAmount = Clamp(std::fmax(0.f, (talkFactor - _talkThreshold) / (1.0f - _talkThreshold)), 0.0, 1.0);
 
-	bool reallyVisible = _visible;
-	if (_hideWithParent)
-	{
-		LayerInfo* mp = _parent->GetLayer(_motionParent);
-		if (mp)
-			reallyVisible &= mp->_visible;
-	}
-
-	bool becameVisible = (reallyVisible == true) && (_oldVisible == false);
-
 	if (becameVisible && _restartAnimsOnVisible)
 	{
 		for (auto& sp : _sprites)
@@ -4969,6 +4980,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 
 		_motionTimer.restart();
 	}
+	
 	_oldVisible = reallyVisible;
 
 	bool screaming = _scream && talkFactor > _screamThreshold;
@@ -5001,7 +5013,7 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		activeSpriteCol = mpTint;
 
 	if (!hasParent || _allowIndividualMotion)
-		DoIndividualMotion(talking, screaming, talkAmount, motionRot, motionScale, activeSpriteCol, motionPos);
+		DoIndividualMotion(talking, screaming, talkAmount, motionRot, motionScale, activeSpriteCol, motionPos, becameVisible);
 
 	DoConstantMotion(frameTime, motionScale, motionPos, motionRot);
 
@@ -7217,6 +7229,8 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 			sprite->LoadFromTexture(_parent->_textureMan, _spriteBrowsePath, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
 			sprite->setSmooth(_scaleFiltering);
 		}
+
+		path = _spriteBrowsePath;
 	}
 	ImGui::EndDisabled();
 }
