@@ -268,6 +268,8 @@ public:
 		bool _renameFirstOpened = false;
 		std::string _renamingString = "";
 
+		std::string _spriteBrowsePath = "";
+
 		bool _scrollToHere = false;
 		bool _inheritanceGraphOpen = false;
 		bool _inheritanceGraphWasOpen = false;
@@ -535,6 +537,8 @@ public:
 	void UpdateWindowTitle();
 
 	void CopyFileAndUpdatePath(std::string& filePath, std::filesystem::path targetFolder, std::filesystem::copy_options copyOpts);
+
+	void ResolveAbsolutePath(std::filesystem::path& fsFilePath);
 
 	void DoMenuBarLogic();
 

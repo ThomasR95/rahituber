@@ -353,7 +353,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
         std::wstring msg = L"In file_browser_modal::render / start - Could not list the files in the current directory: ";
         msg = msg + initDirectory.wstring();
         msg = msg + L". Please report this bug :)";
-        MessageBox(0, L"Error while listing files", msg.c_str(), MB_OK);
+        MessageBox(0, msg.c_str(), L"Error while listing files", MB_OK);
         return false;
 #endif
       }
@@ -413,7 +413,7 @@ const bool file_browser_modal::render(const bool isVisible, std::string& outPath
             std::wstring msg = L"In file_browser_modal::render / BeginPopupModal - Could not list the files in the current directory: ";
             msg = msg + m_currentPath.wstring();
             msg = msg + L". Please report this bug :)";
-            MessageBox(0, L"Error while listing files", msg.c_str(), MB_OK);
+            MessageBox(0, msg.c_str(), L"Error while listing files", MB_OK);
             return false;
 #endif
           }

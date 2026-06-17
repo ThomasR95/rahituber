@@ -606,33 +606,38 @@ void LayerManager::CopyFileAndUpdatePath(std::string& filePath, std::filesystem:
 	fs::path fsFilePath(filePath);
 	if (filePath != "")
 	{
-		if (fsFilePath.is_relative())
-		{
-			auto oldDir = fs::current_path();
-			fs::path absFsFilePath;
-			//should be relative to the original xml
-			fs::current_path(_loadedXMLAbsDirectory);
-			std::error_code ec;
-			absFsFilePath = fs::absolute(fsFilePath, ec);
-			std::error_code eec;
-			bool found = fs::exists(absFsFilePath, eec);
-			if (ec || !found)
-			{
-				// try relative to application instead
-				fs::current_path(_appConfig->_appLocation);
-				absFsFilePath = fs::absolute(fsFilePath, ec);
-				found = fs::exists(absFsFilePath, eec);
-			}
-			if (!ec && found)
-			{
-				fsFilePath = absFsFilePath;
-			}
-
-			fs::current_path(oldDir);
-		}
+		ResolveAbsolutePath(fsFilePath);
 
 		fs::copy(fsFilePath, targetFolder, copyOpts, ec);
 		filePath = targetFolder.append(fsFilePath.filename().string()).string();
+	}
+}
+
+void LayerManager::ResolveAbsolutePath(std::filesystem::path& fsFilePath)
+{
+	if (fsFilePath.is_relative())
+	{
+		auto oldDir = fs::current_path();
+		fs::path absFsFilePath;
+		//should be relative to the original xml
+		fs::current_path(_loadedXMLAbsDirectory);
+		std::error_code ec;
+		absFsFilePath = fs::absolute(fsFilePath, ec);
+		std::error_code eec;
+		bool found = fs::exists(absFsFilePath, eec);
+		if (ec || !found)
+		{
+			// try relative to application instead
+			fs::current_path(_appConfig->_appLocation);
+			absFsFilePath = fs::absolute(fsFilePath, ec);
+			found = fs::exists(absFsFilePath, eec);
+		}
+		if (!ec && found)
+		{
+			fsFilePath = absFsFilePath;
+		}
+
+		fs::current_path(oldDir);
 	}
 }
 
@@ -7188,16 +7193,28 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 
 	ImGui::BeginDisabled(reloading);
 	openFlag = ImGui::ImageButton(btnname, *btnIcon, { imgBtnWidth,imgBtnWidth }, sf::Color::Transparent, btnCol);
+
+	std::error_code ec;
+	fs::path browsePath = path;
+	if (path != "")
+	{
+		_parent->ResolveAbsolutePath(browsePath);
+	}
+
 	ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
 	if (openFlag && sprite->HasTexture())
-		fileBrowserIdle.SetStartingDir(path);
-	if (fileBrowserIdle.render(openFlag, path))
+		fileBrowserIdle.SetStartingDir(browsePath.string());
+
+	if(openFlag)
+		_spriteBrowsePath = browsePath.string();
+
+	if (fileBrowserIdle.render(openFlag, _spriteBrowsePath))
 	{
-		if (path == "")
+		if (_spriteBrowsePath == "")
 			sprite->Clear();
 		else
 		{
-			sprite->LoadFromTexture(_parent->_textureMan, path, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
+			sprite->LoadFromTexture(_parent->_textureMan, _spriteBrowsePath, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
 			sprite->setSmooth(_scaleFiltering);
 		}
 	}
