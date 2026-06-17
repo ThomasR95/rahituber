@@ -5126,7 +5126,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 		}
 	}
 
-	if ((_sprites[SP_TALK]->HasTexture() || _usePhonemes) && !_isBlinking && _swapWhenTalking && talking)
+	if ((_sprites[SP_TALK]->HasTexture() || _usePhonemes) && _swapWhenTalking && talking)
 	{
 		activeType = SP_TALK;
 		
