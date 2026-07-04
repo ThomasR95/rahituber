@@ -160,6 +160,47 @@ public:
 
 	struct LayerInfo 
 	{
+
+		enum BounceType
+		{
+			BounceNone = 0,
+			BounceLoudness = 1,
+			BounceRegular = 2,
+			BounceOnce = 3
+		};
+
+		enum TrackingMode {
+			TRACKING_NONE = 0,
+			TRACKING_MOUSE = 1,
+			TRACKING_CONTROLLER = 2,
+			TRACKING_BOTH = 3
+		};
+
+		enum TrackingAxis {
+			AXIS_XY,
+			AXIS_UV,
+			AXIS_POV,
+
+			AXIS_END
+		};
+
+		enum TrackingControllerSelect {
+			TRACKINGSELECT_FIRST,
+			TRACKINGSELECT_SPECIFIC,
+
+			TRACKINGSELECT_END
+		};
+
+		enum TrackingScaleMode {
+			TRACKINGSCALE_SIMPLE,
+			TRACKINGSCALE_SPLIT,
+
+			TRACKINGSCALE_SIMPLE_BOTTOMLEFT,
+			TRACKINGSCALE_SPLIT_BOTTOMLEFT,
+
+			TRACKINGSCALE_END
+		};
+
 		std::string _id = "";
 
 		LayerManager* _parent = nullptr;
@@ -199,14 +240,6 @@ public:
 		std::string motionTimerID = "";
 		std::string bounceTimerID = "";
 		std::string blinkSyncID = "";
-
-		enum BounceType
-		{
-			BounceNone = 0,
-			BounceLoudness = 1,
-			BounceRegular = 2,
-			BounceOnce = 3
-		};
 
 		BounceType _lastEnabledBounceType = BounceLoudness;
 		BounceType _bounceType = BounceNone;
@@ -397,66 +430,41 @@ public:
 
 		bool _passRotationToChildLayers = false;
 
-		enum TrackingMode {
-			TRACKING_NONE = 0,
-			TRACKING_MOUSE = 1,
-			TRACKING_CONTROLLER = 2,
-			TRACKING_BOTH = 3
-		};
-
-		enum TrackingAxis {
-			AXIS_XY,
-			AXIS_UV,
-			AXIS_POV,
-
-			AXIS_END
-		};
-
-		enum TrackingControllerSelect {
-			TRACKINGSELECT_FIRST,
-			TRACKINGSELECT_SPECIFIC,
-
-			TRACKINGSELECT_END
-		};
-
-		enum TrackingScaleMode {
-			TRACKINGSCALE_SIMPLE,
-			TRACKINGSCALE_SPLIT,
-
-			TRACKINGSCALE_SIMPLE_BOTTOMLEFT,
-			TRACKINGSCALE_SPLIT_BOTTOMLEFT,
-
-			TRACKINGSCALE_END
-		};
-
 		bool _trackingEnabled = false;
 		TrackingMode _trackingType = TRACKING_MOUSE;
-		TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
-		bool _followElliptical = false;
-		bool _trackingOffWhenHidden = true;
+		bool _useGlobalTracking = true;
 
-		sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
-		sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
-		float _mouseEffect = 1.0;
-		bool _mouseNeutralFollowsWindow = false;
+		struct TrackingSettings {
+			TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
+			bool _followElliptical = false;
+			bool _trackingOffWhenHidden = true;
 
-		TrackingAxis _trackingAxis;
-		float _axisDeadzone = { 0.f };
+			sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
+			sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
+			float _mouseEffect = 1.0;
+			bool _mouseNeutralFollowsWindow = false;
 
-		sf::Vector2f _trackingAmount = { 0.f, 0.f };
-		float _trackingSmooth = 0.2;
-		sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
-		std::pair<int, GamePadID> _trackingJoystick;
-		float _joypadEffect = 1.0;
+			TrackingAxis _trackingAxis;
+			float _axisDeadzone = { 0.f };
 
-		sf::Vector2f _trackingRotation = { 0.0,0.0 };
+			sf::Vector2f _trackingAmount = { 0.f, 0.f };
+			float _trackingSmooth = 0.2;
+			sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
+			std::pair<int, GamePadID> _trackingJoystick;
+			float _joypadEffect = 1.0;
 
-		TrackingScaleMode _trackingScaleMode = TRACKINGSCALE_SIMPLE;
-		sf::Vector2f _trackingScaleHorizontal = { 0.0,0.0 };
-		sf::Vector2f _trackingScaleVertical = { 0.0,0.0 };
-		bool _clampTrackingScale = false;
-		sf::Vector2f _trackingScaleClamp = { -1.0f, 1.0f };
-		int _trackingScaleAbsolute = 0;
+			sf::Vector2f _trackingRotation = { 0.0,0.0 };
+
+			TrackingScaleMode _trackingScaleMode = TRACKINGSCALE_SIMPLE;
+			sf::Vector2f _trackingScaleHorizontal = { 0.0,0.0 };
+			sf::Vector2f _trackingScaleVertical = { 0.0,0.0 };
+			bool _clampTrackingScale = false;
+			sf::Vector2f _trackingScaleClamp = { -1.0f, 1.0f };
+			int _trackingScaleAbsolute = 0;
+		};
+
+		TrackingSettings* _trackingSettings = {};
+		TrackingSettings _uniqueTracking = {};
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 
@@ -553,6 +561,10 @@ public:
 	void DrawCanvasPresetGUI();
 
 	void DrawMenusLayerSetUI();
+
+	void DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSettings, float indentSize, LayerManager::LayerInfo::TrackingMode& trackingType, bool& useGlobalTracking, ImGuiStyle& style, const std::string& layerID = "", LayerInfo::TrackingSettings* uniqueTracking = nullptr, bool isGlobalDialog = false);
+	LayerInfo::TrackingSettings* GetTrackingSettings() { return &_globalTracking; }
+
 
 	bool IsEmptyAndIdle()
 	{
@@ -803,6 +815,8 @@ private:
 	bool _globalKeepAspect = true;
 
 	bool _pivotPreservePosition = true;
+
+	LayerInfo::TrackingSettings _globalTracking = {};
 
 	std::map<std::string, bool> _defaultLayerStates;
 	std::deque<StatesInfo*> _statesOrder;

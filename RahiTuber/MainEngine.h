@@ -1094,6 +1094,17 @@ public:
 				ImGui::EndTabItem();
 			}
 
+
+			if (ImGui::BeginTabItem("Tracking"))
+			{
+				LayerManager::LayerInfo::TrackingMode track = LayerManager::LayerInfo::TRACKING_BOTH;
+				bool useGlobal = false;
+				layerMan->DrawTrackingGUI(layerMan->GetTrackingSettings(), 0, track, useGlobal, style, "MenuGlobal", nullptr, true);
+
+
+				ImGui::EndTabItem();
+			}
+
 			ImGui::EndTabBar();
 
 			if (ImGui::Button("OK", { -1, ImGui::GetFrameHeight() }))
