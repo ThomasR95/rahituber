@@ -663,71 +663,365 @@ public:
 
 			uiConfig->_advancedMenuShowing = true;
 
+			bool rowTop = uiConfig->_advancedMenuTopRow;
 
-			ImGui::BeginTabBar("##AdvMenuTabs");
-
-			if (ImGui::BeginTabItem("Window"))
+			if (rowTop)
 			{
+				menuAdvancedWindowTab(rowTop);
+				menuAdvancedAppearanceTab(rowTop, UIUnit);
+				menuAdvancedBehaviourTab(rowTop);
 
-				ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
+				ImGui::NewLine();
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() - UIUnit * 0.3);
+				ImGui::BeginTabBar("##AdvMenuTabs2");
 
-				ImGui::TableNextColumn();
-				ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
-				ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+				menuAdvancedIntegrationTab(rowTop, UIUnit);
+				menuAdvancedPhonemesTab(rowTop, style);
+				menuAdvancedTrackingTab(rowTop, style);
+			}
+			else
+			{
+				menuAdvancedIntegrationTab(rowTop, UIUnit);
+				menuAdvancedPhonemesTab(rowTop, style);
+				menuAdvancedTrackingTab(rowTop, style);
 
-#ifdef _WIN32
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
+				ImGui::NewLine();
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() - UIUnit * 0.3);
+				ImGui::BeginTabBar("##AdvMenuTabs");
+
+				menuAdvancedWindowTab(rowTop);
+				menuAdvancedAppearanceTab(rowTop, UIUnit);
+				menuAdvancedBehaviourTab(rowTop);
+			}
+
+			ImGui::EndTabBar();
+
+			if (rowTop)
+			{
+				if (uiConfig->_advMenuPending_windowTab ||
+					uiConfig->_advMenuPending_appearanceTab ||
+					uiConfig->_advMenuPending_behaviourTab)
 				{
-
-					HWND hwnd = appConfig->_window.getSystemHandle();
-
-					if (appConfig->_alwaysOnTop)
-						SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-					else
-						SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+					rowTop = false;
+					uiConfig->_advMenuPending_integrationTab = false;
+					uiConfig->_advMenuPending_phonemesTab = false;
+					uiConfig->_advMenuPending_trackingTab = false;
 				}
-				ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
-#endif
-
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
+			}
+			else
+			{
+				if (uiConfig->_advMenuPending_integrationTab ||
+					uiConfig->_advMenuPending_phonemesTab ||
+					uiConfig->_advMenuPending_trackingTab)
 				{
-					initWindow();
+					rowTop = true;
+					uiConfig->_advMenuPending_windowTab = false;
+					uiConfig->_advMenuPending_appearanceTab = false;
+					uiConfig->_advMenuPending_behaviourTab = false;
 				}
-				ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+			}
 
-				ImGui::TableNextColumn();
-				ImGui::BeginDisabled(appConfig->_enableVSync);
-				ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
-				if (ImGui::IsItemDeactivatedAfterEdit())
-				{
-					initWindow();
-				}
-				ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
-				ImGui::EndDisabled();
+			uiConfig->_advancedMenuTopRow = rowTop;
 
-				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
-				{
-					appConfig->_nameLock.lock();
-					if (appConfig->_nameWindowWithSet)
-						appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
-					else
-						appConfig->windowName = "RahiTuber";
-					appConfig->_pendingNameChange = true;
-					appConfig->_pendingSpoutNameChange = true;
-					appConfig->_nameLock.unlock();
-				}
-				ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
 
-				ImGui::EndTable();
+			if (ImGui::Button("OK", { -1, ImGui::GetFrameHeight() }))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::PopStyleVar();
+
+			uiConfig->_advancedMenuHeight - ImGui::GetWindowHeight();
+
+			ImGui::EndPopup();
+		}
+	}
+
+	void menuAdvancedTrackingTab(bool& rowTop, ImGuiStyle& style)
+	{
+		std::string tooltipMsg = "Global settings for Mouse/Controller tracking";
+		if (!rowTop)
+		{
+			if(LesserButton("Tracking"))
+			{
+				uiConfig->_advMenuPending_trackingTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_trackingTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_trackingTab;
+
+			if (ImGui::BeginTabItem("Tracking"))
+			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_trackingTab = false;
+
+				ImGui::Columns(2, 0, false);
+				ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
+				ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
+				ImGui::NextColumn();
+				ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
+				ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
+				ImGui::EndColumns();
+
+				ImGui::SeparatorText("Global Tracking Settings");
+				ImGui::TextWrapped("These settings will apply to all layers with the 'Use Global Settings' option enabled.");
+
+				LayerManager::LayerInfo::TrackingMode track = LayerManager::LayerInfo::TRACKING_BOTH;
+				bool useGlobal = false;
+				layerMan->DrawTrackingGUI(layerMan->GetTrackingSettings(), 0, track, useGlobal, style, "MenuGlobal", nullptr, true);
 
 				ImGui::EndTabItem();
 			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Tracking")
+					uiConfig->_advMenuID_trackingTab = t.ID;
+		}
+	}
+
+	void menuAdvancedPhonemesTab(bool& rowTop, ImGuiStyle& style)
+	{
+		std::string tooltipMsg = "Phoneme setup & calibration";
+		if (!rowTop)
+		{
+			if (LesserButton("Phonemes"))
+			{
+				uiConfig->_advMenuPending_phonemesTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_phonemesTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_phonemesTab;
+
+			if (ImGui::BeginTabItem("Phonemes"))
+			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_phonemesTab = false;
+
+				ImGui::Checkbox("Show Debug Audio Display", &uiConfig->_showDebugBars);
+
+				AddResetButton("subReset", audioConfig->_subSplit, 58.82f, appConfig, &style);
+				float subSplit = 100 / audioConfig->_subSplit;
+				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 100.f / audioConfig->_bassSplit, "%.1f"))
+				{
+					audioConfig->_subSplit = 100.0 / subSplit;
+					uiConfig->_showDebugBars = true;
+				}
+				ToolTip("Adjust where the border is between sub and bass frequencies.\
+\nShow the debug audio bars to see the border.\nSub (blue) should be louder when saying 'oo',\
+\nand bass (red) should be louder when saying 'Ah'.", &appConfig->_hoverTimer);
+
+				AddResetButton("bassReset", audioConfig->_bassSplit, 23.25f, appConfig, &style);
+				float bassSplit = 100 / audioConfig->_bassSplit;
+				if (ImGui::SliderFloat("Bass Split", &bassSplit, 100.f / audioConfig->_subSplit, 100.f / audioConfig->_midSplit, "%.1f"))
+				{
+					audioConfig->_bassSplit = 100.0 / bassSplit;
+					uiConfig->_showDebugBars = true;
+				}
+				ToolTip("Adjust where the border is between bass and mid frequencies.\
+\nShow the debug audio bars to see the border.\nBass (red) should be louder when saying 'Ah',\
+\nand mid (yellow) should be louder when saying 'Ee'.", &appConfig->_hoverTimer);
+
+				AddResetButton("midReset", audioConfig->_midSplit, 6.09f, appConfig, &style);
+				float midSplit = 100 / audioConfig->_midSplit;
+				if (ImGui::SliderFloat("Mid Split", &midSplit, 100.f / audioConfig->_bassSplit, 50, "%.1f"))
+				{
+					audioConfig->_midSplit = 100.0 / midSplit;
+					uiConfig->_showDebugBars = true;
+				}
+				ToolTip("Adjust where the border is between mid and treble frequencies.\
+\nShow the debug audio bars to see the border.\nMid (yellow) should be louder when saying 'Ee',\
+\nand treble (green) should be louder when saying 'SS'.", &appConfig->_hoverTimer);
+
+				if (ImGui::BeginTable("Adjustment", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+				{
+					ImGui::TableSetupColumn("Phoneme", 0, 0.8);
+					ImGui::TableSetupColumn("Sensitivity", 0, 2);
+					ImGui::TableSetupColumn("Confidence", 0, 2);
+
+					ImGui::TableHeadersRow();
+
+					ImGui::TableNextColumn();
+
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("E");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("S");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("oo");
+					ImGui::Separator();
+					ImGui::AlignTextToFramePadding();
+					ImGui::Text("P");
+					//ImGui::AlignTextToFramePadding();
+					//ImGui::Text("P (low)");
+
+					ImGui::TableNextColumn();
+
+					SensitivitySlider("eSensReset", audioConfig->balanceETolerance, balETDefault, style, "##E Sensitivity");
+					SensitivitySlider("sSensReset", audioConfig->midSTolerance, midSTDefault, style, "##S Sensitivity");
+					SensitivitySlider("wSensReset", audioConfig->balanceWTolerance, balWTDefault, style, "##W Sensitivity");
+					SensitivitySlider("pPkSensReset", audioConfig->peakPTolerance, peakPTDefault, style, "burst##P peak Sensitivity", false);
+					SensitivitySlider("pSensReset", audioConfig->subPTolerance, subPTDefault, style, "low##P Sensitivity", false);
+
+					ImGui::TableNextColumn();
+
+					//AddResetButton("aConfReset", audioConfig->AConfidenceBoost, 3.f, appConfig, &style);
+					//ImGui::SliderFloat("##A Conf. Boost", &audioConfig->AConfidenceBoost, 1, 50, "%.1f");
+
+
+					ConfidenceSlider("eConfReset", audioConfig->EConfidenceBoost, 3.f, style, "##E Conf. Boost");
+					ConfidenceSlider("sConfReset", audioConfig->SConfidenceBoost, 6.f, style, "##S Conf. Boost");
+					ConfidenceSlider("wConfReset", audioConfig->WConfidenceBoost, 6.f, style, "##W Conf. Boost");
+					ConfidenceSlider("pConfReset", audioConfig->PConfidenceBoost, 40.f, style, "##P Conf. Boost", false);
+
+					ImGui::EndTable();
+				}
+
+				ImGui::EndTabItem();
+			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Phonemes")
+					uiConfig->_advMenuID_phonemesTab = t.ID;
+		}
+	}
+
+	void menuAdvancedIntegrationTab(bool& rowTop, float UIUnit)
+	{
+		std::string tooltipMsg = "Settings related to integration with other software";
+		if (!rowTop)
+		{
+			if (LesserButton("Integration"))
+			{
+				uiConfig->_advMenuPending_integrationTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_integrationTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_integrationTab;
+
+			if (ImGui::BeginTabItem("Integration"))
+			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_integrationTab = false;
+
+				std::string portString = std::to_string(appConfig->_httpPort);
+				if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
+				{
+					ImGui::TableNextColumn();
+					if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
+					{
+						if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+						{
+							appConfig->_webSocket->Start(appConfig->_httpPort);
+						}
+						else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
+						{
+							appConfig->_webSocket->Stop();
+						}
+					}
+					ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(!appConfig->_listenHTTP);
+					ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
+					if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
+					{
+						appConfig->_webSocket->Stop();
+						appConfig->_webSocket->Start(appConfig->_httpPort);
+					}
+					ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
+					ImGui::EndDisabled();
+
+#ifdef _WIN32
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit * 2);
+					if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
+					{
+						for (int api = 0; api < GAMEPAD_API_END; api++)
+							if (api != GAMEPAD_API_XINPUT)
+							{
+								if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_gamepadAPI == api))
+								{
+									appConfig->_gamepadAPI = api;
+									GamePad::setAPI(GamepadAPI(api));
+								}
+								ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
+							}
+
+						ImGui::EndCombo();
+					}
+					ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
+
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
+					ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
+
+#endif
+
+					ImGui::EndTable();
+				}
+
+				ImGui::EndTabItem();
+			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Integration")
+					uiConfig->_advMenuID_integrationTab = t.ID;
+		}
+	}
+
+	void menuAdvancedAppearanceTab(bool& rowTop, float UIUnit)
+	{
+		std::string tooltipMsg = "Settings related to appearance and rendering";
+		if (rowTop)
+		{
+			if (LesserButton("Appearance"))
+			{
+				uiConfig->_advMenuPending_appearanceTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_appearanceTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_appearanceTab;
 
 			if (ImGui::BeginTabItem("Appearance"))
 			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_appearanceTab = false;
 
 				if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
 				{
@@ -783,7 +1077,7 @@ public:
 							setWindowTransparency(hwnd, true);
 
 							// TODO this doesn't work yet. Probably needs a modification to SFML itself to get it working
-	// #else
+							// #else
 							//             Display* display = XOpenDisplay(NULL);
 							//             if (display != NULL)
 							//             {
@@ -861,9 +1155,127 @@ public:
 
 				ImGui::EndTabItem();
 			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Appearance")
+					uiConfig->_advMenuID_appearanceTab = t.ID;
+		}
+	}
+
+	void menuAdvancedWindowTab(bool& rowTop)
+	{
+		std::string tooltipMsg = "Settings related to the app window";
+		if (rowTop)
+		{
+			if (LesserButton("Window"))
+			{
+				uiConfig->_advMenuPending_windowTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_windowTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_windowTab;
+
+			if (ImGui::BeginTabItem("Window"))
+			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_windowTab = false;
+
+				ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
+
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
+				ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+
+#ifdef _WIN32
+				ImGui::TableNextColumn();
+				if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
+				{
+
+					HWND hwnd = appConfig->_window.getSystemHandle();
+
+					if (appConfig->_alwaysOnTop)
+						SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+					else
+						SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+				}
+				ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
+#endif
+
+				ImGui::TableNextColumn();
+				if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
+				{
+					initWindow();
+				}
+				ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(appConfig->_enableVSync);
+				ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
+				if (ImGui::IsItemDeactivatedAfterEdit())
+				{
+					initWindow();
+				}
+				ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
+				ImGui::EndDisabled();
+
+				ImGui::TableNextColumn();
+				if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
+				{
+					appConfig->_nameLock.lock();
+					if (appConfig->_nameWindowWithSet)
+						appConfig->windowName = "RahiTuber - " + layerMan->LayerSetName();
+					else
+						appConfig->windowName = "RahiTuber";
+					appConfig->_pendingNameChange = true;
+					appConfig->_pendingSpoutNameChange = true;
+					appConfig->_nameLock.unlock();
+				}
+				ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
+
+				ImGui::EndTable();
+
+				ImGui::EndTabItem();
+			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Window")
+					uiConfig->_advMenuID_windowTab = t.ID;
+		}
+	}
+
+	void menuAdvancedBehaviourTab(bool& rowTop)
+	{
+		std::string tooltipMsg = "Settings related to app behaviour";
+		if (rowTop)
+		{
+			if (LesserButton("Behaviour"))
+			{
+				uiConfig->_advMenuPending_behaviourTab = true;
+			}
+			ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+			ImGui::SameLine();
+		}
+		else
+		{
+			auto tabBar = ImGui::GetCurrentTabBar();
+
+			if (uiConfig->_advMenuPending_behaviourTab)
+				tabBar->NextSelectedTabId = uiConfig->_advMenuID_behaviourTab;
 
 			if (ImGui::BeginTabItem("Behaviour"))
 			{
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
+				uiConfig->_advMenuPending_behaviourTab = false;
 
 				if (ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
@@ -872,16 +1284,8 @@ public:
 					ToolTip("Recommended when creating more complex 'paper doll' style rigs", "New layers begin without any default movement or additional sprites", &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
-					ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
 					ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
 					ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
-					ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
-					ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
 
 					ImGui::EndTable();
 
@@ -931,7 +1335,7 @@ public:
 
 					ImGui::Text("Make Portable saves image paths relative to:");
 					int portableRelDirFlag = appConfig->_savePortableRelativeToXML ? 1 : 0;
-					if (SwapButtons("##portableRelDir", { {"RahiTuber", "The location of RahiTuber_64.exe\n(old behaviour)", 0},  {"Portable XML", "The location of the\nportable XML being created\n(recommended)", 1} }, portableRelDirFlag, &appConfig->_hoverTimer, false))
+					if (SwapButtons("##portableRelDir", { { "RahiTuber", "The location of RahiTuber_64.exe\n(old behaviour)", 0 },{ "Portable XML", "The location of the\nportable XML being created\n(recommended)", 1 } }, portableRelDirFlag, &appConfig->_hoverTimer, false))
 					{
 						appConfig->_savePortableRelativeToXML = portableRelDirFlag;
 					}
@@ -939,188 +1343,17 @@ public:
 
 				ImGui::EndTabItem();
 			}
+			else
+				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
-			if (ImGui::BeginTabItem("Integration"))
-			{
+			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Behaviour")
+					uiConfig->_advMenuID_behaviourTab = t.ID;
 
-				std::string portString = std::to_string(appConfig->_httpPort);
-				if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
-				{
-					ImGui::TableNextColumn();
-					if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
-					{
-						if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
-						{
-							appConfig->_webSocket->Start(appConfig->_httpPort);
-						}
-						else if (!appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
-						{
-							appConfig->_webSocket->Stop();
-						}
-					}
-					ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
-					ImGui::BeginDisabled(!appConfig->_listenHTTP);
-					ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
-					if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
-					{
-						appConfig->_webSocket->Stop();
-						appConfig->_webSocket->Start(appConfig->_httpPort);
-					}
-					ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
-					ImGui::EndDisabled();
-
-#ifdef _WIN32
-					ImGui::TableNextColumn();
-					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
-					ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit * 2);
-					if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
-					{
-						for (int api = 0; api < GAMEPAD_API_END; api++)
-							if (api != GAMEPAD_API_XINPUT)
-							{
-								if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_gamepadAPI == api))
-								{
-									appConfig->_gamepadAPI = api;
-									GamePad::setAPI(GamepadAPI(api));
-								}
-								ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
-							}
-
-						ImGui::EndCombo();
-					}
-					ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
-					ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
-					ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
-
-#endif
-
-					ImGui::EndTable();
-				}
-
-				ImGui::EndTabItem();
-			}
-
-			if (ImGui::BeginTabItem("Phonemes"))
-			{
-
-				ImGui::Checkbox("Show Debug Audio Display", &uiConfig->_showDebugBars);
-
-				AddResetButton("subReset", audioConfig->_subSplit, 58.82f, appConfig, &style);
-				float subSplit = 100 / audioConfig->_subSplit;
-				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 100.f/audioConfig->_bassSplit, "%.1f"))
-				{
-					audioConfig->_subSplit = 100.0 / subSplit;
-					uiConfig->_showDebugBars = true;
-				}
-				ToolTip("Adjust where the border is between sub and bass frequencies.\
-\nShow the debug audio bars to see the border.\nSub (blue) should be louder when saying 'oo',\
-\nand bass (red) should be louder when saying 'Ah'.", &appConfig->_hoverTimer);
-
-				AddResetButton("bassReset", audioConfig->_bassSplit, 23.25f, appConfig, &style);
-				float bassSplit = 100 / audioConfig->_bassSplit;
-				if (ImGui::SliderFloat("Bass Split", &bassSplit, 100.f/audioConfig->_subSplit, 100.f/audioConfig->_midSplit, "%.1f"))
-				{
-					audioConfig->_bassSplit = 100.0 / bassSplit;
-					uiConfig->_showDebugBars = true;
-				}
-				ToolTip("Adjust where the border is between bass and mid frequencies.\
-\nShow the debug audio bars to see the border.\nBass (red) should be louder when saying 'Ah',\
-\nand mid (yellow) should be louder when saying 'Ee'.", &appConfig->_hoverTimer);
-
-				AddResetButton("midReset", audioConfig->_midSplit, 6.09f, appConfig, &style);
-				float midSplit = 100 / audioConfig->_midSplit;
-				if (ImGui::SliderFloat("Mid Split", &midSplit, 100.f/audioConfig->_bassSplit, 50, "%.1f"))
-				{
-					audioConfig->_midSplit = 100.0 / midSplit;
-					uiConfig->_showDebugBars = true;
-				}
-				ToolTip("Adjust where the border is between mid and treble frequencies.\
-\nShow the debug audio bars to see the border.\nMid (yellow) should be louder when saying 'Ee',\
-\nand treble (green) should be louder when saying 'SS'.", &appConfig->_hoverTimer);
-
-				if (ImGui::BeginTable("Adjustment", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
-				{
-					ImGui::TableSetupColumn("Phoneme", 0, 0.8);
-					ImGui::TableSetupColumn("Sensitivity", 0, 2);
-					ImGui::TableSetupColumn("Confidence", 0, 2);
-
-					ImGui::TableHeadersRow();
-
-					ImGui::TableNextColumn();
-
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("E");
-					ImGui::Separator();
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("S");
-					ImGui::Separator();
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("oo");
-					ImGui::Separator();
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("P");
-					//ImGui::AlignTextToFramePadding();
-					//ImGui::Text("P (low)");
-
-					ImGui::TableNextColumn();
-
-					SensitivitySlider("eSensReset", audioConfig->balanceETolerance, balETDefault, style, "##E Sensitivity");
-					SensitivitySlider("sSensReset", audioConfig->midSTolerance, midSTDefault, style, "##S Sensitivity");
-					SensitivitySlider("wSensReset", audioConfig->balanceWTolerance, balWTDefault, style, "##W Sensitivity");
-					SensitivitySlider("pPkSensReset", audioConfig->peakPTolerance, peakPTDefault, style, "burst##P peak Sensitivity", false);
-					SensitivitySlider("pSensReset", audioConfig->subPTolerance, subPTDefault, style, "low##P Sensitivity", false);
-
-					ImGui::TableNextColumn();
-
-					//AddResetButton("aConfReset", audioConfig->AConfidenceBoost, 3.f, appConfig, &style);
-					//ImGui::SliderFloat("##A Conf. Boost", &audioConfig->AConfidenceBoost, 1, 50, "%.1f");
-
-
-					ConfidenceSlider("eConfReset", audioConfig->EConfidenceBoost, 3.f, style, "##E Conf. Boost");
-					ConfidenceSlider("sConfReset", audioConfig->SConfidenceBoost, 6.f, style, "##S Conf. Boost");
-					ConfidenceSlider("wConfReset", audioConfig->WConfidenceBoost, 6.f, style, "##W Conf. Boost");
-					ConfidenceSlider("pConfReset", audioConfig->PConfidenceBoost, 40.f, style, "##P Conf. Boost", false);
-
-					ImGui::EndTable();
-				}
-
-				ImGui::EndTabItem();
-			}
-
-
-			if (ImGui::BeginTabItem("Tracking"))
-			{
-				LayerManager::LayerInfo::TrackingMode track = LayerManager::LayerInfo::TRACKING_BOTH;
-				bool useGlobal = false;
-				layerMan->DrawTrackingGUI(layerMan->GetTrackingSettings(), 0, track, useGlobal, style, "MenuGlobal", nullptr, true);
-
-
-				ImGui::EndTabItem();
-			}
-
-			ImGui::EndTabBar();
-
-			if (ImGui::Button("OK", { -1, ImGui::GetFrameHeight() }))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-
-			ImGui::PopStyleVar();
-
-			uiConfig->_advancedMenuHeight - ImGui::GetWindowHeight();
-
-			ImGui::EndPopup();
 		}
 	}
 
-    void ConfidenceSlider(const char* id, float& value, float defVal, ImGuiStyle& style, const char* label, bool doSeparator = true)
+  void ConfidenceSlider(const char* id, float& value, float defVal, ImGuiStyle& style, const char* label, bool doSeparator = true)
 	{
         AddResetButton(id, value, defVal, appConfig, &style);
 		FloatSliderDrag(label, &value, 1, 50, "%.1f", 0, 0);

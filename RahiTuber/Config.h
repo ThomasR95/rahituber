@@ -350,6 +350,21 @@ struct UIConfig
 	bool _helpPopupActive = false;
 	bool _presetPopupActive = false;
 	float _advancedMenuHeight = 540;
+	bool _advancedMenuTopRow = false;
+
+	bool _advMenuPending_windowTab = false;
+	bool _advMenuPending_appearanceTab = false;
+	bool _advMenuPending_behaviourTab = false;
+	bool _advMenuPending_integrationTab = false;
+	bool _advMenuPending_phonemesTab = false;
+	bool _advMenuPending_trackingTab = false;
+
+	ImGuiID _advMenuID_windowTab = {};
+	ImGuiID _advMenuID_appearanceTab = {};
+	ImGuiID _advMenuID_behaviourTab = {};
+	ImGuiID _advMenuID_integrationTab = {};
+	ImGuiID _advMenuID_phonemesTab = {};
+	ImGuiID _advMenuID_trackingTab = {};
 
 	sf::RectangleShape _topLeftBox;
 	sf::RectangleShape _bottomRightBox;
