@@ -2461,6 +2461,44 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 	root->SetAttribute("DisableRotationEffectFix", _appConfig->_undoRotationEffectFix);
 
+	auto globalTracking = root->InsertNewChildElement("GlobalTracking");
+	
+	globalTracking->SetAttribute("followElliptical", _globalTracking._followElliptical);
+	globalTracking->SetAttribute("mouseNeutralX", _globalTracking._mouseNeutralPos.x);
+	globalTracking->SetAttribute("mouseNeutralY", _globalTracking._mouseNeutralPos.y);
+	globalTracking->SetAttribute("mouseAreaX", _globalTracking._mouseAreaSize.x);
+	globalTracking->SetAttribute("mouseAreaY", _globalTracking._mouseAreaSize.y);
+	globalTracking->SetAttribute("neutralFollowsWindow", _globalTracking._mouseNeutralFollowsWindow);
+
+	globalTracking->SetAttribute("trackingAxis", _globalTracking._trackingAxis);
+	globalTracking->SetAttribute("trackingDeadzone", _globalTracking._axisDeadzone);
+	globalTracking->SetAttribute("trackingSmooth", _globalTracking._trackingSmooth);
+	globalTracking->SetAttribute("trackingLimitX", _globalTracking._trackingMoveLimits.x);
+	globalTracking->SetAttribute("trackingLimitY", _globalTracking._trackingMoveLimits.y);
+	globalTracking->SetAttribute("untrackedWhenHidden", _globalTracking._trackingOffWhenHidden);
+	globalTracking->SetAttribute("mouseEffect", _globalTracking._mouseEffect);
+	globalTracking->SetAttribute("joypadEffect", _globalTracking._joypadEffect);
+	globalTracking->SetAttribute("trackingRotLimitX", _globalTracking._trackingRotation.x);
+	globalTracking->SetAttribute("trackingRotLimitY", _globalTracking._trackingRotation.y);
+
+	globalTracking->SetAttribute("trackingSelect", _globalTracking._trackingSelect);
+	if (_globalTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+	{
+		globalTracking->SetAttribute("trackingControllerName", _globalTracking._trackingJoystick.second.name.c_str());
+		globalTracking->SetAttribute("trackingControllerAlikeIdx", _globalTracking._trackingJoystick.second.alikeIdx);
+	}
+
+	globalTracking->SetAttribute("trackingScaleMode", _globalTracking._trackingScaleMode);
+	globalTracking->SetAttribute("trackingScaleHorizontalX", _globalTracking._trackingScaleHorizontal.x);
+	globalTracking->SetAttribute("trackingScaleHorizontalY", _globalTracking._trackingScaleHorizontal.y);
+	globalTracking->SetAttribute("trackingScaleVerticalX", _globalTracking._trackingScaleVertical.x);
+	globalTracking->SetAttribute("trackingScaleVerticalY", _globalTracking._trackingScaleVertical.y);
+	globalTracking->SetAttribute("clampTrackingScale", _globalTracking._clampTrackingScale);
+	globalTracking->SetAttribute("trackingScaleClampX", _globalTracking._trackingScaleClamp.x);
+	globalTracking->SetAttribute("trackingScaleClampY", _globalTracking._trackingScaleClamp.y);
+	globalTracking->SetAttribute("trackingScaleAbsolute", _globalTracking._trackingScaleAbsolute);
+
+
 	auto canvasPresets = root->FirstChildElement("CanvasPresets");
 	if (!canvasPresets)
 		canvasPresets = root->InsertFirstChild(doc.NewElement("CanvasPresets"))->ToElement();
@@ -3083,6 +3121,61 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				root->QueryAttribute("statesIgnoreAxis", &_statesIgnoreStick);
 
 				root->QueryAttribute("DisableRotationEffectFix", &_appConfig->_undoRotationEffectFix);
+
+				auto globalTracking = root->FirstChildElement("GlobalTracking");
+				if (globalTracking)
+				{
+					globalTracking->QueryBoolAttribute("followElliptical", &_globalTracking._followElliptical);
+					globalTracking->QueryAttribute("mouseNeutralX", &_globalTracking._mouseNeutralPos.x);
+					globalTracking->QueryAttribute("mouseNeutralY", &_globalTracking._mouseNeutralPos.y);
+					globalTracking->QueryAttribute("mouseAreaX", &_globalTracking._mouseAreaSize.x);
+					globalTracking->QueryAttribute("mouseAreaY", &_globalTracking._mouseAreaSize.y);
+					globalTracking->QueryAttribute("neutralFollowsWindow", &_globalTracking._mouseNeutralFollowsWindow);
+
+					globalTracking->QueryAttribute("trackingAxis", (int*)&_globalTracking._trackingAxis);
+					globalTracking->QueryAttribute("trackingDeadzone", &_globalTracking._axisDeadzone);
+
+					globalTracking->QueryAttribute("trackingSmooth", &_globalTracking._trackingSmooth);
+					globalTracking->QueryAttribute("trackingLimitX", &_globalTracking._trackingMoveLimits.x);
+					globalTracking->QueryAttribute("trackingLimitY", &_globalTracking._trackingMoveLimits.y);
+					globalTracking->QueryBoolAttribute("untrackedWhenHidden", &_globalTracking._trackingOffWhenHidden);
+					globalTracking->QueryAttribute("mouseEffect", &_globalTracking._mouseEffect);
+					globalTracking->QueryAttribute("joypadEffect", &_globalTracking._joypadEffect);
+					globalTracking->QueryAttribute("trackingRotLimitX", &_globalTracking._trackingRotation.x);
+					globalTracking->QueryAttribute("trackingRotLimitY", &_globalTracking._trackingRotation.y);
+
+					globalTracking->QueryAttribute("trackingSelect", (int*)&_globalTracking._trackingSelect);
+					if (_globalTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+					{
+						if (const char* ctrlrName = globalTracking->Attribute("trackingControllerName"))
+						{
+							//if a controller name exists, use that and let the index be set later
+							_globalTracking._trackingJoystick.first = -1;
+							_globalTracking._trackingJoystick.second.name = ctrlrName;
+							globalTracking->QueryAttribute("trackingControllerAlikeIdx", &_globalTracking._trackingJoystick.second.alikeIdx);
+
+						}
+						else
+						{
+							//(old method) take the controller index and hope it's right
+							globalTracking->QueryAttribute("trackingControllerID", &_globalTracking._trackingJoystick.first);
+						}
+					}
+					else
+						_globalTracking._trackingJoystick = { -1, GamePadID() };
+
+					globalTracking->QueryAttribute("trackingScaleMode", (int*)&_globalTracking._trackingScaleMode);
+					globalTracking->QueryAttribute("trackingScaleHorizontalX", &_globalTracking._trackingScaleHorizontal.x);
+					globalTracking->QueryAttribute("trackingScaleHorizontalY", &_globalTracking._trackingScaleHorizontal.y);
+					globalTracking->QueryAttribute("trackingScaleVerticalX", &_globalTracking._trackingScaleVertical.x);
+					globalTracking->QueryAttribute("trackingScaleVerticalY", &_globalTracking._trackingScaleVertical.y);
+					globalTracking->QueryBoolAttribute("clampTrackingScale", &_globalTracking._clampTrackingScale);
+					globalTracking->QueryAttribute("trackingScaleClampX", &_globalTracking._trackingScaleClamp.x);
+					globalTracking->QueryAttribute("trackingScaleClampY", &_globalTracking._trackingScaleClamp.y);
+					globalTracking->QueryAttribute("trackingScaleAbsolute", &_globalTracking._trackingScaleAbsolute);
+				}
+
+
 
 				_globalPresets.clear();
 			}
