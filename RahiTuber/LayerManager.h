@@ -432,27 +432,28 @@ public:
 
 		bool _trackingEnabled = false;
 		TrackingMode _trackingType = TRACKING_MOUSE;
+
+		float _mouseEffect = 1.0;
+		float _joypadEffect = 1.0;
+		sf::Vector2f _trackingAmount = { 0.f, 0.f };
+
 		bool _useGlobalTracking = true;
+		bool _useGlobalTrackingMotion = false;
 
 		struct TrackingSettings {
-			TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
-			bool _followElliptical = false;
-			bool _trackingOffWhenHidden = true;
-
 			sf::Vector2f _mouseAreaSize = { -1.f, -1.f };
 			sf::Vector2f _mouseNeutralPos = { -1.f, -1.f };
-			float _mouseEffect = 1.0;
 			bool _mouseNeutralFollowsWindow = false;
 
+			TrackingControllerSelect _trackingSelect = TRACKINGSELECT_FIRST;
+			std::pair<int, GamePadID> _trackingJoystick;
 			TrackingAxis _trackingAxis;
 			float _axisDeadzone = { 0.f };
 
-			sf::Vector2f _trackingAmount = { 0.f, 0.f };
-			float _trackingSmooth = 0.2;
-			sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
-			std::pair<int, GamePadID> _trackingJoystick;
-			float _joypadEffect = 1.0;
+		};
 
+		struct TrackingMotion {
+			sf::Vector2f _trackingMoveLimits = { 50.f, 50.f };
 			sf::Vector2f _trackingRotation = { 0.0,0.0 };
 
 			TrackingScaleMode _trackingScaleMode = TRACKINGSCALE_SIMPLE;
@@ -461,10 +462,19 @@ public:
 			bool _clampTrackingScale = false;
 			sf::Vector2f _trackingScaleClamp = { -1.0f, 1.0f };
 			int _trackingScaleAbsolute = 0;
+
+			bool _followElliptical = false;
+			bool _trackingOffWhenHidden = true;
+			float _trackingSmooth = 0.2;
+
 		};
 
 		TrackingSettings* _trackingSettings = {};
 		TrackingSettings _uniqueTracking = {};
+
+		TrackingMotion* _trackingMotion= {};
+		TrackingMotion _uniqueTrackingMotion = {};
+
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 
@@ -562,8 +572,9 @@ public:
 
 	void DrawMenusLayerSetUI();
 
-	void DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSettings, float indentSize, LayerManager::LayerInfo::TrackingMode& trackingType, bool& useGlobalTracking, ImGuiStyle& style, const std::string& layerID = "", LayerInfo::TrackingSettings* uniqueTracking = nullptr, bool isGlobalDialog = false);
+	void DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSettings, LayerInfo::TrackingMotion* _trackingMotion, float indentSize, LayerManager::LayerInfo::TrackingMode& trackingType, bool& useGlobalTracking, bool& useGlobalMotion, ImGuiStyle& style, LayerInfo* layer = nullptr, bool isGlobalDialog = false);
 	LayerInfo::TrackingSettings* GetTrackingSettings() { return &_globalTracking; }
+	LayerInfo::TrackingMotion* GetTrackingMotion() { return &_globalTrackingMotion; }
 
 
 	bool IsEmptyAndIdle()
@@ -817,6 +828,7 @@ private:
 	bool _pivotPreservePosition = true;
 
 	LayerInfo::TrackingSettings _globalTracking = {};
+	LayerInfo::TrackingMotion _globalTrackingMotion = {};
 
 	std::map<std::string, bool> _defaultLayerStates;
 	std::deque<StatesInfo*> _statesOrder;

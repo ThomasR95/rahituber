@@ -761,6 +761,10 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_trackingTab = false;
 
+				auto menuWnd = ImGui::GetCurrentWindow();
+				if (menuWnd->Pos.y + menuWnd->SizeFull.y > appConfig->_scrH)
+					ImGui::SetWindowPos({ menuWnd->Pos.x, (appConfig->_scrH - 2*ImGui::GetFrameHeightWithSpacing())  - menuWnd->SizeFull.y });
+
 				ImGui::Columns(2, 0, false);
 				ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
 				ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
@@ -774,7 +778,7 @@ public:
 
 				LayerManager::LayerInfo::TrackingMode track = LayerManager::LayerInfo::TRACKING_BOTH;
 				bool useGlobal = false;
-				layerMan->DrawTrackingGUI(layerMan->GetTrackingSettings(), 0, track, useGlobal, style, "MenuGlobal", nullptr, true);
+				layerMan->DrawTrackingGUI(layerMan->GetTrackingSettings(), layerMan->GetTrackingMotion(), 0, track, useGlobal, useGlobal, style, nullptr, true);
 
 				ImGui::EndTabItem();
 			}
