@@ -269,6 +269,8 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				_blendingShader.setUniform("alphaClip", alphaClip );
 
+				_blendingShader.setUniform("invertAlpha", false);
+
 				useBlendShader = true;
 			}
 
@@ -291,7 +293,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipRTs._clipRT.create(target->getSize().x, target->getSize().y);
 					clipRTs._clipInitialized = true;
 				}
-				clipRTs._clipRT.clear({ 0,0,0,0 });
+
+				if(layer._isClipInverted)
+					clipRTs._clipRT.clear({ 0,0,0,1 });
+				else
+					clipRTs._clipRT.clear({ 0,0,0,0 });
 
 				if (clipRTs._soloLayerInitialized == false || target->getSize() != clipRTs._soloLayerRT.getSize())
 				{
@@ -299,7 +305,6 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipRTs._soloLayerInitialized = true;
 				}
 				clipRTs._soloLayerRT.clear({ 0,0,0,0 });
-
 
 				sf::RenderStates clipState = sf::RenderStates::Default;
 
@@ -317,10 +322,13 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 						alphaClip = _appConfig->_alphaClip;
 					_blendingShader.setUniform("sharpEdge", sharpEdge);
 					_blendingShader.setUniform("alphaClip", alphaClip);
+					_blendingShader.setUniform("invertAlpha", layer._isClipInverted);
 					clipState.shader = _blendingShader.get();
 				}
 
-				// Draw layer to be clipped onto an empty canvas
+				clipState.blendMode = g_blendmodes["Overwrite"];
+
+				// Draw clip layer onto an empty canvas
 				for (auto& csp : clipLayer->_sprites)
 				{
 					csp.second->Draw(&clipRTs._clipRT, clipState);
@@ -338,6 +346,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 						alphaClip = _appConfig->_alphaClip;
 					_blendingShader.setUniform("sharpEdge", sharpEdge);
 					_blendingShader.setUniform("alphaClip", alphaClip);
+					_blendingShader.setUniform("invertAlpha", false);
 					//_blendingShader.setUniform("premult", false);
 					state.shader = _blendingShader.get();
 				}
@@ -2429,6 +2438,7 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("alphaCutoff", layer._alphaClip);
 
 			thisLayer->SetAttribute("clipID", layer._clipID.c_str());
+			thisLayer->SetAttribute("clipInvert", layer._isClipInverted);
 		}
 
 		thisLayer->SetAttribute("isFolder", layer._isFolder);
@@ -3091,6 +3101,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				if (clipGuid)
 					layer._clipID = clipGuid;
 
+				thisLayer->QueryAttribute("clipInvert", &layer._isClipInverted);
 
 				layer._sprites[SP_IDLE]->setSmooth(layer._scaleFiltering);
 				layer._sprites[SP_TALK]->setSmooth(layer._scaleFiltering);
@@ -5733,6 +5744,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						LayerSelectCombo(comboID, clipName, selectID, comboFilter);
 
 						ToolTip("Clip this layer to the transparency\nof any other layer", &_parent->_appConfig->_hoverTimer);
+
+						if (ImGui::Checkbox("Invert Clip (Mask)", &_isClipInverted))
+						{
+							std::cout << "Invert Clip: " << _isClipInverted << std::endl;
+						}
+						ToolTip("Use the clip layer as a mask (cutout) instead", &_parent->_appConfig->_hoverTimer);
+
 
 					}
 					BetterUnindent(_id + "comp");

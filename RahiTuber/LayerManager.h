@@ -207,6 +207,7 @@ public:
 
 		std::string _clipID = "";
 		sf::RectangleShape _clipRect;
+		bool _isClipInverted = false;
 
 		bool _isFolder = false;
 		std::string _inFolder = "";

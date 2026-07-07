@@ -122,6 +122,7 @@ uniform bool invert = false;
 uniform bool premult = true;
 uniform bool sharpEdge = true;
 uniform float alphaClip = 0.001;
+uniform bool invertAlpha = false;
 
 void main()
 {
@@ -153,6 +154,9 @@ void main()
         pixel.xyz = pixel.xyz + (vec3(1.0, 1.0, 1.0) * (1.0 - pixel.a));
         //pixel.a = 1;
     }
+
+    if(invertAlpha)
+        pixel.a = 1.0 - pixel.a;
 
     gl_FragColor = pixel;
 }
