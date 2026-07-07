@@ -2461,7 +2461,9 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 	root->SetAttribute("DisableRotationEffectFix", _appConfig->_undoRotationEffectFix);
 
-	auto globalTracking = root->InsertNewChildElement("GlobalTracking");
+	auto globalTracking = root->FirstChildElement("GlobalTracking");
+	if (!globalTracking)
+		globalTracking = root->InsertNewChildElement("GlobalTracking");
 	
 	globalTracking->SetAttribute("followElliptical", _globalTrackingMotion._followElliptical);
 	globalTracking->SetAttribute("mouseNeutralX", _globalTracking._mouseNeutralPos.x);
