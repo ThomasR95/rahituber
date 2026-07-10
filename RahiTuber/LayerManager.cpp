@@ -467,7 +467,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				float targetLineW = 2 * _appConfig->mainWindowScaling;
 
 				// Draw Crosshair for mouse tracking
-				if (layerHovered && layer._trackingType & LayerInfo::TRACKING_MOUSE)
+				if (layerHovered && layer._trackingSettings != nullptr && layer._trackingType & LayerInfo::TRACKING_MOUSE)
 				{
 					auto targetColor = toSFColor(theme.second * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
 					auto circle2 = sf::CircleShape(targetSize, 16);
@@ -1537,6 +1537,9 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 				newLayer._sprites[(SpriteType)sp] = toCopy->_sprites.at((SpriteType)sp).Copy();
 		}
 
+		layer->_uniqueTracking = std::make_shared<LayerInfo::TrackingSettings>(*(toCopy->_uniqueTracking));
+		layer->_uniqueTrackingMotion = std::make_shared<LayerInfo::TrackingMotion>(*(toCopy->_uniqueTrackingMotion));
+
 		newLayer.SyncAnims(newLayer._animsSynced);
 
 		int idx = 0;
@@ -1579,6 +1582,9 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 		layer->_isFolder = isFolder;
 		if (layer->_isFolder)
 			layer->_name = "New Folder";
+
+		layer->_uniqueTracking = std::make_shared<LayerInfo::TrackingSettings>();
+		layer->_uniqueTrackingMotion = std::make_shared<LayerInfo::TrackingMotion>();
 	}
 
 	std::string guid;
@@ -1592,9 +1598,14 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	layer->_id = guid;
 
 	if (layer->_useGlobalTracking)
-		layer->_trackingSettings = &_globalTracking;
+		layer->_trackingSettings = _globalTracking.get();
 	else
-		layer->_trackingSettings = &layer->_uniqueTracking;
+		layer->_trackingSettings = layer->_uniqueTracking.get();
+
+	if (layer->_useGlobalTracking)
+		layer->_trackingMotion = _globalTrackingMotion.get();
+	else
+		layer->_trackingMotion = layer->_uniqueTrackingMotion.get();
 
 	if(_appConfig->_unloadTimeoutEnabled)
 		layer->SetUnloadingTimer(_appConfig->_unloadTimeout);
@@ -2386,40 +2397,40 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			thisLayer->SetAttribute("trackingEnabled", layer._trackingEnabled);
 			thisLayer->SetAttribute("trackingType", layer._trackingType);
-			thisLayer->SetAttribute("followElliptical", layer._uniqueTrackingMotion._followElliptical);
-			thisLayer->SetAttribute("mouseNeutralX", layer._uniqueTracking._mouseNeutralPos.x);
-			thisLayer->SetAttribute("mouseNeutralY", layer._uniqueTracking._mouseNeutralPos.y);
-			thisLayer->SetAttribute("mouseAreaX", layer._uniqueTracking._mouseAreaSize.x);
-			thisLayer->SetAttribute("mouseAreaY", layer._uniqueTracking._mouseAreaSize.y);
-			thisLayer->SetAttribute("neutralFollowsWindow", layer._uniqueTracking._mouseNeutralFollowsWindow);
+			thisLayer->SetAttribute("followElliptical", layer._uniqueTrackingMotion->_followElliptical);
+			thisLayer->SetAttribute("mouseNeutralX", layer._uniqueTracking->_mouseNeutralPos.x);
+			thisLayer->SetAttribute("mouseNeutralY", layer._uniqueTracking->_mouseNeutralPos.y);
+			thisLayer->SetAttribute("mouseAreaX", layer._uniqueTracking->_mouseAreaSize.x);
+			thisLayer->SetAttribute("mouseAreaY", layer._uniqueTracking->_mouseAreaSize.y);
+			thisLayer->SetAttribute("neutralFollowsWindow", layer._uniqueTracking->_mouseNeutralFollowsWindow);
 
-			thisLayer->SetAttribute("trackingAxis", layer._uniqueTracking._trackingAxis);
-			thisLayer->SetAttribute("trackingDeadzone", layer._uniqueTracking._axisDeadzone);
-			thisLayer->SetAttribute("trackingSmooth", layer._uniqueTrackingMotion._trackingSmooth);
-			thisLayer->SetAttribute("trackingLimitX", layer._uniqueTrackingMotion._trackingMoveLimits.x);
-			thisLayer->SetAttribute("trackingLimitY", layer._uniqueTrackingMotion._trackingMoveLimits.y);
-			thisLayer->SetAttribute("untrackedWhenHidden", layer._uniqueTrackingMotion._trackingOffWhenHidden);
+			thisLayer->SetAttribute("trackingAxis", layer._uniqueTracking->_trackingAxis);
+			thisLayer->SetAttribute("trackingDeadzone", layer._uniqueTracking->_axisDeadzone);
+			thisLayer->SetAttribute("trackingSmooth", layer._uniqueTrackingMotion->_trackingSmooth);
+			thisLayer->SetAttribute("trackingLimitX", layer._uniqueTrackingMotion->_trackingMoveLimits.x);
+			thisLayer->SetAttribute("trackingLimitY", layer._uniqueTrackingMotion->_trackingMoveLimits.y);
+			thisLayer->SetAttribute("untrackedWhenHidden", layer._uniqueTrackingMotion->_trackingOffWhenHidden);
 			thisLayer->SetAttribute("mouseEffect", layer._mouseEffect);
 			thisLayer->SetAttribute("joypadEffect", layer._joypadEffect);
-			thisLayer->SetAttribute("trackingRotLimitX", layer._uniqueTrackingMotion._trackingRotation.x);
-			thisLayer->SetAttribute("trackingRotLimitY", layer._uniqueTrackingMotion._trackingRotation.y);
+			thisLayer->SetAttribute("trackingRotLimitX", layer._uniqueTrackingMotion->_trackingRotation.x);
+			thisLayer->SetAttribute("trackingRotLimitY", layer._uniqueTrackingMotion->_trackingRotation.y);
 
-			thisLayer->SetAttribute("trackingSelect", layer._uniqueTracking._trackingSelect);
-			if (layer._uniqueTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+			thisLayer->SetAttribute("trackingSelect", layer._uniqueTracking->_trackingSelect);
+			if (layer._uniqueTracking->_trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 			{
-				thisLayer->SetAttribute("trackingControllerName", layer._uniqueTracking._trackingJoystick.second.name.c_str());
-				thisLayer->SetAttribute("trackingControllerAlikeIdx", layer._uniqueTracking._trackingJoystick.second.alikeIdx);
+				thisLayer->SetAttribute("trackingControllerName", layer._uniqueTracking->_trackingJoystick.second.name.c_str());
+				thisLayer->SetAttribute("trackingControllerAlikeIdx", layer._uniqueTracking->_trackingJoystick.second.alikeIdx);
 			}
 
-			thisLayer->SetAttribute("trackingScaleMode", layer._uniqueTrackingMotion._trackingScaleMode);
-			thisLayer->SetAttribute("trackingScaleHorizontalX", layer._uniqueTrackingMotion._trackingScaleHorizontal.x);
-			thisLayer->SetAttribute("trackingScaleHorizontalY", layer._uniqueTrackingMotion._trackingScaleHorizontal.y);
-			thisLayer->SetAttribute("trackingScaleVerticalX", layer._uniqueTrackingMotion._trackingScaleVertical.x);
-			thisLayer->SetAttribute("trackingScaleVerticalY", layer._uniqueTrackingMotion._trackingScaleVertical.y);
-			thisLayer->SetAttribute("clampTrackingScale", layer._uniqueTrackingMotion._clampTrackingScale);
-			thisLayer->SetAttribute("trackingScaleClampX", layer._uniqueTrackingMotion._trackingScaleClamp.x);
-			thisLayer->SetAttribute("trackingScaleClampY", layer._uniqueTrackingMotion._trackingScaleClamp.y);
-			thisLayer->SetAttribute("trackingScaleAbsolute", layer._uniqueTrackingMotion._trackingScaleAbsolute);
+			thisLayer->SetAttribute("trackingScaleMode", layer._uniqueTrackingMotion->_trackingScaleMode);
+			thisLayer->SetAttribute("trackingScaleHorizontalX", layer._uniqueTrackingMotion->_trackingScaleHorizontal.x);
+			thisLayer->SetAttribute("trackingScaleHorizontalY", layer._uniqueTrackingMotion->_trackingScaleHorizontal.y);
+			thisLayer->SetAttribute("trackingScaleVerticalX", layer._uniqueTrackingMotion->_trackingScaleVertical.x);
+			thisLayer->SetAttribute("trackingScaleVerticalY", layer._uniqueTrackingMotion->_trackingScaleVertical.y);
+			thisLayer->SetAttribute("clampTrackingScale", layer._uniqueTrackingMotion->_clampTrackingScale);
+			thisLayer->SetAttribute("trackingScaleClampX", layer._uniqueTrackingMotion->_trackingScaleClamp.x);
+			thisLayer->SetAttribute("trackingScaleClampY", layer._uniqueTrackingMotion->_trackingScaleClamp.y);
+			thisLayer->SetAttribute("trackingScaleAbsolute", layer._uniqueTrackingMotion->_trackingScaleAbsolute);
 
 			thisLayer->SetAttribute("motionTimerID", layer.motionTimerID.c_str());
 			thisLayer->SetAttribute("bounceTimerID", layer.bounceTimerID.c_str());
@@ -2475,38 +2486,38 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 	if (!globalTracking)
 		globalTracking = root->InsertNewChildElement("GlobalTracking");
 	
-	globalTracking->SetAttribute("followElliptical", _globalTrackingMotion._followElliptical);
-	globalTracking->SetAttribute("mouseNeutralX", _globalTracking._mouseNeutralPos.x);
-	globalTracking->SetAttribute("mouseNeutralY", _globalTracking._mouseNeutralPos.y);
-	globalTracking->SetAttribute("mouseAreaX", _globalTracking._mouseAreaSize.x);
-	globalTracking->SetAttribute("mouseAreaY", _globalTracking._mouseAreaSize.y);
-	globalTracking->SetAttribute("neutralFollowsWindow", _globalTracking._mouseNeutralFollowsWindow);
+	globalTracking->SetAttribute("followElliptical", _globalTrackingMotion->_followElliptical);
+	globalTracking->SetAttribute("mouseNeutralX", _globalTracking->_mouseNeutralPos.x);
+	globalTracking->SetAttribute("mouseNeutralY", _globalTracking->_mouseNeutralPos.y);
+	globalTracking->SetAttribute("mouseAreaX", _globalTracking->_mouseAreaSize.x);
+	globalTracking->SetAttribute("mouseAreaY", _globalTracking->_mouseAreaSize.y);
+	globalTracking->SetAttribute("neutralFollowsWindow", _globalTracking->_mouseNeutralFollowsWindow);
 
-	globalTracking->SetAttribute("trackingAxis", _globalTracking._trackingAxis);
-	globalTracking->SetAttribute("trackingDeadzone", _globalTracking._axisDeadzone);
-	globalTracking->SetAttribute("trackingSmooth", _globalTrackingMotion._trackingSmooth);
-	globalTracking->SetAttribute("trackingLimitX", _globalTrackingMotion._trackingMoveLimits.x);
-	globalTracking->SetAttribute("trackingLimitY", _globalTrackingMotion._trackingMoveLimits.y);
-	globalTracking->SetAttribute("untrackedWhenHidden", _globalTrackingMotion._trackingOffWhenHidden);
-	globalTracking->SetAttribute("trackingRotLimitX", _globalTrackingMotion._trackingRotation.x);
-	globalTracking->SetAttribute("trackingRotLimitY", _globalTrackingMotion._trackingRotation.y);
+	globalTracking->SetAttribute("trackingAxis", _globalTracking->_trackingAxis);
+	globalTracking->SetAttribute("trackingDeadzone", _globalTracking->_axisDeadzone);
+	globalTracking->SetAttribute("trackingSmooth", _globalTrackingMotion->_trackingSmooth);
+	globalTracking->SetAttribute("trackingLimitX", _globalTrackingMotion->_trackingMoveLimits.x);
+	globalTracking->SetAttribute("trackingLimitY", _globalTrackingMotion->_trackingMoveLimits.y);
+	globalTracking->SetAttribute("untrackedWhenHidden", _globalTrackingMotion->_trackingOffWhenHidden);
+	globalTracking->SetAttribute("trackingRotLimitX", _globalTrackingMotion->_trackingRotation.x);
+	globalTracking->SetAttribute("trackingRotLimitY", _globalTrackingMotion->_trackingRotation.y);
 
-	globalTracking->SetAttribute("trackingSelect", _globalTracking._trackingSelect);
-	if (_globalTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+	globalTracking->SetAttribute("trackingSelect", _globalTracking->_trackingSelect);
+	if (_globalTracking->_trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 	{
-		globalTracking->SetAttribute("trackingControllerName", _globalTracking._trackingJoystick.second.name.c_str());
-		globalTracking->SetAttribute("trackingControllerAlikeIdx", _globalTracking._trackingJoystick.second.alikeIdx);
+		globalTracking->SetAttribute("trackingControllerName", _globalTracking->_trackingJoystick.second.name.c_str());
+		globalTracking->SetAttribute("trackingControllerAlikeIdx", _globalTracking->_trackingJoystick.second.alikeIdx);
 	}
 
-	globalTracking->SetAttribute("trackingScaleMode", _globalTrackingMotion._trackingScaleMode);
-	globalTracking->SetAttribute("trackingScaleHorizontalX", _globalTrackingMotion._trackingScaleHorizontal.x);
-	globalTracking->SetAttribute("trackingScaleHorizontalY", _globalTrackingMotion._trackingScaleHorizontal.y);
-	globalTracking->SetAttribute("trackingScaleVerticalX", _globalTrackingMotion._trackingScaleVertical.x);
-	globalTracking->SetAttribute("trackingScaleVerticalY", _globalTrackingMotion._trackingScaleVertical.y);
-	globalTracking->SetAttribute("clampTrackingScale", _globalTrackingMotion._clampTrackingScale);
-	globalTracking->SetAttribute("trackingScaleClampX", _globalTrackingMotion._trackingScaleClamp.x);
-	globalTracking->SetAttribute("trackingScaleClampY", _globalTrackingMotion._trackingScaleClamp.y);
-	globalTracking->SetAttribute("trackingScaleAbsolute", _globalTrackingMotion._trackingScaleAbsolute);
+	globalTracking->SetAttribute("trackingScaleMode", _globalTrackingMotion->_trackingScaleMode);
+	globalTracking->SetAttribute("trackingScaleHorizontalX", _globalTrackingMotion->_trackingScaleHorizontal.x);
+	globalTracking->SetAttribute("trackingScaleHorizontalY", _globalTrackingMotion->_trackingScaleHorizontal.y);
+	globalTracking->SetAttribute("trackingScaleVerticalX", _globalTrackingMotion->_trackingScaleVertical.x);
+	globalTracking->SetAttribute("trackingScaleVerticalY", _globalTrackingMotion->_trackingScaleVertical.y);
+	globalTracking->SetAttribute("clampTrackingScale", _globalTrackingMotion->_clampTrackingScale);
+	globalTracking->SetAttribute("trackingScaleClampX", _globalTrackingMotion->_trackingScaleClamp.x);
+	globalTracking->SetAttribute("trackingScaleClampY", _globalTrackingMotion->_trackingScaleClamp.y);
+	globalTracking->SetAttribute("trackingScaleAbsolute", _globalTrackingMotion->_trackingScaleAbsolute);
 
 
 	auto canvasPresets = root->FirstChildElement("CanvasPresets");
@@ -2721,6 +2732,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				_textureMan->Reset();
 				_croppedImages.clear();
 				_lastSavedLocation = _loadingPath;
+				_tagList.clear();
 			}
 
 			auto thisLayer = layers->FirstChildElement("layer");
@@ -2775,7 +2787,11 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				layer._name = name;
 				thisLayer->QueryAttribute("visible", &layer._visible);
 
-				layer._trackingSettings = &layer._uniqueTracking;
+				layer._uniqueTracking = std::make_shared<LayerInfo::TrackingSettings>();
+				layer._uniqueTrackingMotion = std::make_shared<LayerInfo::TrackingMotion>();
+
+				layer._trackingSettings = layer._uniqueTracking.get();
+				layer._trackingMotion = layer._uniqueTrackingMotion.get();
 
 				_loadingProgress = name;
 
@@ -2971,64 +2987,64 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				else
 					thisLayer->QueryBoolAttribute("useGlobalMotion", &layer._useGlobalTrackingMotion);
 
-				thisLayer->QueryBoolAttribute("followElliptical", &layer._uniqueTrackingMotion._followElliptical);
-				thisLayer->QueryAttribute("mouseNeutralX", &layer._uniqueTracking._mouseNeutralPos.x);
-				thisLayer->QueryAttribute("mouseNeutralY", &layer._uniqueTracking._mouseNeutralPos.y);
-				thisLayer->QueryAttribute("mouseAreaX", &layer._uniqueTracking._mouseAreaSize.x);
-				thisLayer->QueryAttribute("mouseAreaY", &layer._uniqueTracking._mouseAreaSize.y);
-				thisLayer->QueryAttribute("neutralFollowsWindow", &layer._uniqueTracking._mouseNeutralFollowsWindow);
+				thisLayer->QueryBoolAttribute("followElliptical", &layer._uniqueTrackingMotion->_followElliptical);
+				thisLayer->QueryAttribute("mouseNeutralX", &layer._uniqueTracking->_mouseNeutralPos.x);
+				thisLayer->QueryAttribute("mouseNeutralY", &layer._uniqueTracking->_mouseNeutralPos.y);
+				thisLayer->QueryAttribute("mouseAreaX", &layer._uniqueTracking->_mouseAreaSize.x);
+				thisLayer->QueryAttribute("mouseAreaY", &layer._uniqueTracking->_mouseAreaSize.y);
+				thisLayer->QueryAttribute("neutralFollowsWindow", &layer._uniqueTracking->_mouseNeutralFollowsWindow);
 
 				//kept for compatibility
-				thisLayer->QueryAttribute("mouseLimitX", &layer._uniqueTrackingMotion._trackingMoveLimits.x);
-				thisLayer->QueryAttribute("mouseLimitY", &layer._uniqueTrackingMotion._trackingMoveLimits.y);
+				thisLayer->QueryAttribute("mouseLimitX", &layer._uniqueTrackingMotion->_trackingMoveLimits.x);
+				thisLayer->QueryAttribute("mouseLimitY", &layer._uniqueTrackingMotion->_trackingMoveLimits.y);
 
-				thisLayer->QueryAttribute("trackingAxis", (int*)&layer._uniqueTracking._trackingAxis);
-				thisLayer->QueryAttribute("trackingDeadzone", &layer._uniqueTracking._axisDeadzone);
+				thisLayer->QueryAttribute("trackingAxis", (int*)&layer._uniqueTracking->_trackingAxis);
+				thisLayer->QueryAttribute("trackingDeadzone", &layer._uniqueTracking->_axisDeadzone);
 
-				thisLayer->QueryAttribute("trackingSmooth", &layer._uniqueTrackingMotion._trackingSmooth);
-				thisLayer->QueryAttribute("trackingLimitX", &layer._uniqueTrackingMotion._trackingMoveLimits.x);
-				thisLayer->QueryAttribute("trackingLimitY", &layer._uniqueTrackingMotion._trackingMoveLimits.y);
-				thisLayer->QueryBoolAttribute("untrackedWhenHidden", &layer._uniqueTrackingMotion._trackingOffWhenHidden);
+				thisLayer->QueryAttribute("trackingSmooth", &layer._uniqueTrackingMotion->_trackingSmooth);
+				thisLayer->QueryAttribute("trackingLimitX", &layer._uniqueTrackingMotion->_trackingMoveLimits.x);
+				thisLayer->QueryAttribute("trackingLimitY", &layer._uniqueTrackingMotion->_trackingMoveLimits.y);
+				thisLayer->QueryBoolAttribute("untrackedWhenHidden", &layer._uniqueTrackingMotion->_trackingOffWhenHidden);
 				thisLayer->QueryAttribute("mouseEffect", &layer._mouseEffect);
 				thisLayer->QueryAttribute("joypadEffect", &layer._joypadEffect);
-				thisLayer->QueryAttribute("trackingRotLimitX", &layer._uniqueTrackingMotion._trackingRotation.x);
-				thisLayer->QueryAttribute("trackingRotLimitY", &layer._uniqueTrackingMotion._trackingRotation.y);
+				thisLayer->QueryAttribute("trackingRotLimitX", &layer._uniqueTrackingMotion->_trackingRotation.x);
+				thisLayer->QueryAttribute("trackingRotLimitY", &layer._uniqueTrackingMotion->_trackingRotation.y);
 
-				thisLayer->QueryAttribute("trackingSelect", (int*)&layer._uniqueTracking._trackingSelect);
-				if (layer._uniqueTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+				thisLayer->QueryAttribute("trackingSelect", (int*)&layer._uniqueTracking->_trackingSelect);
+				if (layer._uniqueTracking->_trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 				{
 					if (const char* ctrlrName = thisLayer->Attribute("trackingControllerName"))
 					{
 						//if a controller name exists, use that and let the index be set later
-						layer._uniqueTracking._trackingJoystick.first = -1;
-						layer._uniqueTracking._trackingJoystick.second.name = ctrlrName;
-						thisLayer->QueryAttribute("trackingControllerAlikeIdx", &layer._uniqueTracking._trackingJoystick.second.alikeIdx);
+						layer._uniqueTracking->_trackingJoystick.first = -1;
+						layer._uniqueTracking->_trackingJoystick.second.name = ctrlrName;
+						thisLayer->QueryAttribute("trackingControllerAlikeIdx", &layer._uniqueTracking->_trackingJoystick.second.alikeIdx);
 
 					}
 					else
 					{
 						//(old method) take the controller index and hope it's right
-						thisLayer->QueryAttribute("trackingControllerID", &layer._uniqueTracking._trackingJoystick.first);
+						thisLayer->QueryAttribute("trackingControllerID", &layer._uniqueTracking->_trackingJoystick.first);
 					}
 				}
 				else
-					layer._uniqueTracking._trackingJoystick = { -1, GamePadID() };
+					layer._uniqueTracking->_trackingJoystick = { -1, GamePadID() };
 
-				thisLayer->QueryAttribute("trackingScaleMode", (int*)&layer._uniqueTrackingMotion._trackingScaleMode);
-				thisLayer->QueryAttribute("trackingScaleHorizontalX", &layer._uniqueTrackingMotion._trackingScaleHorizontal.x);
-				thisLayer->QueryAttribute("trackingScaleHorizontalY", &layer._uniqueTrackingMotion._trackingScaleHorizontal.y);
-				thisLayer->QueryAttribute("trackingScaleVerticalX", &layer._uniqueTrackingMotion._trackingScaleVertical.x);
-				thisLayer->QueryAttribute("trackingScaleVerticalY", &layer._uniqueTrackingMotion._trackingScaleVertical.y);
-				thisLayer->QueryBoolAttribute("clampTrackingScale", &layer._uniqueTrackingMotion._clampTrackingScale);
-				thisLayer->QueryAttribute("trackingScaleClampX", &layer._uniqueTrackingMotion._trackingScaleClamp.x);
-				thisLayer->QueryAttribute("trackingScaleClampY", &layer._uniqueTrackingMotion._trackingScaleClamp.y);
-				thisLayer->QueryAttribute("trackingScaleAbsolute", &layer._uniqueTrackingMotion._trackingScaleAbsolute);
+				thisLayer->QueryAttribute("trackingScaleMode", (int*)&layer._uniqueTrackingMotion->_trackingScaleMode);
+				thisLayer->QueryAttribute("trackingScaleHorizontalX", &layer._uniqueTrackingMotion->_trackingScaleHorizontal.x);
+				thisLayer->QueryAttribute("trackingScaleHorizontalY", &layer._uniqueTrackingMotion->_trackingScaleHorizontal.y);
+				thisLayer->QueryAttribute("trackingScaleVerticalX", &layer._uniqueTrackingMotion->_trackingScaleVertical.x);
+				thisLayer->QueryAttribute("trackingScaleVerticalY", &layer._uniqueTrackingMotion->_trackingScaleVertical.y);
+				thisLayer->QueryBoolAttribute("clampTrackingScale", &layer._uniqueTrackingMotion->_clampTrackingScale);
+				thisLayer->QueryAttribute("trackingScaleClampX", &layer._uniqueTrackingMotion->_trackingScaleClamp.x);
+				thisLayer->QueryAttribute("trackingScaleClampY", &layer._uniqueTrackingMotion->_trackingScaleClamp.y);
+				thisLayer->QueryAttribute("trackingScaleAbsolute", &layer._uniqueTrackingMotion->_trackingScaleAbsolute);
 
 				if (layer._useGlobalTracking)
-					layer._trackingSettings = &_globalTracking;
+					layer._trackingSettings = _globalTracking.get();
 
 				if (layer._useGlobalTrackingMotion)
-					layer._trackingMotion = &_globalTrackingMotion;
+					layer._trackingMotion = _globalTrackingMotion.get();
 
 				//////////////////////////// MOTION INHERIT ///////////////////////////////////////////////////
 				const char* mpguid = thisLayer->Attribute("motionParent");
@@ -3146,52 +3162,52 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				auto globalTracking = root->FirstChildElement("GlobalTracking");
 				if (globalTracking)
 				{
-					globalTracking->QueryBoolAttribute("followElliptical", &_globalTrackingMotion._followElliptical);
-					globalTracking->QueryAttribute("mouseNeutralX", &_globalTracking._mouseNeutralPos.x);
-					globalTracking->QueryAttribute("mouseNeutralY", &_globalTracking._mouseNeutralPos.y);
-					globalTracking->QueryAttribute("mouseAreaX", &_globalTracking._mouseAreaSize.x);
-					globalTracking->QueryAttribute("mouseAreaY", &_globalTracking._mouseAreaSize.y);
-					globalTracking->QueryAttribute("neutralFollowsWindow", &_globalTracking._mouseNeutralFollowsWindow);
+					globalTracking->QueryBoolAttribute("followElliptical", &_globalTrackingMotion->_followElliptical);
+					globalTracking->QueryAttribute("mouseNeutralX", &_globalTracking->_mouseNeutralPos.x);
+					globalTracking->QueryAttribute("mouseNeutralY", &_globalTracking->_mouseNeutralPos.y);
+					globalTracking->QueryAttribute("mouseAreaX", &_globalTracking->_mouseAreaSize.x);
+					globalTracking->QueryAttribute("mouseAreaY", &_globalTracking->_mouseAreaSize.y);
+					globalTracking->QueryAttribute("neutralFollowsWindow", &_globalTracking->_mouseNeutralFollowsWindow);
 
-					globalTracking->QueryAttribute("trackingAxis", (int*)&_globalTracking._trackingAxis);
-					globalTracking->QueryAttribute("trackingDeadzone", &_globalTracking._axisDeadzone);
+					globalTracking->QueryAttribute("trackingAxis", (int*)&_globalTracking->_trackingAxis);
+					globalTracking->QueryAttribute("trackingDeadzone", &_globalTracking->_axisDeadzone);
 
-					globalTracking->QueryAttribute("trackingSmooth", &_globalTrackingMotion._trackingSmooth);
-					globalTracking->QueryAttribute("trackingLimitX", &_globalTrackingMotion._trackingMoveLimits.x);
-					globalTracking->QueryAttribute("trackingLimitY", &_globalTrackingMotion._trackingMoveLimits.y);
-					globalTracking->QueryBoolAttribute("untrackedWhenHidden", &_globalTrackingMotion._trackingOffWhenHidden);
-					globalTracking->QueryAttribute("trackingRotLimitX", &_globalTrackingMotion._trackingRotation.x);
-					globalTracking->QueryAttribute("trackingRotLimitY", &_globalTrackingMotion._trackingRotation.y);
+					globalTracking->QueryAttribute("trackingSmooth", &_globalTrackingMotion->_trackingSmooth);
+					globalTracking->QueryAttribute("trackingLimitX", &_globalTrackingMotion->_trackingMoveLimits.x);
+					globalTracking->QueryAttribute("trackingLimitY", &_globalTrackingMotion->_trackingMoveLimits.y);
+					globalTracking->QueryBoolAttribute("untrackedWhenHidden", &_globalTrackingMotion->_trackingOffWhenHidden);
+					globalTracking->QueryAttribute("trackingRotLimitX", &_globalTrackingMotion->_trackingRotation.x);
+					globalTracking->QueryAttribute("trackingRotLimitY", &_globalTrackingMotion->_trackingRotation.y);
 
-					globalTracking->QueryAttribute("trackingSelect", (int*)&_globalTracking._trackingSelect);
-					if (_globalTracking._trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
+					globalTracking->QueryAttribute("trackingSelect", (int*)&_globalTracking->_trackingSelect);
+					if (_globalTracking->_trackingSelect == LayerInfo::TRACKINGSELECT_SPECIFIC)
 					{
 						if (const char* ctrlrName = globalTracking->Attribute("trackingControllerName"))
 						{
 							//if a controller name exists, use that and let the index be set later
-							_globalTracking._trackingJoystick.first = -1;
-							_globalTracking._trackingJoystick.second.name = ctrlrName;
-							globalTracking->QueryAttribute("trackingControllerAlikeIdx", &_globalTracking._trackingJoystick.second.alikeIdx);
+							_globalTracking->_trackingJoystick.first = -1;
+							_globalTracking->_trackingJoystick.second.name = ctrlrName;
+							globalTracking->QueryAttribute("trackingControllerAlikeIdx", &_globalTracking->_trackingJoystick.second.alikeIdx);
 
 						}
 						else
 						{
 							//(old method) take the controller index and hope it's right
-							globalTracking->QueryAttribute("trackingControllerID", &_globalTracking._trackingJoystick.first);
+							globalTracking->QueryAttribute("trackingControllerID", &_globalTracking->_trackingJoystick.first);
 						}
 					}
 					else
-						_globalTracking._trackingJoystick = { -1, GamePadID() };
+						_globalTracking->_trackingJoystick = { -1, GamePadID() };
 
-					globalTracking->QueryAttribute("trackingScaleMode", (int*)&_globalTrackingMotion._trackingScaleMode);
-					globalTracking->QueryAttribute("trackingScaleHorizontalX", &_globalTrackingMotion._trackingScaleHorizontal.x);
-					globalTracking->QueryAttribute("trackingScaleHorizontalY", &_globalTrackingMotion._trackingScaleHorizontal.y);
-					globalTracking->QueryAttribute("trackingScaleVerticalX", &_globalTrackingMotion._trackingScaleVertical.x);
-					globalTracking->QueryAttribute("trackingScaleVerticalY", &_globalTrackingMotion._trackingScaleVertical.y);
-					globalTracking->QueryBoolAttribute("clampTrackingScale", &_globalTrackingMotion._clampTrackingScale);
-					globalTracking->QueryAttribute("trackingScaleClampX", &_globalTrackingMotion._trackingScaleClamp.x);
-					globalTracking->QueryAttribute("trackingScaleClampY", &_globalTrackingMotion._trackingScaleClamp.y);
-					globalTracking->QueryAttribute("trackingScaleAbsolute", &_globalTrackingMotion._trackingScaleAbsolute);
+					globalTracking->QueryAttribute("trackingScaleMode", (int*)&_globalTrackingMotion->_trackingScaleMode);
+					globalTracking->QueryAttribute("trackingScaleHorizontalX", &_globalTrackingMotion->_trackingScaleHorizontal.x);
+					globalTracking->QueryAttribute("trackingScaleHorizontalY", &_globalTrackingMotion->_trackingScaleHorizontal.y);
+					globalTracking->QueryAttribute("trackingScaleVerticalX", &_globalTrackingMotion->_trackingScaleVertical.x);
+					globalTracking->QueryAttribute("trackingScaleVerticalY", &_globalTrackingMotion->_trackingScaleVertical.y);
+					globalTracking->QueryBoolAttribute("clampTrackingScale", &_globalTrackingMotion->_clampTrackingScale);
+					globalTracking->QueryAttribute("trackingScaleClampX", &_globalTrackingMotion->_trackingScaleClamp.x);
+					globalTracking->QueryAttribute("trackingScaleClampY", &_globalTrackingMotion->_trackingScaleClamp.y);
+					globalTracking->QueryAttribute("trackingScaleAbsolute", &_globalTrackingMotion->_trackingScaleAbsolute);
 				}
 
 
@@ -3877,6 +3893,9 @@ void LayerManager::Init(AppConfig* appConf, UIConfig* uiConf)
 		_pinIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PIN);
 		_pinOffIcon = _appConfig->_textureMan.GetIcon(TextureManager::ICON_PIN_OFF);
 	}
+
+	_globalTracking = std::make_unique<LayerInfo::TrackingSettings>();
+	_globalTrackingMotion = std::make_unique<LayerInfo::TrackingMotion>();
 }
 
 void LayerManager::DrawStatesGUI()
@@ -5362,14 +5381,14 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 		return;
 
 	if (_useGlobalTracking)
-		_trackingSettings = &_parent->_globalTracking;
+		_trackingSettings = _parent->_globalTracking.get();
 	else
-		_trackingSettings = &_uniqueTracking;
+		_trackingSettings = _uniqueTracking.get();
 
 	if (_useGlobalTrackingMotion)
-		_trackingMotion = &_parent->_globalTrackingMotion;
+		_trackingMotion = _parent->_globalTrackingMotion.get();
 	else
-		_trackingMotion = &_uniqueTrackingMotion;
+		_trackingMotion = _uniqueTrackingMotion.get();
 
 	sf::Vector2f newTrackingAmount = {0, 0};
 
@@ -6430,6 +6449,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				///////////////////////////////////////////////// TRACKING ///////////////////////////////////////////////
 
+				if (_trackingSettings == nullptr || _trackingMotion == nullptr)
+				{
+					if (_useGlobalTracking)
+						_trackingSettings = _parent->_globalTracking.get();
+					else
+						_trackingSettings = _uniqueTracking.get();
+
+					if (_useGlobalTrackingMotion)
+						_trackingMotion = _parent->_globalTrackingMotion.get();
+					else
+						_trackingMotion = _uniqueTrackingMotion.get();
+				}
+
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				_parent->DrawTrackingGUI(_trackingSettings, _trackingMotion, indentSize, _trackingType, _useGlobalTracking, _useGlobalTrackingMotion, style, this, false);
 				oldCursorPos = ImGui::GetCursorPos();
@@ -6809,9 +6841,9 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 			if (ImGui::Checkbox("Use Global Tracking Setup", &useGlobalTracking))
 			{
 				if (useGlobalTracking)
-					_trackingSettings = &_globalTracking;
+					_trackingSettings = _globalTracking.get();
 				else
-					_trackingSettings = &layer->_uniqueTracking;
+					_trackingSettings = layer->_uniqueTracking.get();
 			}
 		}
 
@@ -6826,8 +6858,8 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 
 				if (!isGlobalDialog)
 				{
-					trackCenter = _globalTracking._mouseNeutralPos;
-					distFactor = _globalTracking._mouseAreaSize;
+					trackCenter = _globalTracking->_mouseNeutralPos;
+					distFactor = _globalTracking->_mouseAreaSize;
 				}
 
 				if (_trackingSettings->_mouseNeutralFollowsWindow)
@@ -6912,7 +6944,7 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 				}
 				ToolTip("Choose which axis this layer will track.", &_appConfig->_hoverTimer);
 
-				const float deadzoneReset = isGlobalDialog ? 0.f : _globalTracking._axisDeadzone;
+				const float deadzoneReset = isGlobalDialog ? 0.f : _globalTracking->_axisDeadzone;
 				AddResetButton("axisDeadzone", _trackingSettings->_axisDeadzone, deadzoneReset, _appConfig, &style);
 				if (FloatSliderDrag("Axis Deadzone", &_trackingSettings->_axisDeadzone, 0.f, 0.99f, "%.2f", 0, _uiConfig->_numberEditType))
 					Clamp(_trackingSettings->_axisDeadzone, 0.0f, 0.99f);
@@ -6925,24 +6957,24 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 		if (!isGlobalDialog && ImGui::Checkbox("Use Global Motion", &useGlobalMotion))
 		{
 			if (useGlobalMotion)
-				_trackingMotion = &_globalTrackingMotion;
+				_trackingMotion = _globalTrackingMotion.get();
 			else
-				_trackingMotion = &layer->_uniqueTrackingMotion;
+				_trackingMotion = layer->_uniqueTrackingMotion.get();
 		}
 
 		if(!useGlobalMotion || isGlobalDialog)
 		{
-			const float smoothReset = isGlobalDialog ? 0.2f : _globalTrackingMotion._trackingSmooth;
+			const float smoothReset = isGlobalDialog ? 0.2f : _globalTrackingMotion->_trackingSmooth;
 			AddResetButton("trackingSmooth", _trackingMotion->_trackingSmooth, smoothReset, _appConfig, &style);
 			FloatSliderDrag("Smooth", &_trackingMotion->_trackingSmooth, 0.f, 1.f, "%.2f", ImGuiInputTextFlags_CharsNoBlank, _uiConfig->_numberEditType);
 			ToolTip("How much to smooth the movement", &_appConfig->_hoverTimer);
 
-			const sf::Vector2f moveReset = isGlobalDialog ? sf::Vector2f(50.f, 50.f) : _globalTrackingMotion._trackingMoveLimits;
+			const sf::Vector2f moveReset = isGlobalDialog ? sf::Vector2f(50.f, 50.f) : _globalTrackingMotion->_trackingMoveLimits;
 			AddResetButton("moveLimits", _trackingMotion->_trackingMoveLimits, moveReset, _appConfig, &style);
 			Float2SliderDrag("Movement Limits", &_trackingMotion->_trackingMoveLimits.x, -halfFullscreen.x, halfFullscreen.x, "%.1f px", 0, _uiConfig->_numberEditType);
 			ToolTip("The maximum offset applied to the layer position.", &_appConfig->_hoverTimer, true);
 
-			const sf::Vector2f rotReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion._trackingRotation;
+			const sf::Vector2f rotReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion->_trackingRotation;
 			AddResetButton("rotLimits", _trackingMotion->_trackingRotation, rotReset, _appConfig, &style);
 			Float2SliderDrag("Rotation Limits", &_trackingMotion->_trackingRotation.x, -180.f, 180.f, "%.1f deg", 0, _uiConfig->_numberEditType);
 			ToolTip("The maximum rotation applied to the layer.\n(First box is from horizontal movement, 2nd box from vertical)", &_appConfig->_hoverTimer, true);
@@ -6971,7 +7003,7 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 			if ((_trackingMotion->_trackingScaleMode & LayerInfo::TRACKINGSCALE_SPLIT) == 0)
 			{
 				sf::Vector2f uniformScale = { _trackingMotion->_trackingScaleHorizontal.x, _trackingMotion->_trackingScaleVertical.x };
-				const sf::Vector2f reset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : sf::Vector2f(_globalTrackingMotion._trackingScaleHorizontal.x, _globalTrackingMotion._trackingScaleVertical.x );
+				const sf::Vector2f reset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : sf::Vector2f(_globalTrackingMotion->_trackingScaleHorizontal.x, _globalTrackingMotion->_trackingScaleVertical.x );
 
 				bool scalereset = AddResetButton("scaleLimits", uniformScale, reset, _appConfig, &style);
 				if (Float2SliderDrag("Scale", &uniformScale.x, -2.f, 2.f, "%.3f", 0, _uiConfig->_numberEditType) || scalereset)
@@ -6983,13 +7015,13 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 			}
 			else
 			{
-				const sf::Vector2f limitsHReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion._trackingScaleHorizontal;
+				const sf::Vector2f limitsHReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion->_trackingScaleHorizontal;
 
 				AddResetButton("scaleLimitsHoriz", _trackingMotion->_trackingScaleHorizontal, limitsHReset, _appConfig, &style);
 				Float2SliderDrag("Horizontal Scale", &_trackingMotion->_trackingScaleHorizontal.x, -2.f, 2.f, "%.3f", 0, _uiConfig->_numberEditType);
 				ToolTip("The scale added to the layer from\nhorizontal mouse/controller movement", &_appConfig->_hoverTimer, true);
 
-				const sf::Vector2f limitsVReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion._trackingScaleVertical;
+				const sf::Vector2f limitsVReset = isGlobalDialog ? sf::Vector2f(0.f, 0.f) : _globalTrackingMotion->_trackingScaleVertical;
 
 				AddResetButton("scaleLimitsVert", _trackingMotion->_trackingScaleVertical, limitsVReset, _appConfig, &style);
 				Float2SliderDrag("Vertical Scale", &_trackingMotion->_trackingScaleVertical.x, -2.f, 2.f, "%.3f", 0, _uiConfig->_numberEditType);
@@ -7009,7 +7041,7 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 
 			if (_trackingMotion->_clampTrackingScale)
 			{
-				const sf::Vector2f scaleReset = isGlobalDialog ? sf::Vector2f(-2.f, 2.f) : _globalTrackingMotion._trackingScaleClamp;
+				const sf::Vector2f scaleReset = isGlobalDialog ? sf::Vector2f(-2.f, 2.f) : _globalTrackingMotion->_trackingScaleClamp;
 
 				AddResetButton("scaleClamp", _trackingMotion->_trackingScaleClamp, scaleReset, _appConfig, &style);
 				Float2SliderDrag("Scale Clamp", &_trackingMotion->_trackingScaleClamp.x, -2.f, 2.f, "%.3f", 0, _uiConfig->_numberEditType);

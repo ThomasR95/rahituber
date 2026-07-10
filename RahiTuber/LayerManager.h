@@ -471,10 +471,10 @@ public:
 		};
 
 		TrackingSettings* _trackingSettings = {};
-		TrackingSettings _uniqueTracking = {};
+		std::shared_ptr<TrackingSettings> _uniqueTracking = {};
 
 		TrackingMotion* _trackingMotion= {};
-		TrackingMotion _uniqueTrackingMotion = {};
+		std::shared_ptr<TrackingMotion> _uniqueTrackingMotion = {};
 
 
 		ImVec4 _layerColor = { 0,0,0,0 };
@@ -574,8 +574,8 @@ public:
 	void DrawMenusLayerSetUI();
 
 	void DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSettings, LayerInfo::TrackingMotion* _trackingMotion, float indentSize, LayerManager::LayerInfo::TrackingMode& trackingType, bool& useGlobalTracking, bool& useGlobalMotion, ImGuiStyle& style, LayerInfo* layer = nullptr, bool isGlobalDialog = false);
-	LayerInfo::TrackingSettings* GetTrackingSettings() { return &_globalTracking; }
-	LayerInfo::TrackingMotion* GetTrackingMotion() { return &_globalTrackingMotion; }
+	LayerInfo::TrackingSettings* GetTrackingSettings() { return _globalTracking.get(); }
+	LayerInfo::TrackingMotion* GetTrackingMotion() { return _globalTrackingMotion.get(); }
 
 
 	bool IsEmptyAndIdle()
@@ -828,8 +828,8 @@ private:
 
 	bool _pivotPreservePosition = true;
 
-	LayerInfo::TrackingSettings _globalTracking = {};
-	LayerInfo::TrackingMotion _globalTrackingMotion = {};
+	std::unique_ptr<LayerInfo::TrackingSettings> _globalTracking = {};
+	std::unique_ptr<LayerInfo::TrackingMotion> _globalTrackingMotion = {};
 
 	std::map<std::string, bool> _defaultLayerStates;
 	std::deque<StatesInfo*> _statesOrder;
