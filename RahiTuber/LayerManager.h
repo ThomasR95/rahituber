@@ -160,7 +160,6 @@ public:
 
 	struct LayerInfo 
 	{
-
 		enum BounceType
 		{
 			BounceNone = 0,

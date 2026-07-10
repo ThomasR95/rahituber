@@ -1537,8 +1537,14 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 				newLayer._sprites[(SpriteType)sp] = toCopy->_sprites.at((SpriteType)sp).Copy();
 		}
 
-		layer->_uniqueTracking = std::make_shared<LayerInfo::TrackingSettings>(*(toCopy->_uniqueTracking));
-		layer->_uniqueTrackingMotion = std::make_shared<LayerInfo::TrackingMotion>(*(toCopy->_uniqueTrackingMotion));
+		newLayer._uniqueTracking.reset();
+		newLayer._uniqueTrackingMotion.reset();
+
+		newLayer._uniqueTracking = std::make_shared<LayerInfo::TrackingSettings>();
+		newLayer._uniqueTrackingMotion = std::make_shared<LayerInfo::TrackingMotion>();
+
+		*(newLayer._uniqueTracking.get()) = *(toCopy->_uniqueTracking.get());
+		*(newLayer._uniqueTrackingMotion.get()) = *(toCopy->_uniqueTrackingMotion.get());
 
 		newLayer.SyncAnims(newLayer._animsSynced);
 
@@ -6449,18 +6455,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				///////////////////////////////////////////////// TRACKING ///////////////////////////////////////////////
 
-				if (_trackingSettings == nullptr || _trackingMotion == nullptr)
-				{
-					if (_useGlobalTracking)
-						_trackingSettings = _parent->_globalTracking.get();
-					else
-						_trackingSettings = _uniqueTracking.get();
+				if (_useGlobalTracking)
+					_trackingSettings = _parent->_globalTracking.get();
+				else
+					_trackingSettings = _uniqueTracking.get();
 
-					if (_useGlobalTrackingMotion)
-						_trackingMotion = _parent->_globalTrackingMotion.get();
-					else
-						_trackingMotion = _uniqueTrackingMotion.get();
-				}
+				if (_useGlobalTrackingMotion)
+					_trackingMotion = _parent->_globalTrackingMotion.get();
+				else
+					_trackingMotion = _uniqueTrackingMotion.get();
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				_parent->DrawTrackingGUI(_trackingSettings, _trackingMotion, indentSize, _trackingType, _useGlobalTracking, _useGlobalTrackingMotion, style, this, false);
