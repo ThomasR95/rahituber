@@ -47,6 +47,14 @@ const std::vector<std::string> g_canTriggerNames
 	"While Idle"
 };
 
+void SaveRTImage(sf::RenderTexture& rt, const std::string& name)
+{
+	rt.display();
+	rt.getTexture().copyToImage().saveToFile(name);
+}
+
+//#define DEBUG_CLIP_RENDERING
+
 void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float windowWidth, float talkLevel, float talkMax, PhonemeMask phMask)
 {
 	_lastTalkLevel = talkLevel;
@@ -295,9 +303,14 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 
 				if(layer._isClipInverted)
-					clipRTs._clipRT.clear({ 0,0,0,1 });
+					clipRTs._clipRT.clear({ 0,0,0,255 });
 				else
 					clipRTs._clipRT.clear({ 0,0,0,0 });
+
+#ifdef DEBUG_CLIP_RENDERING
+				if (layer._isClipInverted)
+					SaveRTImage(clipRTs._clipRT, _appConfig->_appLocation+"01_clipRT_init.png");
+#endif
 
 				if (clipRTs._soloLayerInitialized == false || target->getSize() != clipRTs._soloLayerRT.getSize())
 				{
@@ -305,6 +318,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipRTs._soloLayerInitialized = true;
 				}
 				clipRTs._soloLayerRT.clear({ 0,0,0,0 });
+
+#ifdef DEBUG_CLIP_RENDERING
+				if (layer._isClipInverted)
+					SaveRTImage(clipRTs._soloLayerRT, _appConfig->_appLocation + "02_soloLayerRT_init.png");
+#endif
 
 				sf::RenderStates clipState = sf::RenderStates::Default;
 
@@ -334,6 +352,11 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					csp.second->Draw(&clipRTs._clipRT, clipState);
 				}
 
+#ifdef DEBUG_CLIP_RENDERING
+				if (layer._isClipInverted)
+					SaveRTImage(clipRTs._clipRT, _appConfig->_appLocation + "03_clipRT_clipDrawn.png");
+#endif
+
 				layer._clipRect.setSize(sf::Vector2f(target->getSize().x, target->getSize().y));
 				layer._clipRect.setPosition({ 0,0 });
 
@@ -358,6 +381,12 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 				}
 
 				clipRTs._soloLayerRT.display();
+
+#ifdef DEBUG_CLIP_RENDERING
+				if (layer._isClipInverted)
+					SaveRTImage(clipRTs._soloLayerRT, _appConfig->_appLocation + "04_soloLayerRT_layerDrawn.png");
+#endif
+
 				layer._clipRect.setTexture(&clipRTs._soloLayerRT.getTexture(), true);
 
 				sf::RenderStates clipState2 = sf::RenderStates::Default;
