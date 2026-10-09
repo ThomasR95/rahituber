@@ -523,6 +523,28 @@ inline float Min(T a, T b)
 	return b;
 }
 
+template<typename T>
+inline double Length(const sf::Vector2<T>& v)
+{
+	return sqrt(pow(v.x, 2.0) + pow(v.y, 2.0));
+}
+
+template<typename T>
+inline sf::Vector2f Norm(sf::Vector2<T> in)
+{
+	float len = Length(in);
+	if (len == 0)
+		return sf::Vector2f(in);
+
+	return { (float)in.x/len, (float)in.y/len };
+}
+
+template<typename T>
+inline sf::Vector2f Sign(sf::Vector2<T> in)
+{
+	return { (float)(in.x > 0), (float)(in.y > 0) };
+}
+
 namespace ImGui
 {
 	inline bool BeginTooltip(bool overwrite)
@@ -1016,16 +1038,6 @@ inline std::string UTF8ToANSI(const std::string& input)
     // linux already using utf8 (probably)
     return input;
 #endif
-}
-
-inline float Length(const sf::Vector2f& v)
-{
-    return sqrt(pow(v.x, 2.f) + pow(v.y, 2.f));
-}
-
-inline double Length(const sf::Vector2<double>& v)
-{
-	return sqrt(pow(v.x, 2.0) + pow(v.y, 2.0));
 }
 
 inline float Dot(const sf::Vector2f& a, const sf::Vector2f& b)

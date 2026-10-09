@@ -966,11 +966,7 @@ public:
 
 #ifdef _WIN32
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
-
-					ImGui::TableNextColumn();
-					ImGui::SetNextItemWidth(ImGui::CalcTextSize("RawInput").x + UIUnit * 2);
+					ImGui::SetNextItemWidth(ImGui::CalcTextSize(g_gamepadAPINames[appConfig->_gamepadAPI]).x + UIUnit * 2);
 					if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
 					{
 						for (int api = 0; api < GAMEPAD_API_END; api++)
@@ -988,9 +984,71 @@ public:
 					ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
+					ImGui::SetNextItemWidth(ImGui::CalcTextSize(g_gamepadAPINames[appConfig->_mouseAPI]).x + UIUnit * 2);
+					if (ImGui::BeginCombo("Mouse API", g_gamepadAPINames[appConfig->_mouseAPI]))
+					{
+						for (int api = 0; api < GAMEPAD_API_END; api++)
+						{
+							if (api == GAMEPAD_API_XINPUT)
+								continue;
+
+							if (ImGui::Selectable(g_gamepadAPINames[api], appConfig->_mouseAPI == api))
+							{
+								appConfig->_mouseAPI = api;
+								GamePad::setMouseAPI(GamepadAPI(api));
+							}
+							ToolTip(g_gamepadAPITooltips[api], &appConfig->_hoverTimer);
+						}
+
+						ImGui::EndCombo();
+					}
+					ToolTip("Select which method to read mouse status.", &appConfig->_hoverTimer);
+
+
+					if (appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT)
+					{
+						ImGui::EndTable();
+						ImGui::SeparatorText("Mouse handling");
+
+						if (ImGui::Checkbox("Movement-based", &appConfig->_mouseRelative))
+						{
+							GamePad::setMouseRelativeTracking(appConfig->_mouseRelative);
+						}
+						ToolTip("Track Mouse movement instead of position\nThis is useful for games that lock your cursor", &appConfig->_hoverTimer);
+
+						if (appConfig->_mouseRelative)
+						{
+							bool anyChanged = false;
+
+							anyChanged |= FloatSliderDrag("Return speed", &appConfig->_mouseReturnSpeed, 10, 10000, "%.0f px/s");
+							ToolTip("How fast the mouse returns to the neutral point", &appConfig->_hoverTimer);
+
+							anyChanged |= FloatSliderDrag("Delay", &appConfig->_mouseTimeout, 0, 10, "%.1f s");
+							ToolTip("How long the mouse waits before starting to return", &appConfig->_hoverTimer);
+
+							anyChanged |= FloatSliderDrag("Ease", &appConfig->_mouseEase, 0, 10, "%.1f s");
+							ToolTip("How long the mouse accelerates/decelerates for", &appConfig->_hoverTimer);
+
+							anyChanged |= FloatSliderDrag("Deadzone", &appConfig->_mouseDeadzone, 0, 50, "%.0f dots");
+							ToolTip("How many dots the mouse must move before restarting the delay\n(Note: dots not pixels - this is raw device movement data)", &appConfig->_hoverTimer);
+
+							if (anyChanged)
+								GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone);
+						}
+
+						ImGui::Separator();
+						
+						ImGui::BeginTable("##IntegrationOptions2", 2, ImGuiTableFlags_SizingStretchSame);
+						
+					}
+
+					ImGui::TableNextColumn();
 					ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
 					ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
 
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
+					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
 #endif
 
 					ImGui::EndTable();
@@ -2779,7 +2837,7 @@ public:
 			else if (evt.type == evt.MouseButtonPressed)
 			{
 				//check if user clicked in the corners for window resize
-				if (sf::Mouse::isButtonPressed(sf::Mouse::Left) && !appConfig->_isFullScreen)
+				if (GamePad::isMouseButtonPressed(sf::Mouse::Left) && !appConfig->_isFullScreen)
 				{
 					float cornerGrabSize = 20 * appConfig->mainWindowScaling;
 
@@ -3692,7 +3750,9 @@ If you accept, please click the Accept button.
 		if (appConfig->_listenHTTP)
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
-        GamePad::init((void*)appConfig->_window.getSystemHandle(), appConfig, (GamepadAPI)appConfig->_gamepadAPI);
+		GamePad::init((void*)appConfig->_window.getSystemHandle(), appConfig, (GamepadAPI)appConfig->_gamepadAPI, (GamepadAPI)appConfig->_mouseAPI);
+		GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone);
+		GamePad::setMouseRelativeTracking(appConfig->_mouseRelative);
 
 		_FXAAShader.loadFromMemory(SFML_DefaultVert, SFML_FXAAFrag);
 

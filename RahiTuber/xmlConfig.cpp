@@ -135,6 +135,13 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("gamepadAPI", &_appConfig->_gamepadAPI);
 	common->QueryAttribute("gamepadThreaded", &_appConfig->_gamepadThreaded);
 
+	common->QueryAttribute("mouseAPI", &_appConfig->_mouseAPI);
+	common->QueryAttribute("mouseRelative", &_appConfig->_mouseRelative);
+	common->QueryAttribute("mouseTimeout", &_appConfig->_mouseTimeout);
+	common->QueryAttribute("mouseEase", &_appConfig->_mouseEase);
+	common->QueryAttribute("mouseReturnSpeed", &_appConfig->_mouseReturnSpeed);
+	common->QueryAttribute("mouseDeadzone", &_appConfig->_mouseDeadzone);
+
 	common->QueryAttribute("acceptMergeDuplicates", &_appConfig->_layerManAcceptMergeDuplicates);
 	common->QueryAttribute("savePortableRelativeToXML", &_appConfig->_savePortableRelativeToXML);
 
@@ -278,6 +285,13 @@ bool xmlConfigLoader::saveCommon()
 
 			common->SetAttribute("gamepadAPI", _appConfig->_gamepadAPI);
 			common->SetAttribute("gamepadThreaded", _appConfig->_gamepadThreaded);
+
+			common->SetAttribute("mouseAPI", _appConfig->_mouseAPI);
+			common->SetAttribute("mouseRelative", _appConfig->_mouseRelative);
+			common->SetAttribute("mouseTimeout", _appConfig->_mouseTimeout);
+			common->SetAttribute("mouseEase", _appConfig->_mouseEase);
+			common->SetAttribute("mouseReturnSpeed", _appConfig->_mouseReturnSpeed);
+			common->SetAttribute("mouseDeadzone", _appConfig->_mouseDeadzone);
 
 			common->SetAttribute("acceptMergeDuplicates", _appConfig->_layerManAcceptMergeDuplicates);
 			common->SetAttribute("savePortableRelativeToXML", _appConfig->_savePortableRelativeToXML);

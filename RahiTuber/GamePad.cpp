@@ -2,48 +2,110 @@
 
 #include "GamePad.h"
 
+#ifdef _WIN32
 
-void GamePadImpl::init(void* wndHandle, AppConfig* appcfg, GamepadAPI api)
+#include <windows.h>
+
+bool IsMouseCapturedElsewhere() {
+	// get thread info for windows's current foreground window, 
+	// check if it has hwndCapture set
+
+	HWND foregroundWindow = GetForegroundWindow();
+	if (foregroundWindow == NULL) return false;
+
+	DWORD processId;
+	DWORD threadId = GetWindowThreadProcessId(foregroundWindow, &processId);
+
+	GUITHREADINFO gti;
+	gti.cbSize = sizeof(GUITHREADINFO);
+
+	if (GetGUIThreadInfo(threadId, &gti)) {
+		if (gti.hwndCapture != NULL) {
+			return true;
+		}
+	}
+	return false;
+}
+
+#endif
+
+void GamePadImpl::init(void* wndHandle, AppConfig* appcfg, GamepadAPI api, GamepadAPI mouseApi)
 {
 	inputAPI = api;
+	mouseInputAPI = mouseApi;
 	appConfig = appcfg;
 #ifdef _WIN32
 
+
+	///https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input
+
 	windowHandle = (HWND)wndHandle;
 
-	if (inputAPI == GAMEPAD_API_RAWINPUT)
+	registeredRIDs.clear();
+
+	if (inputAPI == GAMEPAD_API_RAWINPUT || mouseInputAPI == GAMEPAD_API_RAWINPUT)
 	{
-		RAWINPUTDEVICE deviceList[2] = { 0 };
-
-		deviceList[0].usUsagePage = 0x01;
-		deviceList[0].usUsage = 0x04;
-		deviceList[0].dwFlags = RIDEV_INPUTSINK;
-		deviceList[0].hwndTarget = windowHandle;
-
-		deviceList[1].usUsagePage = 0x01;
-		deviceList[1].usUsage = 0x05;
-		deviceList[1].dwFlags = RIDEV_INPUTSINK;
-		deviceList[1].hwndTarget = windowHandle;
-
-		UINT deviceCount = sizeof(deviceList) / sizeof(*deviceList);
-		if (RegisterRawInputDevices(deviceList, deviceCount, sizeof(RAWINPUTDEVICE)) == FALSE)
+		if (inputAPI == GAMEPAD_API_RAWINPUT)
 		{
-			printf("RAWINPUT registration failed!");
+			registeredRIDs.push_back({});
+			RAWINPUTDEVICE& gpad = registeredRIDs.back();
+			gpad.usUsagePage = 0x01; // HID_USAGE_PAGE_GENERIC
+			gpad.usUsage = 0x04; // HID_USAGE_GENERIC_GAMEPAD
+			gpad.dwFlags = RIDEV_INPUTSINK;
+			gpad.hwndTarget = windowHandle;
+
+			registeredRIDs.push_back({});
+			RAWINPUTDEVICE& jstick = registeredRIDs.back();
+			jstick.usUsagePage = 0x01;
+			jstick.usUsage = 0x05; // HID_USAGE_GENERIC_JOYSTICK
+			jstick.dwFlags = RIDEV_INPUTSINK;
+			jstick.hwndTarget = windowHandle;
+		}
+
+		if (mouseInputAPI == GAMEPAD_API_RAWINPUT)
+		{
+			registeredRIDs.push_back({});
+			RAWINPUTDEVICE& mouse = registeredRIDs.back();
+			mouse.usUsagePage = 0x01;          // HID_USAGE_PAGE_GENERIC
+			mouse.usUsage = 0x02;              // HID_USAGE_GENERIC_MOUSE
+			mouse.dwFlags = RIDEV_INPUTSINK;    // adds mouse and also ignores legacy mouse messages
+			mouse.hwndTarget = windowHandle;
+		}
+		
+		if (RegisterRawInputDevices(registeredRIDs.data(), registeredRIDs.size(), sizeof(RAWINPUTDEVICE)) == FALSE)
+		{
+			logToFile(appConfig, "RAWINPUT registration failed! Falling back to SFML");
 			//registration failed. Call GetLastError for the cause of the error.
 
 			//fallback to sfml 
 			inputAPI = GAMEPAD_API_SFML;
+			mouseInputAPI = GAMEPAD_API_SFML;
+			registeredRIDs.clear();
 		}
 	}
 
 	if (inputAPI == GAMEPAD_API_XINPUT)
 	{
-		//if (!enabled)
-			//XInputEnable(TRUE);
+		if (!enabled)
+			XInputEnable(TRUE);
 	}
 
 	initialized = true;
 #endif
+}
+
+void GamePadImpl::unregister()
+{
+	for (auto& rid : registeredRIDs)
+	{
+		rid.dwFlags = RIDEV_REMOVE;
+		rid.hwndTarget = 0;
+	}
+
+	if (RegisterRawInputDevices(registeredRIDs.data(), registeredRIDs.size(), sizeof(RAWINPUTDEVICE)) == FALSE)
+	{
+		logToFile(appConfig, "RAWINPUT unregistration failed!");
+	}
 }
 
 void GamePadImpl::update()
@@ -80,7 +142,7 @@ void GamePadImpl::update()
 		return;
 	}
 
-	if (inputAPI == GAMEPAD_API_RAWINPUT)
+	if (inputAPI == GAMEPAD_API_RAWINPUT || mouseInputAPI == GAMEPAD_API_RAWINPUT)
 	{
 		//for (auto th = updateThreads.begin(); th != updateThreads.end(); th++)
 		//{
@@ -91,7 +153,7 @@ void GamePadImpl::update()
 		//	}
 		//}
 
-		UINT size;
+		UINT size = 0;
 		GetRawInputBuffer(0, &size, sizeof(RAWINPUTHEADER));
 		size *= 8;
 		RAWINPUT* rawInput = (RAWINPUT*)malloc(size);
@@ -102,12 +164,35 @@ void GamePadImpl::update()
 			for (UINT i = 0; i < inputCount; ++i)
 			{
 				//updateThreads.push_back(std::thread(&GamePadImpl::storeRawInputData, this, *nextInput));
-				storeRawInputData(*nextInput);
-				nextInput = NEXTRAWINPUTBLOCK(nextInput);
+				if (nextInput)
+				{
+					storeRawInputData(*nextInput);
+					nextInput = NEXTRAWINPUTBLOCK(nextInput);
+				}
 			}
 		}
 
 		free(rawInput);
+
+		if (mouseInputAPI == GAMEPAD_API_RAWINPUT && mouseRelativeTracking)
+		{
+			float frameReturnSpeed = returnSpeed / Max(appConfig->_fps, 30.f);
+
+			sf::Vector2i appTrackCenter(appConfig->_globalMouseNeutral);
+			if (appConfig->_globalMouseNeutralFollows)
+				appTrackCenter += appConfig->_window.getPosition();
+
+			float mouseAccel = Clamp((float)(mouseTimer.getElapsedTime().asMilliseconds() - mouseTimeout) / (float)Clamp(mouseEase, 1, 10000));
+
+			float returnDecelZone = Clamp(returnSpeed * pow((float)mouseEase / 1000, 3.0), 2, returnSpeed);
+			auto toCenter = appTrackCenter - mousePos;
+			float distToCenter = Length(toCenter);
+			float mouceDecel = Clamp((distToCenter / returnDecelZone));
+
+			float mouseSpeed = mouseAccel * mouceDecel * frameReturnSpeed;
+
+			mousePos += sf::Vector2i(sf::Vector2f(Norm(toCenter)) * Min(distToCenter, mouseSpeed));
+		}
 
 		return;
 	}
@@ -334,6 +419,57 @@ void GamePadImpl::storeRawInputData(const RAWINPUT& input)
 	devInfo.cbSize = sizeof(RID_DEVICE_INFO);
 	UINT idsize = devInfo.cbSize;
 	GetRawInputDeviceInfoA(input.header.hDevice, RIDI_DEVICEINFO, &devInfo, &idsize);
+
+	if (input.header.dwType == RIM_TYPEMOUSE && mouseInputAPI == GAMEPAD_API_RAWINPUT)
+	{
+		const RAWMOUSE* mouse = &input.data.mouse;
+
+		if (mouseRelativeTracking == false || mouse->usFlags & MOUSE_MOVE_ABSOLUTE)
+		{
+			POINT mousePoint;
+			GetCursorPos(&mousePoint);
+			mousePos = sf::Vector2i(mousePoint.x, mousePoint.y);
+		}
+		else
+		{
+			sf::Vector2i appTrackCenter(appConfig->_globalMouseNeutral);
+			if (appConfig->_globalMouseNeutralFollows)
+				appTrackCenter += appConfig->_window.getPosition();
+
+			auto oldDist = Length(appTrackCenter - mousePos);
+			auto move = Clamp(sf::Vector2i(mouse->lLastX, mouse->lLastY), -100, 100);
+			mousePos += move;
+
+			auto newDist = Length(appTrackCenter - mousePos);
+			if (newDist > (oldDist - 50 * deadZone) && (newDist > (oldDist + deadZone) || Length(move) > deadZone*2))
+				mouseTimer.restart();
+
+			// if travelling fast enough toward center, skip delay & ease
+			if (mouseTimer.getElapsedTime().asMilliseconds() < (mouseTimeout + mouseEase) && newDist < (oldDist - (10 + 10 * deadZone)))
+			{
+				mouseTimer.ffwd(sf::milliseconds(mouseTimeout + mouseEase));
+			}
+		}
+
+		if (mouse->usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN)   mouseBtns[sf::Mouse::Button::Left] = true;
+		if (mouse->usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP)     mouseBtns[sf::Mouse::Button::Left] = false;
+		if (mouse->usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN)  mouseBtns[sf::Mouse::Button::Right] = true;
+		if (mouse->usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)    mouseBtns[sf::Mouse::Button::Right] = false;
+		if (mouse->usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) mouseBtns[sf::Mouse::Button::Middle] = true;
+		if (mouse->usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)   mouseBtns[sf::Mouse::Button::Middle] = false;
+		if (mouse->usButtonFlags & RI_MOUSE_BUTTON_4_DOWN)      mouseBtns[sf::Mouse::Button::XButton1] = true;
+		if (mouse->usButtonFlags & RI_MOUSE_BUTTON_4_UP)        mouseBtns[sf::Mouse::Button::XButton1] = false;
+		if (mouse->usButtonFlags & RI_MOUSE_BUTTON_5_DOWN)      mouseBtns[sf::Mouse::Button::XButton2] = true;
+		if (mouse->usButtonFlags & RI_MOUSE_BUTTON_5_UP)        mouseBtns[sf::Mouse::Button::XButton2] = false;
+
+		if (mouse->usButtonFlags & RI_MOUSE_WHEEL)
+			mouseWheel =+ (int)(short)mouse->usButtonData;
+		if (mouse->usButtonFlags & RI_MOUSE_HWHEEL)
+			mouseWheel =+ (int)(short)mouse->usButtonData;
+
+		return;
+	}
+
 
 	bool logValues = false;
 

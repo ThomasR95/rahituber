@@ -23,6 +23,8 @@
 #include "simple_fft/fft_settings.h"
 #include "imgui-SFML.h"
 
+#include "GamePad.h"
+
 
 // typedefing vectors
 typedef std::vector<real_type> RealArray1D;
@@ -166,6 +168,16 @@ struct AppConfig
 	int _gamepadAPI = 0;
 	int _gamepadModel = 0;
 	bool _gamepadThreaded = false;
+
+	int _mouseAPI = GamepadAPI::GAMEPAD_API_SFML;
+	bool _mouseRelative = false;
+	float _mouseTimeout = 0.5f;
+	float _mouseEase = 0.5f;
+	float _mouseReturnSpeed = 4000;
+	float _mouseDeadzone = 2;
+
+	sf::Vector2f _globalMouseNeutral = {};
+	bool _globalMouseNeutralFollows = false;
 
 	bool _gpuCompatibility = false;
 };

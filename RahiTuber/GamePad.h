@@ -92,12 +92,30 @@ public:
 
 	void setAPI(GamepadAPI api)
 	{
-		inputAPI = api;
+		unregister();
+		init(windowHandle, appConfig, api, mouseInputAPI);
 	}
 
-	void init(void* wndHandle = 0, AppConfig* appcfg = nullptr, GamepadAPI api = (GamepadAPI)0);
+	void setMouseAPI(GamepadAPI api)
+	{
+		if (api == GAMEPAD_API_XINPUT)
+			return;
+
+		unregister();
+		init(windowHandle, appConfig, inputAPI, api);
+	}
+
+	void setMouseRelativeTracking(bool rel) {
+		mouseRelativeTracking = rel; 
+		if (mouseRelativeTracking)
+			mousePos = { 0,0 };
+	}
+
+	void init(void* wndHandle = 0, AppConfig* appcfg = nullptr, GamepadAPI api = (GamepadAPI)0, GamepadAPI mouseApi = GAMEPAD_API_SFML);
 
 	void update();
+
+	void unregister();
 
 	float getAxisPosition(unsigned int gamepadID, sf::Joystick::Axis axis);
 
@@ -106,6 +124,23 @@ public:
 	std::map<int, GamePadID>& enumerateGamePads();
 
 	std::map<int, GamePadID>& getGamePads() { return _gamePadList; }
+
+	sf::Vector2i getMousePosition() 
+	{ 
+		return mouseInputAPI == GAMEPAD_API_RAWINPUT ? mousePos : sf::Mouse::getPosition();
+	}
+	bool isMouseButtonPressed(sf::Mouse::Button btn) 
+	{ 
+		return mouseInputAPI == GAMEPAD_API_RAWINPUT ? mouseBtns[btn] : sf::Mouse::isButtonPressed(btn);
+	}
+
+	void SetMouseMovementOptions(int speed, float ease, float delay, float dzone)
+	{
+		mouseEase = ease * 1000;
+		mouseTimeout = delay * 1000;
+		returnSpeed = speed;
+		deadZone = dzone;
+	}
 
 private:
 	std::map<int, GamePadID> _gamePadList;
@@ -158,6 +193,7 @@ private:
 	void storeRawInputData(const RAWINPUT& input);
 
 	GamepadAPI inputAPI = GAMEPAD_API_RAWINPUT;
+	GamepadAPI mouseInputAPI = GAMEPAD_API_SFML;
 
 	std::map<int, XINPUT_STATE> xStates = {};
 
@@ -173,14 +209,33 @@ private:
 	std::map<HANDLE, int> rawStateSFIDs;
 	std::map<int, RawState> rawStates = {};
 
+	std::vector<RAWINPUTDEVICE> registeredRIDs = {};
+
 	bool initialized = false;
 
 	HWND windowHandle;
+
+	bool mouseRelativeTracking = false;
+	sf::Vector2i mousePos = {};
+	float mouseWheel = 0;
+	std::map<sf::Mouse::Button, bool> mouseBtns = 
+	{{sf::Mouse::Button::Left, false},
+		{sf::Mouse::Button::Right, false},
+		{sf::Mouse::Button::Middle, false},
+		{sf::Mouse::Button::XButton1, false},
+		{sf::Mouse::Button::XButton2, false}};
+
+	int mouseTimeout = 500;
+	int mouseEase = 500;
+	ffwdClock mouseTimer;
+	float returnSpeed = 4000;
+	float deadZone = 2;
 
 	//std::list<std::thread> updateThreads;
 
 #else
     GamepadAPI inputAPI = GAMEPAD_API_SFML;
+		GamepadAPI mouseInputAPI = GAMEPAD_API_SFML;
 #endif
 
     AppConfig* appConfig = nullptr;
@@ -206,9 +261,14 @@ public:
 		GetInstance().setAPI(api);
 	}
 
-	static void init(void* wndHandle = 0, AppConfig* appcfg = nullptr, GamepadAPI api = (GamepadAPI)0)
+	static void setMouseAPI(GamepadAPI api)
 	{
-		GetInstance().init(wndHandle, appcfg, api);
+		GetInstance().setMouseAPI(api);
+	}
+
+	static void init(void* wndHandle = 0, AppConfig* appcfg = nullptr, GamepadAPI api = (GamepadAPI)0, GamepadAPI mouseApi = GAMEPAD_API_SFML)
+	{
+		GetInstance().init(wndHandle, appcfg, api, mouseApi);
 	}
 
 	static void update()
@@ -234,6 +294,26 @@ public:
 	static std::map<int, GamePadID>& getGamePads()
 	{
 		return GetInstance().getGamePads();
+	}
+
+	static sf::Vector2i getMousePosition()
+	{
+		return GetInstance().getMousePosition();
+	}
+
+	static bool isMouseButtonPressed(sf::Mouse::Button btn)
+	{
+		return GetInstance().isMouseButtonPressed(btn);
+	}
+
+	static void setMouseRelativeTracking(bool rel)
+	{
+		GetInstance().setMouseRelativeTracking(rel);
+	}
+
+	static void SetMouseMovementOptions(int speed, float ease, float delay, float dzone)
+	{
+		GetInstance().SetMouseMovementOptions(speed, ease, delay, dzone);
 	}
 
 private:

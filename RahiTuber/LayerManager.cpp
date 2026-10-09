@@ -3246,6 +3246,9 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					globalTracking->QueryAttribute("trackingScaleClampX", &_globalTrackingMotion->_trackingScaleClamp.x);
 					globalTracking->QueryAttribute("trackingScaleClampY", &_globalTrackingMotion->_trackingScaleClamp.y);
 					globalTracking->QueryAttribute("trackingScaleAbsolute", &_globalTrackingMotion->_trackingScaleAbsolute);
+
+					_appConfig->_globalMouseNeutral = _globalTracking->_mouseNeutralPos;
+					_appConfig->_globalMouseNeutralFollows = _globalTracking->_mouseNeutralFollowsWindow;
 				}
 
 
@@ -5482,10 +5485,15 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 	{
 		if ((_trackingType & TRACKING_MOUSE) && _parent->_appConfig->_mouseTrackingEnabled)
 		{
-			sf::Vector2f mousePos = (sf::Vector2f)sf::Mouse::getPosition();
+			sf::Vector2f mousePos = (sf::Vector2f)GamePad::getMousePosition();//(sf::Vector2f)sf::Mouse::getPosition();
+
 			auto neutralPos = _trackingSettings->_mouseNeutralPos;
 			if (_trackingSettings->_mouseNeutralFollowsWindow)
 				neutralPos += sf::Vector2f(_parent->_appConfig->_window.getPosition());
+
+			//if (_parent->_appConfig->_mouseRelative)
+			//	mousePos += neutralPos;
+
 			sf::Vector2f mouseMove = (mousePos - neutralPos);
 
 			const sf::Vector2f mouseMult = Clamp(mouseMove / _trackingSettings->_mouseAreaSize, -1.f, 1.f);
