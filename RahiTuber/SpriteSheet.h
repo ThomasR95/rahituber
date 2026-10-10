@@ -21,7 +21,7 @@ public:
 	void UpdateSize();
 
 	void UnloadTexture();
-	void ReloadTexture();
+	void ReloadTexture(bool force = false, const std::string& updatePath = "");
 	bool HasTexture();
 
 	void Clear();
@@ -37,6 +37,7 @@ public:
 	inline sf::Vector2f getScale() const { return _sprite.getScale(); }
 
 	inline sf::Texture* getTexture() { return _tex; }
+	inline void setTexture(sf::Texture* newTex) { _tex = newTex; }
 
 	inline void SetColor(const ImVec4& col) { _sprite.setColor({ sf::Uint8(255 * col.x), sf::Uint8(255 * col.y),sf::Uint8(255 * col.z),sf::Uint8(255 * col.w) }); }
 	inline void SetColor(const std::vector<float>& col) { _sprite.setColor({ sf::Uint8(255 * col[0]), sf::Uint8(255 * col[1]),sf::Uint8(255 * col[2]),sf::Uint8(255 * col[3]) }); }
@@ -132,11 +133,21 @@ public:
 		_texSmooth = smooth;
 	}
 
+	inline void ClearOptimised()
+	{
+		_preCropSize = { 0.f, 0.f };
+		_cropOffset = { 0.f, 0.f };
+		_optimised = false;
+	}
+
 
 	bool _visible = true;
 	bool _loop = true;
 
-	sf::Vector2f _offsetFromIdle = {};
+	sf::Vector2f _offsetFromIdle = {0.f, 0.f};
+	sf::Vector2f _preCropSize = {0.f, 0.f};
+	sf::Vector2f _cropOffset = {0.f, 0.f};
+	bool _optimised = false;
 
 private:
 

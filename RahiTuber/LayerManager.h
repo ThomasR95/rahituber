@@ -131,6 +131,8 @@ public:
 	{
 		sf::Vector2u origSize = {};
 		sf::IntRect cropRect = sf::IntRect(0,0,0,0);
+		std::string croppedPath = "";
+		bool reloadNeeded = false;
 	};
 
 	struct SpriteInfo
@@ -378,7 +380,7 @@ public:
 
 		void SyncAnims(bool sync);
 
-		void OptimiseSprites();
+		void OptimiseSprites(bool skipOptimised = true);
 
 		LayerManager::CropInfo CropTextureTransparency(sf::Texture* srcTex, std::string& imgpath);
 
@@ -480,7 +482,6 @@ public:
 
 		TrackingMotion* _trackingMotion= {};
 		std::shared_ptr<TrackingMotion> _uniqueTrackingMotion = {};
-
 
 		ImVec4 _layerColor = { 0,0,0,0 };
 

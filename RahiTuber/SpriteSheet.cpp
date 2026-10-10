@@ -155,19 +155,31 @@ void SpriteSheet::UnloadTexture()
 
 }
 
-void SpriteSheet::ReloadTexture()
+void SpriteSheet::ReloadTexture(bool force, const std::string& updatePath)
 {
-	if (_texMan == nullptr || !_spriteUnloaded)
+	if (!force && (_texMan == nullptr || !_spriteUnloaded))
 		return;
 
 	_spriteUnloaded = false;
 	_loadingThread = new std::thread([&]
 		{
+			bool texChanged = false;
+			if (updatePath != _texPath)
+			{
+				_texPath = updatePath;
+				texChanged = true;
+			}
 
 			auto tex = _texMan->GetTexture(_texPath, (void*)this);
 			_tex = tex;
 			_tex->setSmooth(_texSmooth);
-			_sprite.setTexture(*tex);
+			_sprite.setTexture(*tex, texChanged);
+
+			if (texChanged)
+			{
+				SetAttributes(_maxFrame, _gridSize.x, _gridSize.y, _fps, {-1,-1});
+			}
+
 			_spriteLoadFinished = true;
 
 		});

@@ -2,32 +2,6 @@
 
 #include "GamePad.h"
 
-#ifdef _WIN32
-
-#include <windows.h>
-
-bool IsMouseCapturedElsewhere() {
-	// get thread info for windows's current foreground window, 
-	// check if it has hwndCapture set
-
-	HWND foregroundWindow = GetForegroundWindow();
-	if (foregroundWindow == NULL) return false;
-
-	DWORD processId;
-	DWORD threadId = GetWindowThreadProcessId(foregroundWindow, &processId);
-
-	GUITHREADINFO gti;
-	gti.cbSize = sizeof(GUITHREADINFO);
-
-	if (GetGUIThreadInfo(threadId, &gti)) {
-		if (gti.hwndCapture != NULL) {
-			return true;
-		}
-	}
-	return false;
-}
-
-#endif
 
 void GamePadImpl::init(void* wndHandle, AppConfig* appcfg, GamepadAPI api, GamepadAPI mouseApi)
 {
@@ -174,6 +148,7 @@ void GamePadImpl::update()
 
 		free(rawInput);
 
+		// Gravitate mouse back to center
 		if (mouseInputAPI == GAMEPAD_API_RAWINPUT && mouseRelativeTracking)
 		{
 			float frameReturnSpeed = returnSpeed / Max(appConfig->_fps, 30.f);

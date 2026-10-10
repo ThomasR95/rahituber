@@ -2251,21 +2251,76 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 		if (optimise)
 		{
+			bool skipOptimised = true;
+
 			sf::Clock updateTimer; 
 			sf::RenderWindow progress;
-			progress.create(sf::VideoMode(300, 100), "RahiTuber Optimisation", sf::Style::Titlebar);
+			float progSizeY = 120;
+			progress.create(sf::VideoMode(300, progSizeY), "RahiTuber Optimisation", sf::Style::Titlebar);
 			ImGui::SFML::Init(progress);
 			ImGui::SFML::SetCurrentWindow(progress);
+
+			bool checkReOptimise = false;
+			for (auto& layer : _layers)
+			{
+				if (layer._preCropPivot.x != -99999)
+				{
+					checkReOptimise = true;
+					continue;
+				}
+
+				for(auto& sp : layer._sprites)
+					if (sp.second->_optimised || sp.second->_preCropSize != sf::Vector2f(0.f, 0.f))
+					{
+						checkReOptimise = true;
+						continue;
+					}
+			}
+
+			while (checkReOptimise)
+			{
+				ImGui::SFML::Update(progress, updateTimer.restart());
+
+				sf::Event evt;
+				while(progress.pollEvent(evt))
+					ImGui::SFML::ProcessEvent(progress, evt);
+
+				ImGui::SetNextWindowSizeConstraints({ 300, progSizeY }, { 300, progSizeY });
+				ImGui::SetNextWindowPos({ 0, 0 }, 0, { 0, 0 });
+				ImGui::Begin("Optimised Layers found", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+
+				ImGui::TextWrapped("Some layers seem to have been optimised once before.\nOptimise them again?");
+
+				if (LesserButton("Yes, Re-optimise"))
+				{
+					skipOptimised = false;
+					checkReOptimise = false;
+				}
+
+				if (ImGui::Button("No, skip those ones"))
+				{
+					skipOptimised = true;
+					checkReOptimise = false;
+				}
+
+				ImGui::End();
+				ImGui::EndFrame();
+				ImGui::SFML::Render(progress);
+				progress.display();
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(16));
+			}
+
 			int layerNum = 0;
 			for (auto& layer : _layers)
 			{
 				logToFile(_appConfig, "Optimising " + layer._name + "...");
-				layer.OptimiseSprites();
+				layer.OptimiseSprites(skipOptimised);
 			
 				ImGui::SFML::Update(progress, updateTimer.restart());
 
-				ImGui::SetNextWindowSizeConstraints({ 300, 100 }, { 300, 100 });
-				ImGui::SetNextWindowPos({ 150, 50 }, 0, { 0.5, 0.5 });
+				ImGui::SetNextWindowSizeConstraints({ 300, progSizeY }, { 300, progSizeY });
+				ImGui::SetNextWindowPos({ 0, 0 }, 0, { 0, 0 });
 				ImGui::Begin("Please Wait", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
 				ImGui::AlignTextToFramePadding();
@@ -2273,12 +2328,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 				TextCentered(ANSIToUTF8(txt).c_str());
 
 				ImGui::ProgressBar((float)layerNum / _layers.size());
+				layerNum++;
 
 				ImGui::End();
 				ImGui::EndFrame();
 				ImGui::SFML::Render(progress);
 				progress.display();
-				layerNum++;
 			}
 			ImGui::SFML::Shutdown(progress);
 			progress.close();
@@ -2385,6 +2440,15 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 				sprElement->SetAttribute("idleOffsetX", sp->_offsetFromIdle.x);
 				sprElement->SetAttribute("idleOffsetY", sp->_offsetFromIdle.y);
+
+				sprElement->SetAttribute("optimised", sp->_optimised);
+				if (sp->_optimised)
+				{
+					sprElement->SetAttribute("origSizeX", sp->_preCropSize.x);
+					sprElement->SetAttribute("origSizeY", sp->_preCropSize.y);
+					sprElement->SetAttribute("cropOffsetX", sp->_cropOffset.x);
+					sprElement->SetAttribute("cropOffsetY", sp->_cropOffset.y);
+				}
 
 				if (sp->FrameCount() > 1 || sp->GridSize() != sf::Vector2i(1, 1) || layer._animsSynced == true)
 					SaveAnimInfo(sprElement, &doc, "anim", *sp.sprite, layer._animsSynced);
@@ -2966,6 +3030,15 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 
 					sprElement->QueryAttribute("idleOffsetX", &sp->_offsetFromIdle.x);
 					sprElement->QueryAttribute("idleOffsetY", &sp->_offsetFromIdle.y);
+
+					sprElement->QueryAttribute("optimised", &sp->_optimised);
+					if (sp->_optimised)
+					{
+						sprElement->QueryAttribute("origSizeX", &sp->_preCropSize.x);
+						sprElement->QueryAttribute("origSizeY", &sp->_preCropSize.y);
+						sprElement->QueryAttribute("cropOffsetX", &sp->_cropOffset.x);
+						sprElement->QueryAttribute("cropOffsetY", &sp->_cropOffset.y);
+					}
 
 					LoadAnimInfo(sprElement, &doc, "anim", *sp.sprite);
 
@@ -7492,6 +7565,8 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 				{
 					_sprites[UISprite]->LoadFromTexture(_parent->_textureMan, _sprites[UISprite].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
 					_sprites[UISprite]->setSmooth(_scaleFiltering);
+
+					_sprites[UISprite]->ClearOptimised();
 				}
 			}
 		}ImGui::PopID();
@@ -7545,6 +7620,8 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 		{
 			sprite->LoadFromTexture(_parent->_textureMan, _spriteBrowsePath, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
 			sprite->setSmooth(_scaleFiltering);
+
+			sprite->ClearOptimised();
 		}
 
 		path = _spriteBrowsePath;
@@ -7751,7 +7828,7 @@ void LayerManager::LayerInfo::SyncAnims(bool sync)
 	}
 }
 
-void LayerManager::LayerInfo::OptimiseSprites()
+void LayerManager::LayerInfo::OptimiseSprites(bool skipOptimised)
 {
 	sf::Vector2f idleToCenterOrig;
 	sf::Vector2f idleToCenterNew;
@@ -7759,7 +7836,11 @@ void LayerManager::LayerInfo::OptimiseSprites()
 	sf::Vector2f idleOrigSize;
 	sf::Vector2f idleNewSize;
 
-	if (_sprites[SP_IDLE]->FrameCount() == 1)
+	bool skipIdle = skipOptimised && (_sprites[SP_IDLE]->_optimised || _sprites[SP_IDLE]->_preCropSize != sf::Vector2f(0.f, 0.f));
+
+
+
+	if (!skipIdle && _sprites[SP_IDLE]->FrameCount() == 1)
 	{
 		if(_parent->_storePreCropPivot && (_parent->GetLayer(_motionParent)!=nullptr))
 			_preCropPivot = originalPivot;
@@ -7791,21 +7872,38 @@ void LayerManager::LayerInfo::OptimiseSprites()
 		idleToCenterOrig = idleToCenterNew = 0.5f * sf::Vector2f(_sprites[SP_IDLE]->Size());
 	}
 
-
 	for (int s = SP_TALK; s < SP_END; s++)
 	{
-		auto& sp = _sprites[(SpriteType)s];
+		SpriteInfo& sp = _sprites[(SpriteType)s];
+
+		if (sp.path == "")
+			continue;
+
+		bool skipThisSprite = skipOptimised && (sp->_optimised || sp->_preCropSize != sf::Vector2f(0.f, 0.f));
+
+		if (skipThisSprite)
+		{
+			//reload it from the texman in case it was just optimised earlier in the list
+			sp->ReloadTexture();
+		}
+
 		sf::Vector2f origSize;
 		sf::Vector2f cropPosition;
 		sf::Vector2f cropSize;
 
-		if (sp->FrameCount() == 1)
+		if (!skipThisSprite && sp->FrameCount() == 1)
 		{
 			const CropInfo cropInfo = CropTextureTransparency(sp->getTexture(), sp.path);
 			origSize = sf::Vector2f(cropInfo.origSize);
 			cropPosition = sf::Vector2f(cropInfo.cropRect.getPosition());
 			cropSize = sf::Vector2f(cropInfo.cropRect.getSize());
 			sp->UpdateSize();
+			sp->_preCropSize = origSize;
+			sp->_cropOffset = cropPosition;
+			sp->_optimised = true;
+
+			if(cropInfo.reloadNeeded)
+				sp->ReloadTexture(true, sp.path);
 		}
 		else
 		{
@@ -7836,6 +7934,7 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 	if (found != _parent->_croppedImages.end())
 	{
 		logFmtToFile(_parent->_appConfig, "Already cropped %s...", imgpath.c_str());
+		found->second.reloadNeeded = true;
 		return found->second;
 	}
 
@@ -7861,8 +7960,8 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 				int fwdPix = (y * srcSize.x + x) * 4;
 				if (pxPtr[fwdPix + 3] != 0)
 				{
-					maxContent.x = Max(x, maxContent.x);
-					maxContent.y = Max(y, maxContent.y);
+					maxContent.x = Max(x+1, maxContent.x);
+					maxContent.y = Max(y+1, maxContent.y);
 
 					minContent.x = Min(x, minContent.x);
 					minContent.y = Min(y, minContent.y);
