@@ -204,7 +204,7 @@ public:
 
 		std::string _id = "";
 
-		LayerManager* _parent = nullptr;
+		LayerManager* _pLayerMan = nullptr;
 
 		std::string _clipID = "";
 		sf::RectangleShape _clipRect;
@@ -354,6 +354,8 @@ public:
 		void AddTrackingMovement(sf::Vector2<double>& mpPos, double& mpRot, sf::Vector2<double>& mpScale);
 
 		bool DrawGUI(ImGuiStyle& style, int layerID);
+
+		void DrawTransformsGUI(float indentSize, ImGuiStyle& style);
 
 		void LayerSelectCombo(const char* comboID, std::string& clipName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter);
 

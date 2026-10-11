@@ -1254,7 +1254,7 @@ void LayerManager::DrawGUI(ImGuiStyle& style, float maxHeight)
 			for (int l = 0; l < _layers.size(); l++)
 			{
 				auto& layer = _layers[l];
-				layer._parent = this;
+				layer._pLayerMan = this;
 
 				if (layer._inFolder == "")
 				{
@@ -1632,7 +1632,7 @@ LayerManager::LayerInfo* LayerManager::AddLayer(const LayerInfo* toCopy, bool is
 	layer->_blinkTimer.restart();
 	layer->_isBlinking = false;
 	layer->_blinkVarDelay = GetRandom11() * layer->_blinkVariation;
-	layer->_parent = this;
+	layer->_pLayerMan = this;
 	layer->_id = guid;
 
 	if (layer->_useGlobalTracking)
@@ -2365,6 +2365,12 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			tagElement->SetAttribute("visible", _tagDefaults[t]);
 		}
 
+		thisLayer->SetAttribute("scaleX", layer._scale.x);
+		thisLayer->SetAttribute("scaleY", layer._scale.y);
+		thisLayer->SetAttribute("posX", layer._pos.x);
+		thisLayer->SetAttribute("posY", layer._pos.y);
+		thisLayer->SetAttribute("rot", layer._rot);
+
 		if (layer._isFolder == false)
 		{
 			thisLayer->SetAttribute("talking", layer._swapWhenTalking);
@@ -2458,12 +2464,6 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 			thisLayer->SetAttribute("syncAnims", layer._animsSynced);
 
 			thisLayer->SetAttribute("smoothTalkTint", layer._smoothTalkTint);
-
-			thisLayer->SetAttribute("scaleX", layer._scale.x);
-			thisLayer->SetAttribute("scaleY", layer._scale.y);
-			thisLayer->SetAttribute("posX", layer._pos.x);
-			thisLayer->SetAttribute("posY", layer._pos.y);
-			thisLayer->SetAttribute("rot", layer._rot);
 
 			thisLayer->SetAttribute("pivotX", layer._pivot.x);
 			thisLayer->SetAttribute("pivotY", layer._pivot.y);
@@ -2883,7 +2883,7 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 				layerCount++;
 
 				LayerInfo& layer = *pLayer;
-				layer._parent = this;
+				layer._pLayerMan = this;
 
 				layer._id = guid;
 				layer._name = name;
@@ -4723,7 +4723,7 @@ void LayerManager::DrawHTTPCopyHelpers(LayerManager::StatesInfo& state, ImVec4& 
 
 void LayerManager::LayerInfo::CalculateLayerDepth()
 {
-	if (_parent == nullptr)
+	if (_pLayerMan == nullptr)
 		return;
 
 	_lastCalculatedParents.clear();
@@ -4732,13 +4732,13 @@ void LayerManager::LayerInfo::CalculateLayerDepth()
 
 	int depth = 0;
 	std::string& searchMotionParent = _motionParent;
-	LayerInfo* mp = _parent->GetLayer(searchMotionParent);
+	LayerInfo* mp = _pLayerMan->GetLayer(searchMotionParent);
 	while (mp != nullptr)
 	{
 		_lastCalculatedParents.insert(_lastCalculatedParents.begin(), mp);
 
 		depth++;
-		mp = _parent->GetLayer(mp->_motionParent);
+		mp = _pLayerMan->GetLayer(mp->_motionParent);
 	}
 
 	_lastCalculatedDepth = depth;
@@ -4762,7 +4762,7 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 			bool mpVisible = mp->_visible;
 			for (auto& t : mp->_tags)
 			{
-				mpVisible &= _parent->_tagList[t];
+				mpVisible &= _pLayerMan->_tagList[t];
 			}
 
 			visible &= mpVisible;
@@ -4778,13 +4778,13 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 
 	if (_inFolder != "")
 	{
-		LayerInfo* folder = _parent->GetLayer(_inFolder);
+		LayerInfo* folder = _pLayerMan->GetLayer(_inFolder);
 		if (folder)
 		{
 			bool fVisible = folder->_visible;
 			for (auto& t : folder->_tags)
 			{
-				fVisible &= _parent->_tagList[t];
+				fVisible &= _pLayerMan->_tagList[t];
 			}
 			visible &= fVisible;
 
@@ -4793,7 +4793,7 @@ bool LayerManager::LayerInfo::EvaluateLayerVisibility()
 
 	for (auto& t : _tags)
 	{
-		visible &= _parent->_tagList[t];
+		visible &= _pLayerMan->_tagList[t];
 	}
 
 	return visible;
@@ -4841,7 +4841,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 		if (_isBouncing)
 		{
 			float motionTime = _bounceTimer.getElapsedTime().asSeconds();
-			auto bounceLayer = _parent->GetLayer(bounceTimerID);
+			auto bounceLayer = _pLayerMan->GetLayer(bounceTimerID);
 			if (bounceLayer != nullptr)
 			{
 				motionTime = bounceLayer->_bounceTimer.getElapsedTime().asSeconds();
@@ -4928,7 +4928,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = true;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			auto motionLayer = _parent->GetLayer(motionTimerID);
+			auto motionLayer = _pLayerMan->GetLayer(motionTimerID);
 			if (motionLayer != nullptr)
 			{
 				motionTime = motionLayer->_motionTimer.getElapsedTime().asSeconds();
@@ -4966,7 +4966,7 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 				_isBreathing = false;
 			}
 			float motionTime = _motionTimer.getElapsedTime().asSeconds();
-			auto motionLayer = _parent->GetLayer(motionTimerID);
+			auto motionLayer = _pLayerMan->GetLayer(motionTimerID);
 			if (motionLayer != nullptr)
 			{
 				motionTime = motionLayer->_motionTimer.getElapsedTime().asSeconds();
@@ -5009,7 +5009,11 @@ void LayerManager::LayerInfo::DoIndividualMotion(bool talking, bool screaming, f
 
 void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& motionScale, sf::Vector2<double>& motionPos, double& motionRot, double& motionParentRot, ImVec4& motionTint, sf::Vector2<double>& physicsPos, bool becameVisible, SpriteSheet* lastActiveSprite, float timeMult)
 {
-	LayerInfo* mp = _parent->GetLayer(_motionParent);
+	LayerInfo* mp = _pLayerMan->GetLayer(_motionParent);
+
+	//if (_name == "tail2 Copy")
+		//__debugbreak();
+
 	if (mp)
 	{
 		float motionDelayNow = _motionDelay;
@@ -5021,6 +5025,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 
 		if (motionDelayNow > 0)
 		{
+
 			sf::Time totalParentStoredTime;
 			for (auto& frame : mp->_motionLinkData)
 				totalParentStoredTime += frame._frameTime;
@@ -5079,9 +5084,9 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 
 		
 		directParentScale = motionScale;
-		directParentScale -= {1, 1};
-		directParentScale = Rotate(directParentScale, Deg2Rad(-mp->_rot));
-		directParentScale += {1, 1};
+		//directParentScale -= (sf::Vector2<double>)mp->_scale;
+		//directParentScale = Rotate(directParentScale, Deg2Rad(-mp->_rot));
+		//directParentScale += (sf::Vector2<double>)mp->_scale;
 
 		// transform this layer's position by the parent position
 		sf::Vector2<double> originalOffset = sf::Vector2<double>(_pos) - sf::Vector2<double>(mp->_pos);
@@ -5123,7 +5128,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 			double movementDist = Length(offset);
 
 			sf::Vector2<double> rotOffset = offset;
-			if (!_parent->_appConfig->_undoRotationEffectFix)
+			if (!_pLayerMan->_appConfig->_undoRotationEffectFix)
 				rotOffset.x *= -1;
 
 			float totalRot = _rot + motionRot + motionParentRot;
@@ -5312,6 +5317,15 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
 	if (hasParent)
 		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
+	else if (_inFolder != "")
+	{
+		LayerInfo* folder = _pLayerMan->GetLayer(_inFolder);
+		motionScale = sf::Vector2<double>(folder->_scale);
+		motionPos = sf::Vector2<double>(folder->_pos);
+		motionRot = folder->_rot;
+
+		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
+	}
 
 	if (_inheritTint)
 		activeSpriteCol = mpTint;
@@ -5390,7 +5404,7 @@ void LayerManager::LayerInfo::DetermineVisibleSprites(bool talking, bool screami
 	bool shouldBlink = canStartBlinking && _blinkTimer.getElapsedTime().asSeconds() > _blinkDelay + _blinkVarDelay;
 	float blinkDur = _blinkDuration;
 
-	auto blinkSync = _parent->GetLayer(blinkSyncID);
+	auto blinkSync = _pLayerMan->GetLayer(blinkSyncID);
 	if (blinkSync != nullptr)
 	{
 		shouldBlink = canStartBlinking && (/*blinkSync->_isBlinking ||*/ blinkSync->_blinkTimer.getElapsedTime().asSeconds() > blinkSync->_blinkDelay + blinkSync->_blinkVarDelay);
@@ -5534,12 +5548,12 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 		return;
 
 	if (_useGlobalTracking)
-		_trackingSettings = _parent->_globalTracking.get();
+		_trackingSettings = _pLayerMan->_globalTracking.get();
 	else
 		_trackingSettings = _uniqueTracking.get();
 
 	if (_useGlobalTrackingMotion)
-		_trackingMotion = _parent->_globalTrackingMotion.get();
+		_trackingMotion = _pLayerMan->_globalTrackingMotion.get();
 	else
 		_trackingMotion = _uniqueTrackingMotion.get();
 
@@ -5556,15 +5570,15 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 	bool visible = EvaluateLayerVisibility();
 	if (visible || !_trackingMotion->_trackingOffWhenHidden)
 	{
-		if ((_trackingType & TRACKING_MOUSE) && _parent->_appConfig->_mouseTrackingEnabled)
+		if ((_trackingType & TRACKING_MOUSE) && _pLayerMan->_appConfig->_mouseTrackingEnabled)
 		{
 			sf::Vector2f mousePos = (sf::Vector2f)GamePad::getMousePosition();//(sf::Vector2f)sf::Mouse::getPosition();
 
 			auto neutralPos = _trackingSettings->_mouseNeutralPos;
 			if (_trackingSettings->_mouseNeutralFollowsWindow)
-				neutralPos += sf::Vector2f(_parent->_appConfig->_window.getPosition());
+				neutralPos += sf::Vector2f(_pLayerMan->_appConfig->_window.getPosition());
 
-			//if (_parent->_appConfig->_mouseRelative)
+			//if (_pLayerMan->_appConfig->_mouseRelative)
 			//	mousePos += neutralPos;
 
 			sf::Vector2f mouseMove = (mousePos - neutralPos);
@@ -5574,7 +5588,7 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 			newTrackingAmount += mouseMult*mouseEffect;
 		}
 
-		if ((_trackingType & TRACKING_CONTROLLER) && _parent->_appConfig->_controllerTrackingEnabled)
+		if ((_trackingType & TRACKING_CONTROLLER) && _pLayerMan->_appConfig->_controllerTrackingEnabled)
 		{
 			auto& gamePads = GamePad::getGamePads();
 
@@ -5696,7 +5710,7 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 
 bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 {
-	float uiScale = _parent->_appConfig->scalingFactor;
+	float uiScale = _pLayerMan->_appConfig->scalingFactor;
 
 	float UIUnit = ImGui::GetFrameHeight();
 
@@ -5708,7 +5722,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	std::vector<int> toRemove;
 	for (int l = 0; l < _folderContents.size(); l++)
 	{
-		auto* layer = _parent->GetLayer(_folderContents[l]);
+		auto* layer = _pLayerMan->GetLayer(_folderContents[l]);
 		if (layer != nullptr)
 		{
 			layer->_lastHeaderPos = { -1,-1 };
@@ -5783,14 +5797,16 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImGui::PopStyleColor();
 
 				bool anyFiltered = false;
-				for (auto& filter : _parent->_tagFilters)
+				for (auto& filter : _pLayerMan->_tagFilters)
 					anyFiltered |= filter.second;
 
+				DrawTransformsGUI(indentSize, style);
+				ImGui::Separator();
 
 				for (int l = 0; l < _folderContents.size(); l++)
 				{
 					int layerIdx = 0;
-					auto* layer = _parent->GetLayer(_folderContents[l], &layerIdx);
+					auto* layer = _pLayerMan->GetLayer(_folderContents[l], &layerIdx);
 					if (layer != nullptr)
 					{
 						bool filtered = false;
@@ -5798,7 +5814,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						{
 							filtered = true;
 							for (auto& t : layer->_tags)
-								if (_parent->_tagFilters[t] == true)
+								if (_pLayerMan->_tagFilters[t] == true)
 									filtered = false;
 						}
 
@@ -5812,7 +5828,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			}
 			else
 			{
-				_parent->_hoveredLayers.push_back(_id);
+				_pLayerMan->_hoveredLayers.push_back(_id);
 
 				float imgBtnWidth = UIUnit * 6 - 2;
 				float smlImageBtnWidth = UIUnit * 3.5 - 2;
@@ -5858,7 +5874,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 				ImGui::SetCursorPosY(checkboxPos);
 				ImGui::Checkbox("Restart anims on becoming visible", &_restartAnimsOnVisible);
-				ToolTip("Restarts all this layer's sprite-sheets whenever\nthis layer is made visible", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Restarts all this layer's sprite-sheets whenever\nthis layer is made visible", &_pLayerMan->_appConfig->_hoverTimer);
 
 				if (LesserCollapsingHeader("Compositing..."))
 				{
@@ -5875,7 +5891,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								"Nearest-neighbour interpolation, sharp pixels at any size",
 								0
 							},
-							}, _scaleFiltering, &_parent->_appConfig->_hoverTimer);
+							}, _scaleFiltering, &_pLayerMan->_appConfig->_hoverTimer);
 						if (scaleFilterChanged)
 						{
 							for (auto& sp : _sprites)
@@ -5885,9 +5901,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}
 						}
 
-						AddResetButton("alphaCutoff", _alphaClip, 0.0f, _parent->_appConfig, &style);
-						FloatSliderDrag("Alpha Cutoff", &_alphaClip, 0.0, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, _parent->_uiConfig->_numberEditType);
-						ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.\nSet to 0.0 to use the default from Advanced Settings.", &_parent->_appConfig->_hoverTimer);
+						AddResetButton("alphaCutoff", _alphaClip, 0.0f, _pLayerMan->_appConfig, &style);
+						FloatSliderDrag("Alpha Cutoff", &_alphaClip, 0.0, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, _pLayerMan->_uiConfig->_numberEditType);
+						ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.\nSet to 0.0 to use the default from Advanced Settings.", &_pLayerMan->_appConfig->_hoverTimer);
 
 						sf::BlendMode oldBlendMode = _blendMode;
 						std::string bmName = "";
@@ -5905,9 +5921,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							}
 							ImGui::EndCombo();
 						}
-						ToolTip("Define how this layer's color should be\nblended onto the layers below it", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Define how this layer's color should be\nblended onto the layers below it", &_pLayerMan->_appConfig->_hoverTimer);
 
-						LayerInfo* oldClip = _parent->GetLayer(_clipID);
+						LayerInfo* oldClip = _pLayerMan->GetLayer(_clipID);
 						std::string clipName = oldClip ? oldClip->_name : "Off";
 						const char* comboID = "Clip Layer";
 						std::string& selectID = _clipID;
@@ -5920,13 +5936,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						LayerSelectCombo(comboID, clipName, selectID, comboFilter);
 
-						ToolTip("Clip this layer to the transparency\nof any other layer", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Clip this layer to the transparency\nof any other layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 						if (ImGui::Checkbox("Invert Clip (Mask)", &_isClipInverted))
 						{
 							std::cout << "Invert Clip: " << _isClipInverted << std::endl;
 						}
-						ToolTip("Use the clip layer as a mask (cutout) instead", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Use the clip layer as a mask (cutout) instead", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 					}
@@ -5937,19 +5953,19 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				////////////////////////////////// TALKING /////////////////////////////////////////////////////////////////////////////////////
 				ImGui::Separator();
 
-				AddResetButton("talkThresh", _talkThreshold, 0.15f, _parent->_appConfig, &style, true);
+				AddResetButton("talkThresh", _talkThreshold, 0.15f, _pLayerMan->_appConfig, &style, true);
 				ImVec2 barPos = ImGui::GetCursorScreenPos();
 				ImGui::SliderFloat("Talk Threshold", &_talkThreshold, 0.0, 1.0, "%.3f");
 				barPos.x += style.GrabMinSize * 0.5;
 				barPos.y += ImGui::GetItemRectSize().y;
 				float barWidth = ImGui::CalcItemWidth() - (style.GrabMinSize + UIUnit + style.ItemSpacing.x*2);
-				ToolTip("The audio level needed to trigger the talking state", &_parent->_appConfig->_hoverTimer);
+				ToolTip("The audio level needed to trigger the talking state", &_pLayerMan->_appConfig->_hoverTimer);
 				ImGui::NewLine();
 
 				DrawThresholdBar(_lastTalkFactor, _talkThreshold, barPos, uiScale, barWidth);
 
 				ImGui::Checkbox("Use Talk Sprite", &_swapWhenTalking);
-				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Swap to the 'talk' sprite when Talk Threshold is reached", &_pLayerMan->_appConfig->_hoverTimer);
 
 				if (ImGui::BeginTable("smoothinputtable", 2, ImGuiTableFlags_SizingFixedFit))
 				{
@@ -5957,13 +5973,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Smooth Input", &_smoothTalkFactor);
-					ToolTip("Smooth the audio input coming into this layer", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Smooth the audio input coming into this layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
 					if (_smoothTalkFactor)
 					{
-						FloatSliderDrag("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-						ToolTip("Set how much smoothing to apply.", &_parent->_appConfig->_hoverTimer, true);
+						FloatSliderDrag("##Amount", &_smoothTalkFactorSize, 0.0, 50.0, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+						ToolTip("Set how much smoothing to apply.", &_pLayerMan->_appConfig->_hoverTimer, true);
 					}
 					ImGui::EndTable();
 				}
@@ -5973,17 +5989,17 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					BetterIndent(indentSize, _id + "talk");
 
 					ImGui::Checkbox("Restart talk anim when activated", &_restartTalkAnim);
-					ToolTip("Restarts the 'talk' anim when swapping to it", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Restarts the 'talk' anim when swapping to it", &_pLayerMan->_appConfig->_hoverTimer);
 
 					ImGui::Checkbox("Smooth Tint", &_smoothTalkTint);
-					ToolTip("Smoothly transition between the Idle and Talk tint colors", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Smoothly transition between the Idle and Talk tint colors", &_pLayerMan->_appConfig->_hoverTimer);
 
 					ImGui::Checkbox("Phoneme Detection", &_usePhonemes);
-					ToolTip("Use phoneme detection to switch sprites when talking", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Use phoneme detection to switch sprites when talking", &_pLayerMan->_appConfig->_hoverTimer);
 
 					ImGui::SameLine();
 					ImGui::Checkbox("Separate Tints", &_separatePhonemeTints);
-					ToolTip("Define separate tint colours for each phoneme", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Define separate tint colours for each phoneme", &_pLayerMan->_appConfig->_hoverTimer);
 
 					if (_usePhonemes)
 					{
@@ -6040,7 +6056,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				ImVec2 subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Screaming", ImGuiTreeNodeFlags_AllowOverlap))
 				{
-					ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Swap to a different sprite when reaching a second audio threshold", &_pLayerMan->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "screaming" + _id);
 
 					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
@@ -6093,37 +6109,37 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 					}
 
-					AddResetButton("screamThresh", _screamThreshold, 0.15f, _parent->_appConfig, &style, true, &barPos);
+					AddResetButton("screamThresh", _screamThreshold, 0.15f, _pLayerMan->_appConfig, &style, true, &barPos);
 					ImVec2 barPos = ImGui::GetCursorScreenPos();
 
 					ImGui::SliderFloat("Scream Threshold", &_screamThreshold, 0.0, 1.0, "%.3f");
 					barPos.x += style.GrabMinSize * 0.5;
 					barPos.y += ImGui::GetItemRectSize().y;
 					float barWidth = ImGui::CalcItemWidth() - (style.GrabMinSize + UIUnit + style.ItemSpacing.x * 2);
-					ToolTip("The audio level needed to trigger the screaming state", &_parent->_appConfig->_hoverTimer, true);
+					ToolTip("The audio level needed to trigger the screaming state", &_pLayerMan->_appConfig->_hoverTimer, true);
 					ImGui::NewLine();
 
 					DrawThresholdBar(_lastTalkFactor, _screamThreshold, barPos, uiScale, barWidth);
 
-					AddResetButton("minscream", _minScreamTime, 0.2f, _parent->_appConfig, &style);
-					FloatSliderDrag("Min Time", &_minScreamTime, 0.0, 5.0, "%.1f s", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("The minimum time the scream sprite should appear for\n(To eliminate flickering at the threshold)", &_parent->_appConfig->_hoverTimer, true);
+					AddResetButton("minscream", _minScreamTime, 0.2f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Min Time", &_minScreamTime, 0.0, 5.0, "%.1f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("The minimum time the scream sprite should appear for\n(To eliminate flickering at the threshold)", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 					ImGui::Checkbox("Vibrate", &_screamVibrate);
-					ToolTip("Randomly shake the sprite whilst screaming", &_parent->_appConfig->_hoverTimer);
-					AddResetButton("vibamt", _screamVibrateAmount, 5.f, _parent->_appConfig, &style);
-					FloatSliderDrag("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("The distance of the vibration", &_parent->_appConfig->_hoverTimer, true);
-					AddResetButton("vibspeed", _screamVibrateSpeed, 1.f, _parent->_appConfig, &style);
-					FloatSliderDrag("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("The speed of the vibration", &_parent->_appConfig->_hoverTimer, true);
+					ToolTip("Randomly shake the sprite whilst screaming", &_pLayerMan->_appConfig->_hoverTimer);
+					AddResetButton("vibamt", _screamVibrateAmount, 5.f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Vibrate Amount", &_screamVibrateAmount, 0.0, 50.0, "%.1f px", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("The distance of the vibration", &_pLayerMan->_appConfig->_hoverTimer, true);
+					AddResetButton("vibspeed", _screamVibrateSpeed, 1.f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Vibrate Speed", &_screamVibrateSpeed, 0.0, 5.0, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("The speed of the vibration", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 					ImGui::PopStyleVar();
 
 					BetterUnindent("screaming" + _id);
 				}
 				else
-					ToolTip("Swap to a different sprite when reaching a second audio threshold", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Swap to a different sprite when reaching a second audio threshold", &_pLayerMan->_appConfig->_hoverTimer);
 
 				auto oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
@@ -6135,40 +6151,40 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Blinking", ImGuiTreeNodeFlags_AllowOverlap))
 				{
-					ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Show a blinking sprite at random intervals", &_pLayerMan->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "blinking" + _id);
 
 					ImGui::Checkbox("Blink While Talking", &_blinkWhileTalking);
-					ToolTip("Show another blinking sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Show another blinking sprite whilst talking", &_pLayerMan->_appConfig->_hoverTimer);
 
 					ImGui::BeginDisabled(blinkSyncID != "");
 
-					AddResetButton("blinkdur", _blinkDuration, 0.2f, _parent->_appConfig, &style);
-					FloatSliderDrag("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("The amount of time to show the blinking sprite", &_parent->_appConfig->_hoverTimer, true);
-					AddResetButton("blinkdelay", _blinkDelay, 6.f, _parent->_appConfig, &style);
-					FloatSliderDrag("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("The amount of time between blinks", &_parent->_appConfig->_hoverTimer, true);
-					AddResetButton("blinkvar", _blinkVariation, 4.f, _parent->_appConfig, &style);
-					FloatSliderDrag("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
-					ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_parent->_appConfig->_hoverTimer, true);
+					AddResetButton("blinkdur", _blinkDuration, 0.2f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Blink Duration", &_blinkDuration, 0.0, 10.0, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("The amount of time to show the blinking sprite", &_pLayerMan->_appConfig->_hoverTimer, true);
+					AddResetButton("blinkdelay", _blinkDelay, 6.f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Blink Delay", &_blinkDelay, 0.0, 10.0, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("The amount of time between blinks", &_pLayerMan->_appConfig->_hoverTimer, true);
+					AddResetButton("blinkvar", _blinkVariation, 4.f, _pLayerMan->_appConfig, &style);
+					FloatSliderDrag("Variation", &_blinkVariation, 0.0, 5.0, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+					ToolTip("Adds a random variation to the Blink Delay.\nThis sets the maximum variation allowed.", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 					ImGui::EndDisabled();
 					
 					BetterUnindent("blinking" + _id);
 
-					LayerInfo* oldSync = _parent->GetLayer(blinkSyncID);
+					LayerInfo* oldSync = _pLayerMan->GetLayer(blinkSyncID);
 					std::string syncName = oldSync ? oldSync->_name : "Off";
 					std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
 						return (fLayer._id != _id && fLayer.blinkSyncID != _id && fLayer._isFolder == false);
 						};
 
 					LayerSelectCombo("Sync to layer##Blink", syncName, blinkSyncID, syncComboFilter);
-					ToolTip("Sync the blink timer of this layer to\nany other layer", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Sync the blink timer of this layer to\nany other layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 				}
 				else
-					ToolTip("Show a blinking sprite at random intervals", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Show a blinking sprite at random intervals", &_pLayerMan->_appConfig->_hoverTimer);
 
 				oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
@@ -6185,7 +6201,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
 				if (ImGui::CollapsingHeader("Motion Inherit", ImGuiTreeNodeFlags_AllowOverlap) && hasParent)
 				{
-					ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Copy the motion of another layer", &_pLayerMan->_appConfig->_hoverTimer);
 					BetterIndent(indentSize, "motioninherit" + _id);
 
 					if (hasParent)
@@ -6199,51 +6215,51 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						}
 
 						float md = _motionDelay;
-						AddResetButton("motionDelay", _motionDelay, 0.f, _parent->_appConfig, &style);
-						if (FloatSliderDrag("Delay", &md, 0.0, 1.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType))
+						AddResetButton("motionDelay", _motionDelay, 0.f, _pLayerMan->_appConfig, &style);
+						if (FloatSliderDrag("Delay", &md, 0.0, 1.0, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType))
 							_motionDelay = Clamp(md, 0.0, 1.0);
 
-						ToolTip("The time before this layer follows the parent's motion", &_parent->_appConfig->_hoverTimer, true);
+						ToolTip("The time before this layer follows the parent's motion", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-						AddResetButton("motionDrag", _motionDrag, 0.f, _parent->_appConfig, &style);
-						if (FloatSliderDrag("Drag", &_motionDrag, 0.f, .999f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+						AddResetButton("motionDrag", _motionDrag, 0.f, _pLayerMan->_appConfig, &style);
+						if (FloatSliderDrag("Drag", &_motionDrag, 0.f, .999f, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 							_motionDrag = Clamp(_motionDrag, 0.f, .999f);
-						ToolTip("Makes the layer slower to reach its target position", &_parent->_appConfig->_hoverTimer, true);
+						ToolTip("Makes the layer slower to reach its target position", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-						AddResetButton("motionSpring", _motionSpring, 0.f, _parent->_appConfig, &style);
-						if (FloatSliderDrag("Spring", &_motionSpring, 0.f, .999f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+						AddResetButton("motionSpring", _motionSpring, 0.f, _pLayerMan->_appConfig, &style);
+						if (FloatSliderDrag("Spring", &_motionSpring, 0.f, .999f, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 							_motionSpring = Clamp(_motionSpring, 0.f, .999f);
-						ToolTip("Makes the layer slower to change direction", &_parent->_appConfig->_hoverTimer, true);
+						ToolTip("Makes the layer slower to change direction", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-						AddResetButton("motionDistLimit", _distanceLimit, -1.f, _parent->_appConfig, &style);
-						FloatSliderDrag("Distance limit", &_distanceLimit, 0.0, 100.f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-						ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_parent->_appConfig->_hoverTimer, true);
+						AddResetButton("motionDistLimit", _distanceLimit, -1.f, _pLayerMan->_appConfig, &style);
+						FloatSliderDrag("Distance limit", &_distanceLimit, 0.0, 100.f, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+						ToolTip("Limits how far this layer can stray from the parent's position\n(Set to -1 for no limit)", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-						AddResetButton("rotationEffect", _rotationEffect, 0.f, _parent->_appConfig, &style);
-						FloatSliderDrag("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f", 0, _parent->_uiConfig->_numberEditType);
-						ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_parent->_appConfig->_hoverTimer, true);
+						AddResetButton("rotationEffect", _rotationEffect, 0.f, _pLayerMan->_appConfig, &style);
+						FloatSliderDrag("Rotation effect", &_rotationEffect, -5.f, 5.f, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType);
+						ToolTip("The amount of rotation to apply\n(based on the pivot point's distance from the layer's center)", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-						AddResetButton("stretchReset", _motionStretch, MS_None, _parent->_appConfig, &style);
+						AddResetButton("stretchReset", _motionStretch, MS_None, _pLayerMan->_appConfig, &style);
 						ImGui::Combo("Stretch", (int*)&_motionStretch, g_motionStretchNames, MotionStretch_End);
-						ToolTip("Stretch the sprite along with the motion.\nUses the pivot point as the center of stretch.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Stretch the sprite along with the motion.\nUses the pivot point as the center of stretch.", &_pLayerMan->_appConfig->_hoverTimer);
 
 						if (_motionStretch != MS_None)
 						{
-							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _parent->_appConfig, &style);
-							Float2SliderDrag("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-							ToolTip("Set the strength of the stretch effect.", &_parent->_appConfig->_hoverTimer);
+							AddResetButton("stretchStrengthReset", _motionStretchStrength, sf::Vector2f(1.0f, 1.0f), _pLayerMan->_appConfig, &style);
+							Float2SliderDrag("Stretch strength", &_motionStretchStrength.x, -2.0f, 2.0f, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+							ToolTip("Set the strength of the stretch effect.", &_pLayerMan->_appConfig->_hoverTimer);
 
-							AddResetButton("minStretchReset", _stretchScaleMin, sf::Vector2f(0.5f, 0.5f), _parent->_appConfig, &style);
-							Float2SliderDrag("Min Scale", &_stretchScaleMin.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-							ToolTip("Set the minimum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
+							AddResetButton("minStretchReset", _stretchScaleMin, sf::Vector2f(0.5f, 0.5f), _pLayerMan->_appConfig, &style);
+							Float2SliderDrag("Min Scale", &_stretchScaleMin.x, -2.0f, 2.0f, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+							ToolTip("Set the minimum scale that stretch can apply.", &_pLayerMan->_appConfig->_hoverTimer);
 
-							AddResetButton("maxStretchReset", _stretchScaleMax, sf::Vector2f(2.0f, 2.0f), _parent->_appConfig, &style);
-							Float2SliderDrag("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-							ToolTip("Set the maximum scale that stretch can apply.", &_parent->_appConfig->_hoverTimer);
+							AddResetButton("maxStretchReset", _stretchScaleMax, sf::Vector2f(2.0f, 2.0f), _pLayerMan->_appConfig, &style);
+							Float2SliderDrag("Max Scale", &_stretchScaleMax.x, -2.0f, 2.0f, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+							ToolTip("Set the maximum scale that stretch can apply.", &_pLayerMan->_appConfig->_hoverTimer);
 						}
 
 						ImGui::Checkbox("Ignore pivots", &_physicsIgnorePivots);
-						ToolTip("Ignores the position of the layer's pivot point\nwhen calculating stretch and rotation.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Ignores the position of the layer's pivot point\nwhen calculating stretch and rotation.", &_pLayerMan->_appConfig->_hoverTimer);
 
 						if (_preCropPivot.x > -99999)
 						{
@@ -6251,7 +6267,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							{
 								_clearingPreCropPivot = true;
 							}
-							ToolTip("If you used the Optimise function,\nwe stored the old pivot to keep your physics consistent.\nUse this to clear that stored value and go back to real physics settings.", &_parent->_appConfig->_hoverTimer);
+							ToolTip("If you used the Optimise function,\nwe stored the old pivot to keep your physics consistent.\nUse this to clear that stored value and go back to real physics settings.", &_pLayerMan->_appConfig->_hoverTimer);
 						}
 						bool confirmClearPivot = 0;
 						ConfirmModal("Clear Pre-Crop Pivot", &confirmClearPivot, _clearingPreCropPivot);
@@ -6268,59 +6284,59 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
 
 							if (ImGui::RadioButton("##topleft", _weightDirection == sf::Vector2f(-1.0, -1.0))) { _weightDirection = { -1.0, -1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##top", _weightDirection == sf::Vector2f(0.0, -1.0))) { _weightDirection = { 0.0, -1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##topRight", _weightDirection == sf::Vector2f(1.0, -1.0))) { _weightDirection = { 1.0, -1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 
 							if (ImGui::RadioButton("##left", _weightDirection == sf::Vector2f(-1.0, 0.0))) { _weightDirection = { -1.0, 0.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##middle", _weightDirection == sf::Vector2f(0.0, 0.0))) { _weightDirection = { 0.0, 0.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##right", _weightDirection == sf::Vector2f(1.0, 0.0))) { _weightDirection = { 1.0, 0.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine(0, spacing * 2);
 							ImGui::Text("Weight Direction");
 
 							ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,spacingY * 2 });
 
 							if (ImGui::RadioButton("##bottomleft", _weightDirection == sf::Vector2f(-1.0, 1.0))) { _weightDirection = { -1.0, 1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##bottom", _weightDirection == sf::Vector2f(0.0, 1.0))) { _weightDirection = { 0.0, 1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 							ImGui::SameLine();
 							if (ImGui::RadioButton("##bottomright", _weightDirection == sf::Vector2f(1.0, 1.0))) { _weightDirection = { 1.0, 1.0 }; }
-							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Manually set the direction of the heaviest\npart of the sprite.\n(Normally calculated from the pivot location)", &_pLayerMan->_appConfig->_hoverTimer);
 
 							ImGui::PopStyleVar(2);
 						}
 
 						ImGui::Checkbox("Hide with Parent", &_hideWithParent);
-						ToolTip("Hide this layer when the parent is hidden.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Hide this layer when the parent is hidden.", &_pLayerMan->_appConfig->_hoverTimer);
 
 						ImGui::Checkbox("Inherit Tint", &_inheritTint);
-						ToolTip("Inherit the tint color of the parent layer.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Inherit the tint color of the parent layer.", &_pLayerMan->_appConfig->_hoverTimer);
 
 						ImGui::Checkbox("Allow Individual Motion", &_allowIndividualMotion);
-						ToolTip("Enable the original motion settings in addition to the parent.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Enable the original motion settings in addition to the parent.", &_pLayerMan->_appConfig->_hoverTimer);
 
 					}
 
 					BetterUnindent("motioninherit" + _id);
 				}
 				else
-					ToolTip("Copy the motion of another layer", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Copy the motion of another layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 				oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
-				LayerInfo* oldMp = _parent->GetLayer(_motionParent);
+				LayerInfo* oldMp = _pLayerMan->GetLayer(_motionParent);
 				std::string mpName = oldMp ? oldMp->_name : "Off";
 				ImGui::SetNextItemWidth(headerBtnSize.x * 7);
 				std::function<bool(const LayerManager::LayerInfo&)> mpComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
@@ -6361,35 +6377,35 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 								{
 									if (ImGui::Selectable("None", _bounceType == BounceNone))
 										_bounceType = BounceNone;
-									ToolTip("No Talking Motion", &_parent->_appConfig->_hoverTimer);
+									ToolTip("No Talking Motion", &_pLayerMan->_appConfig->_hoverTimer);
 									if (ImGui::Selectable("Loudness", _bounceType == BounceLoudness))
 										_bounceType = BounceLoudness;
-									ToolTip("Motion is determined by the audio level", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Motion is determined by the audio level", &_pLayerMan->_appConfig->_hoverTimer);
 									if (ImGui::Selectable("Regular", _bounceType == BounceRegular))
 										_bounceType = BounceRegular;
-									ToolTip("Fixed motion, on a regular time interval", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Fixed motion, on a regular time interval", &_pLayerMan->_appConfig->_hoverTimer);
 									if (ImGui::Selectable("Once", _bounceType == BounceOnce))
 										_bounceType = BounceOnce;
-									ToolTip("One bounce, when you start talking", &_parent->_appConfig->_hoverTimer);
+									ToolTip("One bounce, when you start talking", &_pLayerMan->_appConfig->_hoverTimer);
 									ImGui::EndCombo();
 								}
-								ToolTip("Select the talking motion type", &_parent->_appConfig->_hoverTimer);
+								ToolTip("Select the talking motion type", &_pLayerMan->_appConfig->_hoverTimer);
 
 								if (_bounceType != BounceNone)
 								{
-									AddResetButton("bounceMoveReset", _bounceMove, sf::Vector2f( 0.0, 0.0 ), _parent->_appConfig, &style);
+									AddResetButton("bounceMoveReset", _bounceMove, sf::Vector2f( 0.0, 0.0 ), _pLayerMan->_appConfig, &style);
 									float data[2] = { _bounceMove.x, _bounceMove.y };
-									if (Float2SliderDrag("Move##talkingMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+									if (Float2SliderDrag("Move##talkingMove", data, -100, 100, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 										_bounceMove = { data[0], data[1] };
-									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
+									ToolTip("The max distance the sprite will move", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-									AddResetButton("bouncerotatereset", _bounceRotation, 0.0f, _parent->_appConfig, &style);
-									FloatSliderDrag("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
-									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
+									AddResetButton("bouncerotatereset", _bounceRotation, 0.0f, _pLayerMan->_appConfig, &style);
+									FloatSliderDrag("Rotation##talkingRot", &_bounceRotation, -180.f, 180.f, "%.1f deg", 0, _pLayerMan->_uiConfig->_numberEditType);
+									ToolTip("The amount the sprite will rotate", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathscale", _bounceScale, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
+									AddResetButton("breathscale", _bounceScale, sf::Vector2f(0.0, 0.0), _pLayerMan->_appConfig, &style);
 									float data2[2] = { _bounceScale.x, _bounceScale.y };
-									if (Float2SliderDrag("Scale##talkingScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+									if (Float2SliderDrag("Scale##talkingScale", data2, -1, 1, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 									{
 										if (!_bounceScaleConstrain)
 										{
@@ -6405,23 +6421,23 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 											_bounceScale = { data2[1] , data2[1] };
 										}
 									}
-									ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer, true);
+									ToolTip("The amount added to the sprite's scale", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 									ImGui::PushID("BounceScaleConstrain"); {
 										ImGui::Checkbox("Constrain", &_bounceScaleConstrain);
-										ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+										ToolTip("Keep the X / Y scale the same", &_pLayerMan->_appConfig->_hoverTimer);
 									}ImGui::PopID(); //bouncescaleconstrain
 
 
 									if (_bounceType == BounceRegular || _bounceType == BounceOnce)
 									{
-										AddResetButton("bobtime", _bounceFrequency, 0.333f, _parent->_appConfig, &style);
-										FloatSliderDrag("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
-										ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
+										AddResetButton("bobtime", _bounceFrequency, 0.333f, _pLayerMan->_appConfig, &style);
+										FloatSliderDrag("Cycle time##bounceCycleTime", &_bounceFrequency, 0.0, 2.0, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+										ToolTip("The time taken to complete one full motion", &_pLayerMan->_appConfig->_hoverTimer, true);
 									}
 								}
 
-								LayerInfo* oldSync = _parent->GetLayer(bounceTimerID);
+								LayerInfo* oldSync = _pLayerMan->GetLayer(bounceTimerID);
 								std::string syncName = oldSync ? oldSync->_name : "Off";
 
 								std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
@@ -6430,30 +6446,30 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 								LayerSelectCombo("Sync to layer##Talk", syncName, bounceTimerID, syncComboFilter);
 
-								ToolTip("Sync the talk motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
+								ToolTip("Sync the talk motion timer of this layer\nto any other layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 								ImGui::EndTabItem();
 							}
-							ToolTip("Move the sprite whilst talking", &_parent->_appConfig->_hoverTimer);
+							ToolTip("Move the sprite whilst talking", &_pLayerMan->_appConfig->_hoverTimer);
 
 							if (ImGui::BeginTabItem("Idle"))
 							{
 								ImGui::Checkbox("Do Idle Motion", &_idleMotionEnabled);
 								if (_idleMotionEnabled)
 								{
-									AddResetButton("breathmove", _breathMove, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
+									AddResetButton("breathmove", _breathMove, sf::Vector2f(0.0, 0.0), _pLayerMan->_appConfig, &style);
 									float data[2] = { _breathMove.x, _breathMove.y };
-									if (Float2SliderDrag("Move##idleMove", data, -100, 100, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+									if (Float2SliderDrag("Move##idleMove", data, -100, 100, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 										_breathMove = { data[0], data[1] };
-									ToolTip("The max distance the sprite will move", &_parent->_appConfig->_hoverTimer, true);
+									ToolTip("The max distance the sprite will move", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathrotate", _breathRotation, 0.0f, _parent->_appConfig, &style);
-									FloatSliderDrag("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType);
-									ToolTip("The amount the sprite will rotate", &_parent->_appConfig->_hoverTimer, true);
+									AddResetButton("breathrotate", _breathRotation, 0.0f, _pLayerMan->_appConfig, &style);
+									FloatSliderDrag("Rotation##idleRotate", &_breathRotation, -180.f, 180.f, "%.1f deg", 0, _pLayerMan->_uiConfig->_numberEditType);
+									ToolTip("The amount the sprite will rotate", &_pLayerMan->_appConfig->_hoverTimer, true);
 
-									AddResetButton("breathscale", _breathScale, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
+									AddResetButton("breathscale", _breathScale, sf::Vector2f(0.0, 0.0), _pLayerMan->_appConfig, &style);
 									float data2[2] = { _breathScale.x, _breathScale.y };
-									if (Float2SliderDrag("Scale##idleScale", data2, -1, 1, "%.2f", 0, _parent->_uiConfig->_numberEditType))
+									if (Float2SliderDrag("Scale##idleScale", data2, -1, 1, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
 									{
 										if (!_breathScaleConstrain)
 										{
@@ -6469,41 +6485,41 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 											_breathScale = { data2[1] , data2[1] };
 										}
 									}
-									ToolTip("The amount added to the sprite's scale", &_parent->_appConfig->_hoverTimer, true);
+									ToolTip("The amount added to the sprite's scale", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 									ImGui::PushID("BreathScaleConstrain"); {
 										ImGui::Checkbox("Constrain", &_breathScaleConstrain);
-										ToolTip("Keep the X / Y scale the same", &_parent->_appConfig->_hoverTimer);
+										ToolTip("Keep the X / Y scale the same", &_pLayerMan->_appConfig->_hoverTimer);
 									}ImGui::PopID(); //breathscaleconstrain
 
 									ImGui::Checkbox("Circular Motion", &_breathCircular);
-									ToolTip("Move the sprite in a circle instead of a line", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Move the sprite in a circle instead of a line", &_pLayerMan->_appConfig->_hoverTimer);
 
 									ImGui::Checkbox("Continue Whilst Talking", &_breatheWhileTalking);
-									ToolTip("Idle animation continues whilst talking", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Idle animation continues whilst talking", &_pLayerMan->_appConfig->_hoverTimer);
 
-									AddResetButton("breathfreq", _breathFrequency, 4.f, _parent->_appConfig, &style);
-									FloatSliderDrag("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s", 0, _parent->_uiConfig->_numberEditType);
-									ToolTip("The time taken to complete one full motion", &_parent->_appConfig->_hoverTimer, true);
+									AddResetButton("breathfreq", _breathFrequency, 4.f, _pLayerMan->_appConfig, &style);
+									FloatSliderDrag("Cycle Time##breathcycletime", &_breathFrequency, 0.0, 10.f, "%.2f s", 0, _pLayerMan->_uiConfig->_numberEditType);
+									ToolTip("The time taken to complete one full motion", &_pLayerMan->_appConfig->_hoverTimer, true);
 
 									ImGui::Checkbox("Change Color", &_doBreathTint);
-									ToolTip("Interpolate the active sprite's Tint color with\nthis one along with the idle animation", &_parent->_appConfig->_hoverTimer);
+									ToolTip("Interpolate the active sprite's Tint color with\nthis one along with the idle animation", &_pLayerMan->_appConfig->_hoverTimer);
 
 									if (_doBreathTint)
 									{
-										AddResetButton("breathtintreset", _breathTint, _sprites[SP_IDLE].tint, _parent->_appConfig, &style);
+										AddResetButton("breathtintreset", _breathTint, _sprites[SP_IDLE].tint, _pLayerMan->_appConfig, &style);
 										ImGui::ColorEdit4("Tint##BreathTint", &_breathTint.x, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
 									}
 								}
 
-								LayerInfo* oldSync = _parent->GetLayer(motionTimerID);
+								LayerInfo* oldSync = _pLayerMan->GetLayer(motionTimerID);
 								std::string syncName = oldSync ? oldSync->_name : "Off";
 								std::function<bool(const LayerManager::LayerInfo&)> syncComboFilter = [&](const LayerManager::LayerInfo& fLayer) {
 									return (fLayer._id != _id && fLayer.motionTimerID != _id && fLayer._isFolder == false);
 									};
 
 								LayerSelectCombo("Sync to layer##Idle", syncName, motionTimerID, syncComboFilter);
-								ToolTip("Sync the idle motion timer of this layer\nto any other layer", &_parent->_appConfig->_hoverTimer);
+								ToolTip("Sync the idle motion timer of this layer\nto any other layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 								ImGui::EndTabItem();
 							}
@@ -6516,13 +6532,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 									_storedConstantPos = { 0,0 };
 									_storedConstantRot = 0;
 								}
-								ToolTip("Reset the stored constant motion", &_parent->_appConfig->_hoverTimer);
+								ToolTip("Reset the stored constant motion", &_pLayerMan->_appConfig->_hoverTimer);
 
-								AddResetButton("rotspeedreset", _constantRot, 0.0, _parent->_appConfig, &style);
+								AddResetButton("rotspeedreset", _constantRot, 0.0, _pLayerMan->_appConfig, &style);
 								float cRot = _constantRot;
-								if (FloatSliderDrag("Rotation Speed", &cRot, -360, 360, "%.1f deg/s", 0, _parent->_uiConfig->_numberEditType))
+								if (FloatSliderDrag("Rotation Speed", &cRot, -360, 360, "%.1f deg/s", 0, _pLayerMan->_uiConfig->_numberEditType))
 									_constantRot = cRot;
-								ToolTip("Continuously rotate the sprite with this speed \n(degrees per second)", &_parent->_appConfig->_hoverTimer, true);
+								ToolTip("Continuously rotate the sprite with this speed \n(degrees per second)", &_pLayerMan->_appConfig->_hoverTimer, true);
 								ImGui::EndTabItem();
 							}
 
@@ -6536,7 +6552,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 					if (indivEnabled)
 					{
-						ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Set motion during talking, when idle,\nor to occur constantly.", &_pLayerMan->_appConfig->_hoverTimer);
 					}
 
 					auto oldCursorPos = ImGui::GetCursorPos();
@@ -6557,7 +6573,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							_bounceType = _lastEnabledBounceType;
 						}
 					}
-					ToolTip("Quickly enable/disable Talking motion", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Quickly enable/disable Talking motion", &_pLayerMan->_appConfig->_hoverTimer);
 					ImGui::SameLine();
 					if (_idleMotionEnabled)
 					{
@@ -6569,7 +6585,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						if (LesserButton("I##IdleEnableHeader", { UIUnit, UIUnit }, false))
 							_idleMotionEnabled = true;
 					}
-					ToolTip("Quickly enable/disable Idle motion", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Quickly enable/disable Idle motion", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 					ImGui::SetCursorPos(oldCursorPos);
@@ -6584,7 +6600,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 						headerSize.x -= UIUnit * 1.5;
 						ImGui::SetCursorScreenPos(headerPosition);
 						ImGui::InvisibleButton("indivMotionDisabledTooltip", headerSize);
-						ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_parent->_appConfig->_hoverTimer);
+						ToolTip("This is disabled by default while Motion Inherit is used.\nYou can re-enable it in the Motion Inherit settings.", &_pLayerMan->_appConfig->_hoverTimer);
 					}
 
 					subHeaderBtnPos.x = ImGui::GetContentRegionMax().x - UIUnit;
@@ -6597,9 +6613,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					}
 					ImGui::PopStyleVar(2);
 					if (_allowIndividualMotion)
-						ToolTip("Disable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Disable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_pLayerMan->_appConfig->_hoverTimer);
 					else
-						ToolTip("Enable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_parent->_appConfig->_hoverTimer);
+						ToolTip("Enable Individual Motion alongide Motion Inherit\n(See Motion Inherit settings)", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 					ImGui::SetCursorPos(curpos);
@@ -6608,133 +6624,24 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				///////////////////////////////////////////////// TRACKING ///////////////////////////////////////////////
 
 				if (_useGlobalTracking)
-					_trackingSettings = _parent->_globalTracking.get();
+					_trackingSettings = _pLayerMan->_globalTracking.get();
 				else
 					_trackingSettings = _uniqueTracking.get();
 
 				if (_useGlobalTrackingMotion)
-					_trackingMotion = _parent->_globalTrackingMotion.get();
+					_trackingMotion = _pLayerMan->_globalTrackingMotion.get();
 				else
 					_trackingMotion = _uniqueTrackingMotion.get();
 
 				subHeaderBtnPos = { ImGui::GetWindowWidth() - headerBtnSize.x * 8, ImGui::GetCursorPosY() };
-				_parent->DrawTrackingGUI(_trackingSettings, _trackingMotion, indentSize, _trackingType, _useGlobalTracking, _useGlobalTrackingMotion, style, this, false);
+				_pLayerMan->DrawTrackingGUI(_trackingSettings, _trackingMotion, indentSize, _trackingType, _useGlobalTracking, _useGlobalTrackingMotion, style, this, false);
 				oldCursorPos = ImGui::GetCursorPos();
 				ImGui::SetCursorPos(subHeaderBtnPos);
 				ImGui::Checkbox("##trackingEnabled", &_trackingEnabled);
-				ToolTip("Move this layer with a mouse or controller.", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Move this layer with a mouse or controller.", &_pLayerMan->_appConfig->_hoverTimer);
 				ImGui::SetCursorPos(oldCursorPos);
 
-
-				if (ImGui::CollapsingHeader("Transforms", ImGuiTreeNodeFlags_AllowOverlap))
-				{
-					BetterIndent(indentSize, "transforms" + _id);
-
-					AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _parent->_appConfig, &style);
-					float pos[2] = { _pos.x, _pos.y };
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					if (Float2SliderDrag("Position", pos, -1000.0, 1000.f, "%.0f px", 0, _parent->_uiConfig->_numberEditType))
-					{
-						_pos.x = pos[0];
-						_pos.y = pos[1];
-					}
-
-					ToolTip("The position of this layer.", &_parent->_appConfig->_hoverTimer, true);
-
-					AddResetButton("rot", _rot, 0.0, _parent->_appConfig, &style);
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					float rot = _rot;
-					if (FloatSliderDrag("Rotation", &rot, -180.f, 180.f, "%.1f deg", 0, _parent->_uiConfig->_numberEditType))
-						_rot = rot;
-					ToolTip("The rotation of this layer.", &_parent->_appConfig->_hoverTimer, true);
-
-					AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _parent->_appConfig, &style);
-					float scale[2] = { _scale.x, _scale.y };
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
-					if (Float2SliderDrag("Scale", scale, 0.0, 5.f, "%.2f", 0, _parent->_uiConfig->_numberEditType))
-					{
-						if (!_keepAspect)
-						{
-							_scale.x = scale[0];
-							_scale.y = scale[1];
-						}
-						else if (scale[0] != _scale.x)
-						{
-							_scale = { scale[0] , scale[0] };
-						}
-						else if (scale[1] != _scale.y)
-						{
-							_scale = { scale[1] , scale[1] };
-						}
-					}
-					ToolTip("The scale of this layer.", &_parent->_appConfig->_hoverTimer, true);
-
-					ImGui::Checkbox("Constrain", &_keepAspect);
-					ToolTip("Keeps the X and Y scale values the same", &_parent->_appConfig->_hoverTimer);
-
-					ImGui::Checkbox("Rotate Children", &_passRotationToChildLayers);
-					ToolTip("Apply this rotation value to any layers using\nthis as a Motion Parent.\n\
-(This is different from the rotation in Individual Motion.\nChildrens' position will also be rotated.)", &_parent->_appConfig->_hoverTimer);
-
-					sf::Vector2f spriteSize = _sprites[SP_IDLE]->Size();
-
-					sf::Vector2<double> prevPivot = _pivot;
-					AddResetButton("pivot", _pivot, sf::Vector2<double>(0.5, 0.5), _parent->_appConfig, &style);
-					if (prevPivot != _pivot && _parent->_pivotPreservePosition)
-						_pos += sf::Vector2f((_pivot - prevPivot) * sf::Vector2<double>(spriteSize) * sf::Vector2<double>(_scale));
-
-					std::vector<float> pivot = { (float)_pivot.x * 100, (float)_pivot.y * 100 };
-					std::string pivunit = "%";
-					std::string pivfmt = "%.1f %%";
-					float pivmax = 100.0;
-					float pivmin = 0.0;
-					if (_pivotPx)
-					{
-						pivunit = "px";
-						pivfmt = "%.1f px";
-						pivmax = Max(spriteSize.x, spriteSize.y);
-						pivot = { (float)_pivot.x * spriteSize.x, (float)_pivot.y * spriteSize.y };
-					}
-
-					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
-					if (Float2SliderDrag("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str(), 0, _parent->_uiConfig->_numberEditType))
-					{
-						sf::Vector2<double> prevPivot = _pivot;
-
-						if (!_pivotPx)
-						{
-							_pivot.x = pivot[0] / 100;
-							_pivot.y = pivot[1] / 100;
-						}
-						else
-						{
-							_pivot.x = pivot[0] / spriteSize.x;
-							_pivot.y = pivot[1] / spriteSize.y;
-						}
-
-						if (_parent->_pivotPreservePosition)
-						{
-							sf::Vector2<double> pivotDiff = _pivot - prevPivot;
-							sf::Vector2<double> pivotRotatedDiff = Rotate(pivotDiff, Deg2Rad(_rot));
-							_pos += sf::Vector2f(pivotRotatedDiff * sf::Vector2<double>(spriteSize) * sf::Vector2<double>(_scale));
-						}
-
-					}
-					ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_parent->_appConfig->_hoverTimer, true);
-					ImGui::SameLine();
-					if (ImGui::Button(_pivotPx ? "px" : "%"))
-					{
-						_pivotPx = !_pivotPx;
-					}
-					ImGui::Checkbox("Preserve Position", &_parent->_pivotPreservePosition);
-					ToolTip("Preserve the layer position while moving the pivot point.", &_parent->_appConfig->_hoverTimer);
-
-					BetterUnindent("transforms" + _id);
-				}
-				else
-				{
-					ToolTip("Set the Position, Scale and Rotation of the layer\n(also Pivot Point and Mouse Tracking)", &_parent->_appConfig->_hoverTimer);
-				}
+				DrawTransformsGUI(indentSize, style);
 				ImGui::Separator();
 
 			}
@@ -6745,7 +6652,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		else
 		{
 			if (ImGui::IsItemHovered() && _isFolder == false)
-				_parent->_hoveredLayers.push_back(_id);
+				_pLayerMan->_hoveredLayers.push_back(_id);
 
 			if (_layerColor.w != 0)
 				ImGui::PopStyleColor();
@@ -6768,7 +6675,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			auto tagCol = style.Colors[ImGuiCol_ButtonActive] * 0.7 + style.Colors[ImGuiCol_Text] * 0.3;
 
 			ImGui::SetCursorPos(ImVec2(nameEnd, headerButtonsPos.y + style.FramePadding.y));
-			ImGui::Image(*_parent->_textureMan->GetIcon(TextureManager::ICON_TAG), {UIUnit*0.7f, UIUnit*0.7f}, toSFColor(tagCol));
+			ImGui::Image(*_pLayerMan->_textureMan->GetIcon(TextureManager::ICON_TAG), {UIUnit*0.7f, UIUnit*0.7f}, toSFColor(tagCol));
 			ImGui::SetCursorPos(ImVec2(nameEnd + UIUnit, headerButtonsPos.y + style.FramePadding.y));
 			ImGui::TextColored(tagCol, (*_tags.begin() + extra).c_str());
 		}
@@ -6777,7 +6684,7 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 
 
-		if (_parent->_appConfig->_unloadTimeoutEnabled && !_isFolder)
+		if (_pLayerMan->_appConfig->_unloadTimeoutEnabled && !_isFolder)
 		{
 			auto pinPos = headerButtonsPos;
 			pinPos.x -= UIUnit;
@@ -6787,10 +6694,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			{
 				_pinLoaded = !_pinLoaded;
 
-				SetUnloadingTimer(_parent->_appConfig->_unloadTimeout);
+				SetUnloadingTimer(_pLayerMan->_appConfig->_unloadTimeout);
 			}
 			ImGui::PopStyleColor();
-			ToolTip(_pinLoaded ? "Pinned" : "Unpinned", _pinLoaded ? "Click to unpin\n(allow unloading this layer's images)" : "Click to pin\n(keep this layer's images in memory)", & _parent->_appConfig->_hoverTimer);
+			ToolTip(_pinLoaded ? "Pinned" : "Unpinned", _pinLoaded ? "Click to unpin\n(allow unloading this layer's images)" : "Click to pin\n(keep this layer's images in memory)", & _pLayerMan->_appConfig->_hoverTimer);
 		}
 		
 		ImGui::SetCursorPos(headerButtonsPos);
@@ -6802,13 +6709,13 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			bool safe = true;
 			// if any active state changes this layer's visibility, it's not safe to update the default
 			int stateIdx = 0;
-			for (auto& state : _parent->_states)
+			for (auto& state : _pLayerMan->_states)
 			{
 				if (state._active == false)
 					continue;
 
 				{
-					std::scoped_lock lockState(_parent->_stateLocks[stateIdx]);
+					std::scoped_lock lockState(_pLayerMan->_stateLocks[stateIdx]);
 					if (state._layerStates.count(_id) == 0u)
 						continue;
 
@@ -6821,21 +6728,21 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 				++stateIdx;
 			}
 			if (safe)
-				_parent->_defaultLayerStates[_id] = _visible;
+				_pLayerMan->_defaultLayerStates[_id] = _visible;
 		}
 		ImGui::PopStyleColor();
-		ToolTip("Show or hide the layer", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Show or hide the layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0.25));
 		ImGui::SameLine();
 		if (ImGui::ImageButton("upbtn", *_upIcon, headerBtnSize, sf::Color::Transparent, btnColor))
-			_parent->MoveLayerUp(this);
-		ToolTip("Move the layer up", &_parent->_appConfig->_hoverTimer);
+			_pLayerMan->MoveLayerUp(this);
+		ToolTip("Move the layer up", &_pLayerMan->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
 		if (ImGui::ImageButton("dnbtn", *_dnIcon, headerBtnSize, sf::Color::Transparent, btnColor))
-			_parent->MoveLayerDown(this);
-		ToolTip("Move the layer down", &_parent->_appConfig->_hoverTimer);
+			_pLayerMan->MoveLayerDown(this);
+		ToolTip("Move the layer down", &_pLayerMan->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
 		if (ImGui::ImageButton("renamebtn", *_editIcon, headerBtnSize, sf::Color::Transparent, btnColor))
@@ -6846,15 +6753,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			ImGui::OpenPopup("Rename Layer");
 			ImGui::SetNextWindowFocus();
 		}
-		ToolTip("Rename or Color the layer", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Rename or Color the layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 		ImGui::SameLine();
 		if (ImGui::ImageButton("dupebtn", *_dupeIcon, headerBtnSize, sf::Color::Transparent, btnColor))
 		{
 			allowContinue = false;
-			_parent->AddLayer(this);
+			_pLayerMan->AddLayer(this);
 		}
-		ToolTip("Duplicate the layer", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Duplicate the layer", &_pLayerMan->_appConfig->_hoverTimer);
 		ImGui::PopStyleColor();
 
 		DrawRenamePopupGUI();
@@ -6868,9 +6775,9 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 			if (ImGui::ImageButton("delbtn", *_delIcon, headerBtnSize, sf::Color::Transparent, sf::Color(255, 200, 170)))
 			{
 				allowContinue = false;
-				_parent->RemoveLayer(this);
+				_pLayerMan->RemoveLayer(this);
 			}
-			ToolTip("Delete the layer", &_parent->_appConfig->_hoverTimer);
+			ToolTip("Delete the layer", &_pLayerMan->_appConfig->_hoverTimer);
 		}ImGui::PopID();//deletebtn
 
 		ImGui::PopStyleColor(4);
@@ -6907,10 +6814,10 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 					{
 						graphLayer._scrollToHere = true;
 						if (graphLayer._inFolder != "")
-							_parent->GetLayer(graphLayer._inFolder)->_scrollToHere = true;
+							_pLayerMan->GetLayer(graphLayer._inFolder)->_scrollToHere = true;
 					}
 					ImGui::PopStyleColor();
-					ToolTip("Open and scroll to this layer", &_parent->_appConfig->_hoverTimer);
+					ToolTip("Open and scroll to this layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 					if (n > 0)
 					{
@@ -6938,6 +6845,125 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 	}ImGui::PopID();
 
 	return allowContinue;
+}
+
+void LayerManager::LayerInfo::DrawTransformsGUI(float indentSize, ImGuiStyle& style)
+{
+	std::string title = _isFolder ? "Folder Transforms" : "Transforms";
+
+	if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_AllowOverlap))
+	{
+		BetterIndent(indentSize, "transforms" + _id);
+
+		AddResetButton("pos", _pos, sf::Vector2f(0.0, 0.0), _pLayerMan->_appConfig, &style);
+		float pos[2] = { _pos.x, _pos.y };
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+		if (Float2SliderDrag("Position", pos, -1000.0, 1000.f, "%.0f px", 0, _pLayerMan->_uiConfig->_numberEditType))
+		{
+			_pos.x = pos[0];
+			_pos.y = pos[1];
+		}
+
+		ToolTip("The position of this layer.", &_pLayerMan->_appConfig->_hoverTimer, true);
+
+		AddResetButton("rot", _rot, 0.0, _pLayerMan->_appConfig, &style);
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+		float rot = _rot;
+		if (FloatSliderDrag("Rotation", &rot, -180.f, 180.f, "%.1f deg", 0, _pLayerMan->_uiConfig->_numberEditType))
+			_rot = rot;
+		ToolTip("The rotation of this layer.", &_pLayerMan->_appConfig->_hoverTimer, true);
+
+		AddResetButton("scale", _scale, sf::Vector2f(1.0, 1.0), _pLayerMan->_appConfig, &style);
+		float scale[2] = { _scale.x, _scale.y };
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 30);
+		if (Float2SliderDrag("Scale", scale, 0.0, 5.f, "%.2f", 0, _pLayerMan->_uiConfig->_numberEditType))
+		{
+			if (!_keepAspect)
+			{
+				_scale.x = scale[0];
+				_scale.y = scale[1];
+			}
+			else if (scale[0] != _scale.x)
+			{
+				_scale = { scale[0] , scale[0] };
+			}
+			else if (scale[1] != _scale.y)
+			{
+				_scale = { scale[1] , scale[1] };
+			}
+		}
+		ToolTip("The scale of this layer.", &_pLayerMan->_appConfig->_hoverTimer, true);
+
+		ImGui::Checkbox("Constrain", &_keepAspect);
+		ToolTip("Keeps the X and Y scale values the same", &_pLayerMan->_appConfig->_hoverTimer);
+
+		if (!_isFolder)
+		{
+			ImGui::Checkbox("Rotate Children", &_passRotationToChildLayers);
+			ToolTip("Apply this rotation value to any layers using\nthis as a Motion Parent.\n\
+(This is different from the rotation in Individual Motion.\nChildrens' position will also be rotated.)", &_pLayerMan->_appConfig->_hoverTimer);
+
+			sf::Vector2f spriteSize = _sprites[SP_IDLE]->Size();
+
+			sf::Vector2<double> prevPivot = _pivot;
+			AddResetButton("pivot", _pivot, sf::Vector2<double>(0.5, 0.5), _pLayerMan->_appConfig, &style);
+			if (prevPivot != _pivot && _pLayerMan->_pivotPreservePosition)
+				_pos += sf::Vector2f((_pivot - prevPivot) * sf::Vector2<double>(spriteSize) * sf::Vector2<double>(_scale));
+
+			std::vector<float> pivot = { (float)_pivot.x * 100, (float)_pivot.y * 100 };
+			std::string pivunit = "%";
+			std::string pivfmt = "%.1f %%";
+			float pivmax = 100.0;
+			float pivmin = 0.0;
+			if (_pivotPx)
+			{
+				pivunit = "px";
+				pivfmt = "%.1f px";
+				pivmax = Max(spriteSize.x, spriteSize.y);
+				pivot = { (float)_pivot.x * spriteSize.x, (float)_pivot.y * spriteSize.y };
+			}
+
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 45);
+			if (Float2SliderDrag("Pivot Point", pivot.data(), pivmin, pivmax, pivfmt.c_str(), 0, _pLayerMan->_uiConfig->_numberEditType))
+			{
+				sf::Vector2<double> prevPivot = _pivot;
+
+				if (!_pivotPx)
+				{
+					_pivot.x = pivot[0] / 100;
+					_pivot.y = pivot[1] / 100;
+				}
+				else
+				{
+					_pivot.x = pivot[0] / spriteSize.x;
+					_pivot.y = pivot[1] / spriteSize.y;
+				}
+
+				if (_pLayerMan->_pivotPreservePosition)
+				{
+					sf::Vector2<double> pivotDiff = _pivot - prevPivot;
+					sf::Vector2<double> pivotRotatedDiff = Rotate(pivotDiff, Deg2Rad(_rot));
+					_pos += sf::Vector2f(pivotRotatedDiff * sf::Vector2<double>(spriteSize) * sf::Vector2<double>(_scale));
+				}
+
+			}
+			ToolTip("Sets the pivot point (range 0 - 1. 0 = top/left, 1 =  bottom/right)", &_pLayerMan->_appConfig->_hoverTimer, true);
+			ImGui::SameLine();
+			if (ImGui::Button(_pivotPx ? "px" : "%"))
+			{
+				_pivotPx = !_pivotPx;
+			}
+			ImGui::Checkbox("Preserve Position", &_pLayerMan->_pivotPreservePosition);
+			ToolTip("Preserve the layer position while moving the pivot point.", &_pLayerMan->_appConfig->_hoverTimer);
+
+		}
+
+		BetterUnindent("transforms" + _id);
+	}
+	else
+	{
+		ToolTip("Set the Position, Scale and Rotation of the layer\n(also Pivot Point and Mouse Tracking)", &_pLayerMan->_appConfig->_hoverTimer);
+	}
 }
 
 void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSettings, LayerInfo::TrackingMotion* _trackingMotion, float indentSize, LayerManager::LayerInfo::TrackingMode& trackingType, bool& useGlobalTracking, bool& useGlobalMotion, ImGuiStyle& style, LayerInfo* layer, bool isGlobalDialog)
@@ -7231,16 +7257,16 @@ static int ImGuiTextResizeCallback(ImGuiInputTextCallbackData* data)
 
 void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string& selectedName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter)
 {
-	const float& uiScale = _parent->_appConfig->scalingFactor;
+	const float& uiScale = _pLayerMan->_appConfig->scalingFactor;
 	const float& UIUnit = ImGui::GetFrameHeightWithSpacing();
 
 	if (ImGui::BeginCombo(comboID, ANSIToUTF8(selectedName).c_str(), ImGuiComboFlags_HeightLargest))
 	{
 		float comboW = ImGui::GetContentRegionAvail().x;
 
-		int itemCount = _parent->_layers.size();
-		if (_parent->_comboLengths.count(comboID))
-			itemCount = _parent->_comboLengths[comboID];
+		int itemCount = _pLayerMan->_layers.size();
+		if (_pLayerMan->_comboLengths.count(comboID))
+			itemCount = _pLayerMan->_comboLengths[comboID];
 
 		float comboH = UIUnit * Min(10.f, 1.04f*itemCount + 2.f) + ImGui::GetStyle().FramePadding.y*2;
 
@@ -7256,11 +7282,11 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 
 			ImGui::TableNextColumn();
 
-			if (_parent->_comboSearchStrings.count(comboID) == 0)
-				_parent->_comboSearchStrings[comboID] = "";
+			if (_pLayerMan->_comboSearchStrings.count(comboID) == 0)
+				_pLayerMan->_comboSearchStrings[comboID] = "";
 
 			//ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			ImGui::InputTextEx("##search", "Search...", _parent->_comboSearchStrings[comboID].data(), _parent->_comboSearchStrings[comboID].size() + 1, ImVec2(-1, UIUnit), ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CallbackResize, ImGuiTextResizeCallback, (void*)(&_parent->_comboSearchStrings[comboID]));
+			ImGui::InputTextEx("##search", "Search...", _pLayerMan->_comboSearchStrings[comboID].data(), _pLayerMan->_comboSearchStrings[comboID].size() + 1, ImVec2(-1, UIUnit), ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CallbackResize, ImGuiTextResizeCallback, (void*)(&_pLayerMan->_comboSearchStrings[comboID]));
 
 			bool offClicked = false;
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3,0,0,1.0));
@@ -7280,11 +7306,11 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 			ImGui::TableNextColumn();
 
 			int layerCount = 0;
-			for (auto& layer : _parent->GetLayers())
+			for (auto& layer : _pLayerMan->GetLayers())
 			{
 				bool searchFound = true;
-				if (_parent->_comboSearchStrings[comboID][0] != 0)
-					if (caseInsensitiveSubstringSearch(layer._name, _parent->_comboSearchStrings[comboID].c_str()))
+				if (_pLayerMan->_comboSearchStrings[comboID][0] != 0)
+					if (caseInsensitiveSubstringSearch(layer._name, _pLayerMan->_comboSearchStrings[comboID].c_str()))
 						searchFound = true;
 					else
 						searchFound = false;
@@ -7318,7 +7344,7 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 				}
 			}
 
-			_parent->_comboLengths[comboID] = layerCount;
+			_pLayerMan->_comboLengths[comboID] = layerCount;
 
 			ImGui::EndTable();
 		}
@@ -7445,12 +7471,12 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 			{
 				_addingTag = false;
 				_tags.insert(tagBuf);
-				_parent->_tagList[tagBuf] = true;
-				_parent->_tagDefaults[tagBuf] = true;
-				_parent->_tagFilters[tagBuf] = false;
+				_pLayerMan->_tagList[tagBuf] = true;
+				_pLayerMan->_tagDefaults[tagBuf] = true;
+				_pLayerMan->_tagFilters[tagBuf] = false;
 			}
 
-			if (_addingTag && _parent->_tagList.size() > 0)
+			if (_addingTag && _pLayerMan->_tagList.size() > 0)
 			{
 				if(!ImGui::IsPopupOpen("##inputTag"))
 					ImGui::OpenPopup("##inputTag");
@@ -7461,7 +7487,7 @@ void LayerManager::LayerInfo::DrawRenamePopupGUI()
 			if(ImGui::BeginPopup("##inputTag", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysVerticalScrollbar ))
 			{
 				ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
-				for (auto& t : _parent->_tagList)
+				for (auto& t : _pLayerMan->_tagList)
 				{
 					if (tagBuf == "" || t.first.find(std::string(tagBuf)) == 0)
 					{
@@ -7521,7 +7547,7 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 		auto offsetBtnPos = ImGui::GetCursorPos();
 		ImGui::PushID(animID.c_str()); {
 			_sprites[UISprite].spriteOpen |= ImGui::ImageButton(animID.c_str(), *_animIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-			ToolTip("Animation Settings", &_parent->_appConfig->_hoverTimer);
+			ToolTip("Animation Settings", &_pLayerMan->_appConfig->_hoverTimer);
 			AnimPopup(*_sprites[UISprite], _sprites[UISprite].spriteOpen, _sprites[UISprite].oldSpriteOpen);
 		}ImGui::PopID();
 
@@ -7544,7 +7570,7 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 			ImGui::SetCursorPos(offsetBtnPos);
 			ImGui::PushID(offsetID.c_str()); {
 				_sprites[UISprite].offsetOpen |= ImGui::ImageButton(offsetID.c_str(), *_moveIcon, sf::Vector2f(animBtnWidth, animBtnWidth), sf::Color::Transparent, btnColor);
-				ToolTip("Offset Settings", &_parent->_appConfig->_hoverTimer);
+				ToolTip("Offset Settings", &_pLayerMan->_appConfig->_hoverTimer);
 				OffsetPopup(*_sprites[UISprite], _sprites[UISprite].offsetOpen, _sprites[UISprite].oldOffsetOpen);
 			}ImGui::PopID();
 		}
@@ -7563,14 +7589,14 @@ void LayerManager::LayerInfo::SpriteSelectGUI(SpriteType UISprite, float imgBtnW
 					_sprites[UISprite]->Clear();
 				else
 				{
-					_sprites[UISprite]->LoadFromTexture(_parent->_textureMan, _sprites[UISprite].path, 1, 1, 1, 1, { -1,-1 }, &_parent->_errorMessage);
+					_sprites[UISprite]->LoadFromTexture(_pLayerMan->_textureMan, _sprites[UISprite].path, 1, 1, 1, 1, { -1,-1 }, &_pLayerMan->_errorMessage);
 					_sprites[UISprite]->setSmooth(_scaleFiltering);
 
 					_sprites[UISprite]->ClearOptimised();
 				}
 			}
 		}ImGui::PopID();
-		ToolTip("Edit the current image path (This will reload the sprite texture!)", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Edit the current image path (This will reload the sprite texture!)", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 	}ImGui::PopID();
@@ -7591,7 +7617,7 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 
 	static imgui_ext::file_browser_modal fileBrowserIdle("Import Sprite");
 	if (fileBrowserIdle.GetLastChosenDir() == "")
-		fileBrowserIdle.SetStartingDir(_parent->_loadedXMLAbsDirectory);
+		fileBrowserIdle.SetStartingDir(_pLayerMan->_loadedXMLAbsDirectory);
 	else
 		fileBrowserIdle.SetStartingDir(fileBrowserIdle.GetLastChosenDir());
 
@@ -7602,10 +7628,10 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 	fs::path browsePath = path;
 	if (path != "")
 	{
-		_parent->ResolveAbsolutePath(browsePath);
+		_pLayerMan->ResolveAbsolutePath(browsePath);
 	}
 
-	ToolTip("Browse for an image file", &_parent->_appConfig->_hoverTimer);
+	ToolTip("Browse for an image file", &_pLayerMan->_appConfig->_hoverTimer);
 	if (openFlag && sprite->HasTexture())
 		fileBrowserIdle.SetStartingDir(browsePath.string());
 
@@ -7618,7 +7644,7 @@ void LayerManager::LayerInfo::ImageBrowsePreviewBtn(bool& openFlag, const char* 
 			sprite->Clear();
 		else
 		{
-			sprite->LoadFromTexture(_parent->_textureMan, _spriteBrowsePath, 1, 1, 1, 1, { -1, -1 }, &_parent->_errorMessage);
+			sprite->LoadFromTexture(_pLayerMan->_textureMan, _spriteBrowsePath, 1, 1, 1, 1, { -1, -1 }, &_pLayerMan->_errorMessage);
 			sprite->setSmooth(_scaleFiltering);
 
 			sprite->ClearOptimised();
@@ -7659,7 +7685,7 @@ void LayerManager::LayerInfo::DrawThresholdBar(float thresholdLevel, float thres
 
 void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& oldOpen)
 {
-	float uiScale = _parent->_appConfig->scalingFactor;
+	float uiScale = _pLayerMan->_appConfig->scalingFactor;
 
 	if (open != oldOpen)
 	{
@@ -7667,7 +7693,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		if (open)
 		{
-			ImGui::SetNextWindowPos({ _parent->_appConfig->_scrW / 2 - 200 * uiScale, _parent->_appConfig->_scrH / 2 - 120 * uiScale });
+			ImGui::SetNextWindowPos({ _pLayerMan->_appConfig->_scrW / 2 - 200 * uiScale, _pLayerMan->_appConfig->_scrH / 2 - 120 * uiScale });
 			ImGui::SetNextWindowSize({ 400 * uiScale, -1 });
 			ImGui::OpenPopup("Sprite Sheet Setup");
 
@@ -7706,7 +7732,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 		ImGui::PushItemWidth(120 * uiScale);
 
-		AddResetButton("gridreset", _animGrid, std::vector<int>( anim.GridSize().x, anim.GridSize().y ), _parent->_appConfig);
+		AddResetButton("gridreset", _animGrid, std::vector<int>( anim.GridSize().x, anim.GridSize().y ), _pLayerMan->_appConfig);
 		if (ImGui::InputInt2("Sheet Columns/Rows", _animGrid.data()))
 		{
 			if (_animGrid[0] != anim.GridSize().x || _animGrid[1] != anim.GridSize().y)
@@ -7715,13 +7741,13 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 				anim._frameSizeSetting = { -1,-1 };
 			}
 		}
-		ToolTip("The number of rows & columns in the spritesheet", &_parent->_appConfig->_hoverTimer);
+		ToolTip("The number of rows & columns in the spritesheet", &_pLayerMan->_appConfig->_hoverTimer);
 
-		AddResetButton("fcountreset", _animFCount, anim.FrameCount(), _parent->_appConfig);
+		AddResetButton("fcountreset", _animFCount, anim.FrameCount(), _pLayerMan->_appConfig);
 		ImGui::InputInt("Frame Count", &_animFCount, 0, 0);
-		ToolTip("The number of frames in the animation", &_parent->_appConfig->_hoverTimer);
+		ToolTip("The number of frames in the animation", &_pLayerMan->_appConfig->_hoverTimer);
 
-		AddResetButton("fpsreset", _animFPS, anim.FPS(), _parent->_appConfig, nullptr, !anim.IsSynced());
+		AddResetButton("fpsreset", _animFPS, anim.FPS(), _pLayerMan->_appConfig, nullptr, !anim.IsSynced());
 		if (!anim.IsSynced())
 			ImGui::InputFloat("FPS", &_animFPS, 1, 1, "%.1f");
 		else
@@ -7733,23 +7759,23 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 			ImGui::PopStyleColor();
 		}
 
-		AddResetButton("framereset", anim._frameSizeSetting, sf::Vector2f(-1, -1 ), _parent->_appConfig);
+		AddResetButton("framereset", anim._frameSizeSetting, sf::Vector2f(-1, -1 ), _pLayerMan->_appConfig);
 		ImGui::InputFloat2("Frame Size (auto = [-1,-1])", &anim._frameSizeSetting.x);
-		ToolTip("The size of each animation frame (set to -1,-1 to calculate automatically)", &_parent->_appConfig->_hoverTimer);
+		ToolTip("The size of each animation frame (set to -1,-1 to calculate automatically)", &_pLayerMan->_appConfig->_hoverTimer);
 
 		bool sync = _animsSynced;
 		if (ImGui::Checkbox("Sync Playback", &sync))
 		{
 			_animsSynced = sync;
 		}
-		ToolTip("Syncronises playback of all animated sprites in this layer", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Syncronises playback of all animated sprites in this layer", &_pLayerMan->_appConfig->_hoverTimer);
 
 		bool loop = _animLoop;
 		if (ImGui::Checkbox("Loop", &loop))
 		{
 			_animLoop = loop;
 		}
-		ToolTip("Whether to loop the animation continously", &_parent->_appConfig->_hoverTimer);
+		ToolTip("Whether to loop the animation continously", &_pLayerMan->_appConfig->_hoverTimer);
 
 		ImGui::Separator();
 
@@ -7778,7 +7804,7 @@ void LayerManager::LayerInfo::AnimPopup(SpriteSheet& anim, bool& open, bool& old
 
 void LayerManager::LayerInfo::OffsetPopup(SpriteSheet& sprite, bool& open, bool& oldOpen)
 {
-	float uiScale = _parent->_appConfig->scalingFactor;
+	float uiScale = _pLayerMan->_appConfig->scalingFactor;
 
 	if (open != oldOpen)
 	{
@@ -7787,7 +7813,7 @@ void LayerManager::LayerInfo::OffsetPopup(SpriteSheet& sprite, bool& open, bool&
 		if (open)
 		{
 
-			ImGui::SetNextWindowPos({ _parent->_appConfig->_scrW / 2 - 200 * uiScale, _parent->_appConfig->_scrH / 2 - 120 * uiScale });
+			ImGui::SetNextWindowPos({ _pLayerMan->_appConfig->_scrW / 2 - 200 * uiScale, _pLayerMan->_appConfig->_scrH / 2 - 120 * uiScale });
 			ImGui::SetNextWindowSize({ 400 * uiScale, -1 });
 			ImGui::OpenPopup("Offset Setup");
 		}
@@ -7803,9 +7829,9 @@ void LayerManager::LayerInfo::OffsetPopup(SpriteSheet& sprite, bool& open, bool&
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { uiScale * 3, uiScale * 3 });
 
 		ImGui::PushItemWidth(120 * uiScale);
-		AddResetButton("offsetreset", sprite._offsetFromIdle, sf::Vector2f( 0, 0 ), _parent->_appConfig);
-		Float2SliderDrag("Offset from Idle Sprite", &sprite._offsetFromIdle.x, -1000, 1000, "%.1f", 0, _parent->_uiConfig->_numberEditType);
-		ToolTip("The offset between this sprite and the Idle sprite", &_parent->_appConfig->_hoverTimer);
+		AddResetButton("offsetreset", sprite._offsetFromIdle, sf::Vector2f( 0, 0 ), _pLayerMan->_appConfig);
+		Float2SliderDrag("Offset from Idle Sprite", &sprite._offsetFromIdle.x, -1000, 1000, "%.1f", 0, _pLayerMan->_uiConfig->_numberEditType);
+		ToolTip("The offset between this sprite and the Idle sprite", &_pLayerMan->_appConfig->_hoverTimer);
 		ImGui::PopItemWidth();
 		ImGui::PopStyleVar();
 		ImGui::EndPopup();
@@ -7842,7 +7868,7 @@ void LayerManager::LayerInfo::OptimiseSprites(bool skipOptimised)
 
 	if (!skipIdle && _sprites[SP_IDLE]->FrameCount() == 1)
 	{
-		if(_parent->_storePreCropPivot && (_parent->GetLayer(_motionParent)!=nullptr))
+		if(_pLayerMan->_storePreCropPivot && (_pLayerMan->GetLayer(_motionParent)!=nullptr))
 			_preCropPivot = originalPivot;
 
 		const CropInfo cropInfo = CropTextureTransparency(_sprites[SP_IDLE]->getTexture(), _sprites[SP_IDLE].path);
@@ -7930,15 +7956,15 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 	if (srcTex == nullptr)
 		return CropInfo();
 
-	auto found = _parent->_croppedImages.find(imgpath);
-	if (found != _parent->_croppedImages.end())
+	auto found = _pLayerMan->_croppedImages.find(imgpath);
+	if (found != _pLayerMan->_croppedImages.end())
 	{
-		logFmtToFile(_parent->_appConfig, "Already cropped %s...", imgpath.c_str());
+		logFmtToFile(_pLayerMan->_appConfig, "Already cropped %s...", imgpath.c_str());
 		found->second.reloadNeeded = true;
 		return found->second;
 	}
 
-	logFmtToFile(_parent->_appConfig, "Cropping %s...", imgpath.c_str());
+	logFmtToFile(_pLayerMan->_appConfig, "Cropping %s...", imgpath.c_str());
 
 	sf::Image croppedImg;
 	CropInfo cropInfo;
@@ -7974,7 +8000,7 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 		sf::IntRect cropLocation(minContent.x, minContent.y, maxContent.x - minContent.x, maxContent.y - minContent.y);
 		const auto cropSize = cropLocation.getSize();
 
-		logFmtToFile(_parent->_appConfig, "Img Offset: %d, %d - new size: %d, %d", minContent.x, minContent.y, cropSize.x, cropSize.y);
+		logFmtToFile(_pLayerMan->_appConfig, "Img Offset: %d, %d - new size: %d, %d", minContent.x, minContent.y, cropSize.x, cropSize.y);
 
 		croppedImg.create(cropSize.x, cropSize.y, sf::Color(0, 0, 0, 0));
 		croppedImg.copy(srcImg, 0, 0, cropLocation);
@@ -7988,17 +8014,17 @@ LayerManager::CropInfo LayerManager::LayerInfo::CropTextureTransparency(sf::Text
 	std::filesystem::remove(imgpath, ec);
 	if (ec)
 	{
-		logFmtToFile(_parent->_appConfig, "ERROR: Failed to remove %s - %s", imgpath.c_str(), ec.message().c_str());
+		logFmtToFile(_pLayerMan->_appConfig, "ERROR: Failed to remove %s - %s", imgpath.c_str(), ec.message().c_str());
 	}
 
 	if (croppedImg.saveToFile(imgpath))
 	{
-		_parent->_croppedImages[imgpath] = cropInfo;
-		logFmtToFile(_parent->_appConfig, "Saved %s", imgpath.c_str());
+		_pLayerMan->_croppedImages[imgpath] = cropInfo;
+		logFmtToFile(_pLayerMan->_appConfig, "Saved %s", imgpath.c_str());
 	}
 	else
 	{
-		logFmtToFile(_parent->_appConfig, "ERROR: Failed to save %s", imgpath.c_str());
+		logFmtToFile(_pLayerMan->_appConfig, "ERROR: Failed to save %s", imgpath.c_str());
 	}
 
 
