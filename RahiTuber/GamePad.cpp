@@ -154,6 +154,10 @@ void GamePadImpl::update()
 			float frameReturnSpeed = returnSpeed / Max(appConfig->_fps, 30.f);
 
 			sf::Vector2i appTrackCenter(appConfig->_globalMouseNeutral);
+
+			if (appTrackCenter == sf::Vector2i(-1, -1))
+				appTrackCenter = sf::Vector2i(appConfig->_window.getSize()) / 2;
+
 			if (appConfig->_globalMouseNeutralFollows)
 				appTrackCenter += appConfig->_window.getPosition();
 

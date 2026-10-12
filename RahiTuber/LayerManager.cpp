@@ -522,6 +522,26 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					target->draw(lineH, sf::RenderStates::Default);
 					target->draw(lineV, sf::RenderStates::Default);
 					target->draw(circle2, sf::RenderStates::Default);
+
+					if (_appConfig->_mouseRelative && _appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT)
+					{
+						// draw second target for simulated mouse
+						targetPos = sf::Vector2f(GamePad::getMousePosition()) - (_globalTracking->_mouseNeutralFollowsWindow ? sf::Vector2f(0, 0) : (sf::Vector2f)_appConfig->_window.getPosition());
+						circle2.setPosition(targetPos);
+						lineV.setPosition(targetPos);
+						lineH.setPosition(targetPos);
+
+						auto targetColor = toSFColor(theme.first * 1.1 + ImVec4(0.2, 0.2, 0.2, 0.2));
+
+						circle2.setOutlineColor(targetColor);
+						lineV.setFillColor(targetColor);
+						lineH.setFillColor(targetColor);
+
+						target->draw(lineH, sf::RenderStates::Default);
+						target->draw(lineV, sf::RenderStates::Default);
+						target->draw(circle2, sf::RenderStates::Default);
+					}
+
 				}
 			}
 		}
@@ -5592,6 +5612,11 @@ void LayerManager::LayerInfo::AddTrackingMovement(sf::Vector2<double>& mpPos, do
 			if (_trackingSettings->_mouseNeutralFollowsWindow)
 				neutralPos += sf::Vector2f(_pLayerMan->_appConfig->_window.getPosition());
 
+			if (Length(mousePos-neutralPos) < 2)//mousePos == neutralPos)
+			{
+				printf("mouse centered");
+			}
+
 			//if (_pLayerMan->_appConfig->_mouseRelative)
 			//	mousePos += neutralPos;
 
@@ -7063,16 +7088,24 @@ void LayerManager::DrawTrackingGUI(LayerInfo::TrackingSettings* _trackingSetting
 					trackCenter = sf::Vector2f(size) * 0.5f;
 				}
 
-				AddResetButton("neutralPos", _trackingSettings->_mouseNeutralPos, trackCenter, _appConfig, &style);
-				ImGui::InputFloat2("Neutral position", &_trackingSettings->_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
+				bool updateNeeded = false;
+
+				updateNeeded |= AddResetButton("neutralPos", _trackingSettings->_mouseNeutralPos, trackCenter, _appConfig, &style);
+				updateNeeded |= ImGui::InputFloat2("Neutral position", &_trackingSettings->_mouseNeutralPos.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
 				ToolTip("The 'starting point' - 0 movement when the mouse is here\nThese are screen co-ordinates relative to your main monitor.", &_appConfig->_hoverTimer);
 
-				ImGui::Checkbox("Follows Window", &_trackingSettings->_mouseNeutralFollowsWindow);
+				updateNeeded |= ImGui::Checkbox("Follows Window", &_trackingSettings->_mouseNeutralFollowsWindow);
 				ToolTip("Moves the Neutral Position with the window.\nResetting Neutral position will center it on the window", &_appConfig->_hoverTimer);
 
 				AddResetButton("distFactor", _trackingSettings->_mouseAreaSize, distFactor, _appConfig, &style);
 				ImGui::InputFloat2("Distance Factor", &_trackingSettings->_mouseAreaSize.x, "%.1f px", ImGuiInputTextFlags_CharsNoBlank);
 				ToolTip("The maximum mouse distance from the Neutral position.\nThese are screen co-ordinates relative to your main monitor.", &_appConfig->_hoverTimer);
+
+				if (updateNeeded && isGlobalDialog)
+				{
+					_appConfig->_globalMouseNeutral = _trackingSettings->_mouseNeutralPos;
+					_appConfig->_globalMouseNeutralFollows = _trackingSettings->_mouseNeutralFollowsWindow;
+				}
 
 			}
 
