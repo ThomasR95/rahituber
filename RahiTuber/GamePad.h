@@ -98,11 +98,13 @@ public:
 
 	void setMouseAPI(GamepadAPI api)
 	{
+#ifdef _WIN32
 		if (api == GAMEPAD_API_XINPUT)
 			return;
 
 		unregister();
 		init(windowHandle, appConfig, inputAPI, api);
+#endif
 	}
 
 	void setMouseRelativeTracking(bool rel) {
@@ -126,20 +128,29 @@ public:
 	std::map<int, GamePadID>& getGamePads() { return _gamePadList; }
 
 	sf::Vector2i getMousePosition() 
-	{ 
+    {
+#ifdef _WIN32
 		return mouseInputAPI == GAMEPAD_API_RAWINPUT ? mousePos : sf::Mouse::getPosition();
+#else
+        return sf::Mouse::getPosition();
+#endif
 	}
 	bool isMouseButtonPressed(sf::Mouse::Button btn) 
-	{ 
+    {
+#ifdef _WIN32
 		return mouseInputAPI == GAMEPAD_API_RAWINPUT ? mouseBtns[btn] : sf::Mouse::isButtonPressed(btn);
+#else
+        return sf::Mouse::isButtonPressed(btn);
+#endif
 	}
 
-	void SetMouseMovementOptions(int speed, float ease, float delay, float dzone)
+	void SetMouseMovementOptions(int speed, float ease, float delay, float dzone, bool lock)
 	{
 		mouseEase = ease * 1000;
 		mouseTimeout = delay * 1000;
 		returnSpeed = speed;
 		deadZone = dzone;
+		lockToBounds = lock;
 	}
 
 private:
@@ -215,28 +226,30 @@ private:
 
 	HWND windowHandle;
 
-	bool mouseRelativeTracking = false;
-	sf::Vector2i mousePos = {};
-	float mouseWheel = 0;
-	std::map<sf::Mouse::Button, bool> mouseBtns = 
-	{{sf::Mouse::Button::Left, false},
-		{sf::Mouse::Button::Right, false},
-		{sf::Mouse::Button::Middle, false},
-		{sf::Mouse::Button::XButton1, false},
-		{sf::Mouse::Button::XButton2, false}};
-
-	int mouseTimeout = 500;
-	int mouseEase = 500;
-	ffwdClock mouseTimer;
-	float returnSpeed = 4000;
-	float deadZone = 2;
-
 	//std::list<std::thread> updateThreads;
 
 #else
     GamepadAPI inputAPI = GAMEPAD_API_SFML;
-		GamepadAPI mouseInputAPI = GAMEPAD_API_SFML;
+    GamepadAPI mouseInputAPI = GAMEPAD_API_SFML;
+    void* windowHandle = 0;
 #endif
+
+    int mouseTimeout = 500;
+    int mouseEase = 500;
+    ffwdClock mouseTimer;
+    float returnSpeed = 4000;
+    float deadZone = 2;
+    bool lockToBounds = false;
+
+    bool mouseRelativeTracking = false;
+    sf::Vector2i mousePos = {};
+    float mouseWheel = 0;
+    std::map<sf::Mouse::Button, bool> mouseBtns =
+        {{sf::Mouse::Button::Left, false},
+         {sf::Mouse::Button::Right, false},
+         {sf::Mouse::Button::Middle, false},
+         {sf::Mouse::Button::XButton1, false},
+         {sf::Mouse::Button::XButton2, false}};
 
     AppConfig* appConfig = nullptr;
 
@@ -311,9 +324,9 @@ public:
 		GetInstance().setMouseRelativeTracking(rel);
 	}
 
-	static void SetMouseMovementOptions(int speed, float ease, float delay, float dzone)
+	static void SetMouseMovementOptions(int speed, float ease, float delay, float dzone, bool lock)
 	{
-		GetInstance().SetMouseMovementOptions(speed, ease, delay, dzone);
+		GetInstance().SetMouseMovementOptions(speed, ease, delay, dzone, lock);
 	}
 
 private:

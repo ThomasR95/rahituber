@@ -175,8 +175,10 @@ struct AppConfig
 	float _mouseEase = 0.5f;
 	float _mouseReturnSpeed = 4000;
 	float _mouseDeadzone = 2;
+	bool _mouseConstrain = false;
 
 	sf::Vector2f _globalMouseNeutral = {};
+	sf::Vector2f _globalMouseBounds = {};
 	bool _globalMouseNeutralFollows = false;
 
 	bool _gpuCompatibility = false;

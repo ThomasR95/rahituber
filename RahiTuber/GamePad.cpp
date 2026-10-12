@@ -70,6 +70,7 @@ void GamePadImpl::init(void* wndHandle, AppConfig* appcfg, GamepadAPI api, Gamep
 
 void GamePadImpl::unregister()
 {
+#ifdef _WIN32
 	for (auto& rid : registeredRIDs)
 	{
 		rid.dwFlags = RIDEV_REMOVE;
@@ -80,6 +81,7 @@ void GamePadImpl::unregister()
 	{
 		logToFile(appConfig, "RAWINPUT unregistration failed!");
 	}
+#endif
 }
 
 void GamePadImpl::update()
@@ -166,11 +168,19 @@ void GamePadImpl::update()
 			float returnDecelZone = Clamp(returnSpeed * pow((float)mouseEase / 1000, 3.0), 2, returnSpeed);
 			auto toCenter = appTrackCenter - mousePos;
 			float distToCenter = Length(toCenter);
-			float mouceDecel = Clamp((distToCenter / returnDecelZone));
 
-			float mouseSpeed = mouseAccel * mouceDecel * frameReturnSpeed;
-
-			mousePos += sf::Vector2i(sf::Vector2f(Norm(toCenter)) * Min(distToCenter, mouseSpeed));
+			//constrain to bounds
+			if (lockToBounds && distToCenter > Length(appConfig->_globalMouseBounds))
+			{
+				mousePos = appTrackCenter + sf::Vector2i(-Norm(toCenter) * (float)Length(appConfig->_globalMouseBounds));
+			}
+			else
+			{
+				float mouseDecel = Clamp((distToCenter / returnDecelZone));
+				float mouseSpeed = mouseAccel * mouseDecel * frameReturnSpeed;
+				mousePos += sf::Vector2i(sf::Vector2f(Norm(toCenter)) * Min(distToCenter, mouseSpeed));
+			}
+			
 		}
 
 		return;

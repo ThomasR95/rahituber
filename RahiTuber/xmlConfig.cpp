@@ -141,6 +141,7 @@ bool xmlConfigLoader::loadCommon()
 	common->QueryAttribute("mouseEase", &_appConfig->_mouseEase);
 	common->QueryAttribute("mouseReturnSpeed", &_appConfig->_mouseReturnSpeed);
 	common->QueryAttribute("mouseDeadzone", &_appConfig->_mouseDeadzone);
+	common->QueryAttribute("mouseConstrain", &_appConfig->_mouseConstrain);
 
 	common->QueryAttribute("acceptMergeDuplicates", &_appConfig->_layerManAcceptMergeDuplicates);
 	common->QueryAttribute("savePortableRelativeToXML", &_appConfig->_savePortableRelativeToXML);
@@ -292,6 +293,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("mouseEase", _appConfig->_mouseEase);
 			common->SetAttribute("mouseReturnSpeed", _appConfig->_mouseReturnSpeed);
 			common->SetAttribute("mouseDeadzone", _appConfig->_mouseDeadzone);
+			common->SetAttribute("mouseConstrain", _appConfig->_mouseConstrain);
 
 			common->SetAttribute("acceptMergeDuplicates", _appConfig->_layerManAcceptMergeDuplicates);
 			common->SetAttribute("savePortableRelativeToXML", _appConfig->_savePortableRelativeToXML);

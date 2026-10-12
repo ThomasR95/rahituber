@@ -1021,7 +1021,7 @@ public:
 							bool anyChanged = false;
 
 							anyChanged |= FloatSliderDrag("Return speed", &appConfig->_mouseReturnSpeed, 10, 10000, "%.0f px/s");
-							ToolTip("How fast the mouse returns to the neutral point", &appConfig->_hoverTimer);
+							ToolTip("How fast the mouse returns to the GLOBAL neutral point", &appConfig->_hoverTimer);
 
 							anyChanged |= FloatSliderDrag("Delay", &appConfig->_mouseTimeout, 0, 10, "%.1f s");
 							ToolTip("How long the mouse waits before starting to return", &appConfig->_hoverTimer);
@@ -1032,8 +1032,11 @@ public:
 							anyChanged |= FloatSliderDrag("Deadzone", &appConfig->_mouseDeadzone, 0, 50, "%.0f dots");
 							ToolTip("How many dots the mouse must move before restarting the delay\n(Note: dots not pixels - this is raw device movement data)", &appConfig->_hoverTimer);
 
+							anyChanged |= ImGui::Checkbox("Constrain to bounds", &appConfig->_mouseConstrain);
+							ToolTip("Constrain the simulated mouse within the 'distance factor' set in the Global tracking settings tab", &appConfig->_hoverTimer);
+
 							if (anyChanged)
-								GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone);
+								GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone, appConfig->_mouseConstrain);
 						}
 
 						ImGui::Separator();
@@ -3751,7 +3754,7 @@ If you accept, please click the Accept button.
 			appConfig->_webSocket->Start(appConfig->_httpPort);
 
 		GamePad::init((void*)appConfig->_window.getSystemHandle(), appConfig, (GamepadAPI)appConfig->_gamepadAPI, (GamepadAPI)appConfig->_mouseAPI);
-		GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone);
+		GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone, appConfig->_mouseConstrain);
 		GamePad::setMouseRelativeTracking(appConfig->_mouseRelative);
 
 		_FXAAShader.loadFromMemory(SFML_DefaultVert, SFML_FXAAFrag);
