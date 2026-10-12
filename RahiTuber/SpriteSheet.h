@@ -36,6 +36,9 @@ public:
 	inline float getRotation() const { return _sprite.getRotation(); }
 	inline sf::Vector2f getScale() const { return _sprite.getScale(); }
 
+	inline sf::Transform getTransform() { return _sprite.getTransform(); }
+	inline sf::Transform getInverseTransform() { return _sprite.getInverseTransform(); }
+
 	inline sf::Texture* getTexture() { return _tex; }
 	inline void setTexture(sf::Texture* newTex) { _tex = newTex; }
 

@@ -5021,7 +5021,9 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 			motionDelayNow = 0;
 
 		double directParentRot = 0;
-		sf::Vector2<double> directParentScale = {1,1};
+		sf::Vector2f directParentScale = {1,1};
+
+		sf::Transform mpTransform;
 
 		if (motionDelayNow > 0)
 		{
@@ -5067,6 +5069,7 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 				motionParentRot += mp->_motionLinkData[prev]._parentRot + fraction * (mp->_motionLinkData[next]._parentRot - mp->_motionLinkData[prev]._parentRot);
 				//motionParentPos += mp->_motionLinkData[prev]._parentPos + fraction * (mp->_motionLinkData[next]._parentPos - mp->_motionLinkData[prev]._parentPos);
 
+				mpTransform = mp->_motionLinkData[prev]._fullTransform;
 			}
 		}
 		else if (mp->_motionLinkData.size() > 0)
@@ -5080,21 +5083,32 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 
 			motionParentRot += mp->_motionLinkData[0]._parentRot;
 			//motionParentPos += mp->_motionLinkData[0]._parentPos;
+
+			mpTransform = mp->_motionLinkData[0]._fullTransform;
 		}
 
-		
-		directParentScale = motionScale;
-		//directParentScale -= (sf::Vector2<double>)mp->_scale;
-		//directParentScale = Rotate(directParentScale, Deg2Rad(-mp->_rot));
-		//directParentScale += (sf::Vector2<double>)mp->_scale;
+		sf::Transform originMove;
+		sf::Vector2f originalOffset = _pos - mp->_pos;
 
-		// transform this layer's position by the parent position
-		sf::Vector2<double> originalOffset = sf::Vector2<double>(_pos) - sf::Vector2<double>(mp->_pos);
-		sf::Vector2<double> originalOffsetRotated = Rotate(originalOffset, Deg2Rad(motionRot + motionParentRot));
-		sf::Vector2<double> offsetScaled = { originalOffsetRotated.x * directParentScale.x, originalOffsetRotated.y * directParentScale.y };
-		sf::Vector2<double> originMove = offsetScaled - originalOffset;
+		originMove.translate(-originalOffset);
 
-		motionPos += originMove;
+		float offsetRot = motionRot + motionParentRot;
+
+		if (motionParentRot == 0)
+		{
+			//rotate the offset around the parent's origin to line it up with parent rotation
+			// (this is already done for layers with "Rotate Children" enabled)
+			offsetRot = motionRot + mp->_rot;
+			originalOffset = Rotate(originalOffset, Deg2Rad(-mp->_rot));
+		}
+
+		sf::Vector2f offsetScaled = originalOffset * sf::Vector2f(motionScale);
+		sf::Vector2f offsetRotated = Rotate(offsetScaled, Deg2Rad(offsetRot));
+
+		originMove.translate(offsetRotated);
+
+		motionPos = sfVector2d(originMove.transformPoint(sf::Vector2f(motionPos)));
+
 
 		bool physics = (_motionDrag > 0 || _motionSpring > 0);
 		physicsPos = motionPos;
@@ -5323,8 +5337,6 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 		motionScale = sf::Vector2<double>(folder->_scale);
 		motionPos = sf::Vector2<double>(folder->_pos);
 		motionRot = folder->_rot;
-
-		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
 	}
 
 	if (_inheritTint)
@@ -5359,13 +5371,15 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	thisFrame._parentRot = motionParentRot + (_passRotationToChildLayers ? _rot : 0.0);
 	thisFrame._tint = activeSpriteCol;
 
+	thisFrame._fullTransform.scale(sf::Vector2f(motionScale)).rotate((float)motionRot).translate(sf::Vector2f(motionPos));
+
 	_motionLinkData.push_front(thisFrame);
 
 	sf::Time totalMotionStoredTime;
 	for (auto& frame : _motionLinkData)
 		totalMotionStoredTime += frame._frameTime;
 
-	while (totalMotionStoredTime > sf::seconds(1.1) && _motionLinkData.size() > 0)
+	while (totalMotionStoredTime > (sf::seconds(1.1)+frameTime) && _motionLinkData.size() > 0)
 	{
 		totalMotionStoredTime -= _motionLinkData.back()._frameTime;
 		_motionLinkData.pop_back();

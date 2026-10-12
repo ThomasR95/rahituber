@@ -29,6 +29,8 @@ static inline void OsOpenInShell(const char* path) {
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
 }
 
+#define sfVector2d sf::Vector2<double> 
+
 inline void setWindowTransparency(HWND hwnd, bool transparent)
 {
 	if (transparent)

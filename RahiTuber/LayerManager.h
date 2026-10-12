@@ -293,6 +293,8 @@ public:
 		double _rot = 0.0;
 		bool _keepAspect = true;
 
+		sf::Transform _pivotTransform;
+
 		sf::Vector2<double> _pivot = { 0.5, 0.5 };
 		bool _pivotPx = false;
 
@@ -399,6 +401,8 @@ public:
 			double _rot = 0.0;
 			double _parentRot = 0.0;
 			sf::Vector2<double>  _parentPos = { 0,0 };
+
+			sf::Transform _fullTransform = {};
 		};
 		bool _hideWithParent = true;
 		bool _inheritTint = false;
