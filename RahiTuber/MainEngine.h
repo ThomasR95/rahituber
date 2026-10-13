@@ -29,6 +29,8 @@
 
 #include "CrashHandler.h"
 
+#include "resource.h"
+
 #pragma comment (lib, "Dwmapi.lib")
 #endif
 
@@ -3625,6 +3627,17 @@ If you accept, please click the Accept button.
 			appConfig->_unloadTimeout = 0;
 
 		{ // scope to destruct verFile when finished
+
+#ifdef IDR_BUILDNUMBERTXT
+			HMODULE handle = ::GetModuleHandle(NULL);
+			HRSRC rc = ::FindResource(handle, MAKEINTRESOURCE(IDR_BUILDNUMBERTXT),
+				MAKEINTRESOURCE(TEXTFILE));
+			HGLOBAL rcData = ::LoadResource(handle, rc);
+			int size = ::SizeofResource(handle, rc);
+			std::string data = static_cast<const char*>(::LockResource(rcData));
+			appConfig->_versionNumber = std::stod(data, nullptr);
+#else
+
 			logToFile(appConfig, "Checking Version");
 			std::ifstream verFile;
 			verFile.open(appConfig->_appLocation + "buildnumber.txt");
@@ -3639,15 +3652,15 @@ If you accept, please click the Accept button.
 				verFile.read(buf.data(), length);
 				appConfig->_versionNumber = std::stod(buf, nullptr);
 
-				logToFile(appConfig, "Current version: " + buf);
-
-				if (appConfig->_checkForUpdates)
-				{
-					logToFile(appConfig, "Checking for Updates");
-					CheckUpdates();
-				}
-
 				verFile.close();
+			}
+#endif
+			logFmtToFile(appConfig, "Current version: %f", appConfig->_versionNumber);
+
+			if (appConfig->_checkForUpdates)
+			{
+				logToFile(appConfig, "Checking for Updates");
+				CheckUpdates();
 			}
 		}
 

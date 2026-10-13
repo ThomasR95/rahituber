@@ -5354,18 +5354,18 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	if (hasParent)
 	{
 		parentInDifferentFolder = true;
-		std::string currentParent = _motionParent;
-		auto currentPLayer = _pLayerMan->GetLayer(currentParent);
+		std::string currentParentID = _motionParent;
+		auto currentParent = _pLayerMan->GetLayer(currentParentID);
 		//walk up the tree and make sure NO ancestor is in the same folder as this
-		while (currentPLayer)
+		while (currentParent)
 		{
-			if (currentPLayer->_inFolder == _inFolder)
+			if (currentParent->_inFolder == _inFolder)
 			{
 				parentInDifferentFolder = false;
 				break;
 			}
-			currentParent = currentPLayer->_motionParent;
-			currentPLayer = _pLayerMan->GetLayer(currentParent);
+			currentParentID = currentParent->_motionParent;
+			currentParent = _pLayerMan->GetLayer(currentParentID);
 		}
 	}
 

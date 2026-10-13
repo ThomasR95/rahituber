@@ -47,12 +47,14 @@ public:
 			mci.CallbackRoutine = (MINIDUMP_CALLBACK_ROUTINE)MyMiniDumpCallback;
 			mci.CallbackParam = 0;
 
-			MINIDUMP_TYPE mdt = (MINIDUMP_TYPE)(MiniDumpWithPrivateReadWriteMemory |
+			MINIDUMP_TYPE mdt = (MINIDUMP_TYPE)(
+				MiniDumpWithPrivateReadWriteMemory |
 				MiniDumpWithDataSegs |
 				MiniDumpWithHandleData |
-				MiniDumpWithFullMemoryInfo |
-				MiniDumpWithThreadInfo |
-				MiniDumpWithUnloadedModules);
+				//MiniDumpWithFullMemoryInfo |
+				MiniDumpWithThreadInfo
+				//MiniDumpWithUnloadedModules
+				);
 
 			BOOL rv = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
 				hFile, mdt, (pep != 0) ? &mdei : 0, 0, &mci);
