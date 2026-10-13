@@ -5083,8 +5083,8 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 				float frameDuration = mp->_motionLinkData[next]._frameTime.asSeconds();
 				float framePosition = motionDelayNow - prevCumulativeTime.asSeconds();
 				double fraction = framePosition / frameDuration;
-				motionScale = mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale);
-				motionPos = mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
+				motionScale = motionScale * (mp->_motionLinkData[prev]._scale + fraction * (mp->_motionLinkData[next]._scale - mp->_motionLinkData[prev]._scale));
+				motionPos += mp->_motionLinkData[prev]._pos + fraction * (mp->_motionLinkData[next]._pos - mp->_motionLinkData[prev]._pos);
 				motionRot += mp->_motionLinkData[prev]._rot + fraction * (mp->_motionLinkData[next]._rot - mp->_motionLinkData[prev]._rot);
 				motionTint = mp->_motionLinkData[prev]._tint + (mp->_motionLinkData[next]._tint - mp->_motionLinkData[prev]._tint) * fraction;
 
@@ -5098,8 +5098,8 @@ void LayerManager::LayerInfo::CalculateInheritedMotion(sf::Vector2<double>& moti
 		{
 			directParentRot = mp->_motionLinkData[0]._rot;
 
-			motionScale = mp->_motionLinkData[0]._scale;
-			motionPos = mp->_motionLinkData[0]._pos;
+			motionScale = motionScale * mp->_motionLinkData[0]._scale;
+			motionPos += mp->_motionLinkData[0]._pos;
 			motionRot += directParentRot;
 			motionTint = mp->_motionLinkData[0]._tint;
 
@@ -5350,15 +5350,35 @@ void LayerManager::LayerInfo::CalculateDraw(float windowHeight, float windowWidt
 	sf::Vector2<double> pivot(activeSpriteCenter + idleCenterToPivotPX);
 
 	bool hasParent = !(_motionParent == "" || _motionParent == "-1");
+	bool parentInDifferentFolder = false;
 	if (hasParent)
-		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
-	else if (_inFolder != "")
+	{
+		parentInDifferentFolder = true;
+		std::string currentParent = _motionParent;
+		auto currentPLayer = _pLayerMan->GetLayer(currentParent);
+		//walk up the tree and make sure NO ancestor is in the same folder as this
+		while (currentPLayer)
+		{
+			if (currentPLayer->_inFolder == _inFolder)
+			{
+				parentInDifferentFolder = false;
+				break;
+			}
+			currentParent = currentPLayer->_motionParent;
+			currentPLayer = _pLayerMan->GetLayer(currentParent);
+		}
+	}
+
+	if (_inFolder != "" && (!hasParent || parentInDifferentFolder))
 	{
 		LayerInfo* folder = _pLayerMan->GetLayer(_inFolder);
 		motionScale = sf::Vector2<double>(folder->_scale);
 		motionPos = sf::Vector2<double>(folder->_pos);
 		motionRot = folder->_rot;
 	}
+
+	if (hasParent)
+		CalculateInheritedMotion(motionScale, motionPos, motionRot, motionParentRot, mpTint, physicsPos, becameVisible, lastActiveSprite, timeMult);
 
 	if (_inheritTint)
 		activeSpriteCol = mpTint;
