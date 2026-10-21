@@ -113,9 +113,6 @@ void GamePadImpl::update()
 			for (auto& ctrlr : xStates)
 				XInputGetState(ctrlr.first, &ctrlr.second);
 		}
-
-
-		return;
 	}
 
 	if (inputAPI == GAMEPAD_API_RAWINPUT || mouseInputAPI == GAMEPAD_API_RAWINPUT)
@@ -182,8 +179,6 @@ void GamePadImpl::update()
 			}
 			
 		}
-
-		return;
 	}
 #endif
 
