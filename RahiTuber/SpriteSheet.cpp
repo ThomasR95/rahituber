@@ -155,16 +155,16 @@ void SpriteSheet::UnloadTexture()
 
 }
 
-void SpriteSheet::ReloadTexture(bool force, const std::string& updatePath)
+void SpriteSheet::ReloadTexture(bool force, const std::string updatePath)
 {
 	if (!force && (_texMan == nullptr || !_spriteUnloaded))
 		return;
 
 	_spriteUnloaded = false;
-	_loadingThread = new std::thread([&]
+	_loadingThread = new std::thread([&, updatePath ]()
 		{
 			bool texChanged = false;
-			if (updatePath != _texPath)
+			if (updatePath != u8"" && updatePath != _texPath)
 			{
 				_texPath = updatePath;
 				texChanged = true;

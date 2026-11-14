@@ -21,7 +21,7 @@ public:
 	void UpdateSize();
 
 	void UnloadTexture();
-	void ReloadTexture(bool force = false, const std::string& updatePath = "");
+	void ReloadTexture(bool force = false, const std::string updatePath = u8"");
 	bool HasTexture();
 
 	void Clear();
