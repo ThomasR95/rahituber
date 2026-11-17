@@ -84,6 +84,7 @@ struct AppConfig
 	float mainWindowScaling = 1.0;
 	float menuWindowScaling = 1.0;
 	float customScaling = 1.0;
+	bool followMonitorScaling = true;
 
 	bool _enableVSync = false;
 

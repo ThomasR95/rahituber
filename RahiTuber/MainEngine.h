@@ -286,18 +286,22 @@ public:
 	{
 		float scaleFactor = 1.0;
 #ifdef _WIN32
-		RECT windowRect;
-		windowRect.left = windowPos.x;
-		windowRect.top = windowPos.y;
-		windowRect.right = windowRect.left + windowSize.x;
-		windowRect.bottom = windowRect.top + windowSize.y;
-		HMONITOR hMonitor = MonitorFromRect(&windowRect, MONITOR_DEFAULTTONEAREST);
-		DEVICE_SCALE_FACTOR monitorScale;
-
-		if (GetScaleFactorForMonitor(hMonitor, &monitorScale) == S_OK
-			&& monitorScale != DEVICE_SCALE_FACTOR_INVALID)
+		if (appConfig->followMonitorScaling)
 		{
-			scaleFactor = (float)monitorScale * 0.01;
+			RECT windowRect;
+			windowRect.left = windowPos.x;
+			windowRect.top = windowPos.y;
+			windowRect.right = windowRect.left + windowSize.x;
+			windowRect.bottom = windowRect.top + windowSize.y;
+			HMONITOR hMonitor = MonitorFromRect(&windowRect, MONITOR_DEFAULTTONEAREST);
+			DEVICE_SCALE_FACTOR monitorScale;
+
+			if (GetScaleFactorForMonitor(hMonitor, &monitorScale) == S_OK
+				&& monitorScale != DEVICE_SCALE_FACTOR_INVALID)
+			{
+				scaleFactor = (float)monitorScale * 0.01;
+				logFmtToFile(appConfig, "Monitor Scale factor is %d (%f)", monitorScale, scaleFactor);
+			}
 		}
 #endif
 
@@ -379,6 +383,9 @@ public:
 				logToFile(appConfig, "Window Creation took " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - beforeCreate)).count()) + " ms");
 				appConfig->_pendingNameChange = false;
 				appConfig->_window.setPosition({ appConfig->_scrX, appConfig->_scrY });
+
+				logFmtToFile(appConfig, "Window Size set to %.0fx%.0f, Min size is %.0fx%.0f", appConfig->_scrW, appConfig->_scrH, appConfig->_minScrW, appConfig->_minScrH);
+
 			}
 			else
 			{
@@ -387,6 +394,8 @@ public:
 				v.setSize({ appConfig->_scrW, appConfig->_scrH });
 				v.setCenter({ appConfig->_scrW / 2, appConfig->_scrH / 2 });
 				appConfig->_window.setView(v);
+
+				logFmtToFile(appConfig, "Window Size set to %.0fx%.0f, Min size is %.0fx%.0f", appConfig->_scrW, appConfig->_scrH, appConfig->_minScrW, appConfig->_minScrH);
 
 				auto pos = appConfig->_window.getPosition();
 				if (appConfig->_scrX != pos.x || appConfig->_scrY != pos.y)
@@ -1264,6 +1273,10 @@ public:
 				ImGui::TableNextColumn();
 				ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
 				ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("Follow Monitor Scale", &appConfig->followMonitorScaling);
+				ToolTip("RahiTuber attempts to match the resolution scaling\nsetting on your monitor.", &appConfig->_hoverTimer);
 
 #ifdef _WIN32
 				ImGui::TableNextColumn();
@@ -2767,6 +2780,8 @@ public:
 						appConfig->_menuWindow.setSize({ (sf::Uint16)(480u * scaleFactor * appConfig->customScaling), (sf::Uint16)(wHeight * scaleFactorDiff) });
 						appConfig->menuWindowScaling = scaleFactor;
 
+						logFmtToFile(appConfig, "Resize Event (Menu Window): Scale factor changed");
+
 						ImGui::SFML::Init(appConfig->_menuWindow);
 					}
 				}
@@ -2885,6 +2900,8 @@ public:
 					appConfig->_minScrW = uiConfig->_resizeBox.getGlobalBounds().width / appConfig->mainWindowScaling;
 					uiConfig->_cornerGrabbed = { false, false };
 
+					logFmtToFile(appConfig, "Resize Event (Main Window): New Min Size = %.0fx%.0f, mainWindowScaling = %.3f ", appConfig->_minScrW, appConfig->_minScrH, appConfig->mainWindowScaling);
+
 					initWindow();
 				}
 
@@ -2896,6 +2913,9 @@ public:
 					if (scaleFactor != appConfig->mainWindowScaling)
 					{
 						appConfig->mainWindowScaling = scaleFactor;
+
+						logFmtToFile(appConfig, "Move Event (Main Window): Scaling changed, mainWindowScaling = %.3f ", appConfig->mainWindowScaling);
+
 						initWindow();
 
 						ImGui::SFML::Init(appConfig->_window);
