@@ -29,6 +29,8 @@ static inline void OsOpenInShell(const char* path) {
 	ShellExecuteA(0, 0, path, 0, 0, SW_SHOW);
 }
 
+static bool g_False = false;
+
 inline void setWindowTransparency(HWND hwnd, bool transparent)
 {
 	if (transparent)

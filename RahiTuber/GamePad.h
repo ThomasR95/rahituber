@@ -115,7 +115,7 @@ public:
 
 	void init(void* wndHandle = 0, AppConfig* appcfg = nullptr, GamepadAPI api = (GamepadAPI)0, GamepadAPI mouseApi = GAMEPAD_API_SFML);
 
-	void update();
+	void update(bool isThreaded);
 
 	void unregister();
 
@@ -284,9 +284,9 @@ public:
 		GetInstance().init(wndHandle, appcfg, api, mouseApi);
 	}
 
-	static void update()
+	static void update(bool isThreaded)
 	{
-		GetInstance().update();
+		GetInstance().update(isThreaded);
 	}
 
 	static float getAxisPosition(unsigned int gamepadID, sf::Joystick::Axis axis)

@@ -1057,8 +1057,12 @@ public:
 					}
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Dedicated GamePad Thread", &appConfig->_gamepadThreaded);
-					ToolTip("Handle GamePad inputs on a separate thread.\nNOTE: Applies on restart. Can improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
+					bool disableGPThread = appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT;
+					ImGui::BeginDisabled(disableGPThread);
+					bool* gpCboxVal = disableGPThread  ? &g_False : &appConfig->_gamepadThreaded;
+					ImGui::Checkbox("Dedicated GamePad Thread", gpCboxVal);
+					ToolTip("Requires restart when changing this and other input API settings.", "Handle GamePad inputs on a separate thread.\nCan improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
+					ImGui::EndDisabled();
 
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
@@ -2721,8 +2725,8 @@ public:
 
 	void handleEvents()
 	{
-		if(!appConfig->_gamepadThreaded)
-			GamePad::update();
+		if(!appConfig->_gamepadThreaded || appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT)
+			GamePad::update(false);
 
 		sf::Event menuEvt;
 		if (appConfig->_menuWindow.isOpen())
@@ -3808,8 +3812,12 @@ If you accept, please click the Accept button.
 			gamepadUpdateThread = std::thread([&]() {
 				while (gamePadThreadActive)
 				{
-					GamePad::update();
+					if (appConfig->_gamepadThreaded && appConfig->_mouseAPI != GamepadAPI::GAMEPAD_API_RAWINPUT)
+					{
+						GamePad::update(true);
+					}
 					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
 				}
 				});
 		}

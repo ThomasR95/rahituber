@@ -84,7 +84,7 @@ void GamePadImpl::unregister()
 #endif
 }
 
-void GamePadImpl::update()
+void GamePadImpl::update(bool isThreaded)
 {
 #ifdef _WIN32
 	if (initialized == false)
@@ -115,7 +115,9 @@ void GamePadImpl::update()
 		}
 	}
 
-	if (inputAPI == GAMEPAD_API_RAWINPUT || mouseInputAPI == GAMEPAD_API_RAWINPUT)
+	bool threadedOK = isThreaded ? mouseInputAPI != GAMEPAD_API_RAWINPUT : true;
+
+	if (threadedOK && (inputAPI == GAMEPAD_API_RAWINPUT || mouseInputAPI == GAMEPAD_API_RAWINPUT))
 	{
 		//for (auto th = updateThreads.begin(); th != updateThreads.end(); th++)
 		//{
