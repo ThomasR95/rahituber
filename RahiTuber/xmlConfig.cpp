@@ -287,7 +287,7 @@ bool xmlConfigLoader::saveCommon()
 			common->SetAttribute("fpsLimit", _appConfig->_fpsLimit);
 
 			common->SetAttribute("gamepadAPI", _appConfig->_gamepadAPI);
-			common->SetAttribute("gamepadThreaded", _appConfig->_gamepadThreaded);
+			common->SetAttribute("gamepadThreaded", _appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT ? false : _appConfig->_gamepadThreaded);
 
 			common->SetAttribute("mouseAPI", _appConfig->_mouseAPI);
 			common->SetAttribute("mouseRelative", _appConfig->_mouseRelative);
