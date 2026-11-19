@@ -54,6 +54,7 @@ target_sources(RahiTuber PRIVATE
     GamePad.h
     GamePad.cpp
     ffwdClock.h
+    language.h
 )
 
 if(WIN32)

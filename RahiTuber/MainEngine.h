@@ -16,6 +16,8 @@
 
 #include "defines.h"
 
+#include "language.h"
+
 #include <fstream>
 
 #ifdef _WIN32
@@ -519,7 +521,7 @@ public:
 
 	void menuHelp(ImGuiStyle& style)
 	{
-		bool helpPressed = ImGui::Button("Help & Tips", { -1, ImGui::GetFrameHeight() });
+		bool helpPressed = ImGui::Button(LangCStr("help.HelpBtn"), {-1, ImGui::GetFrameHeight()});
 
 		sf::Vector2f dotpos = toSFVector(ImGui::GetItemRectMax());
 		dotpos -= sf::Vector2f(ImGui::GetFrameHeight()*0.52, ImGui::GetFrameHeight());
@@ -539,7 +541,7 @@ public:
 			{
 				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 6 });
 			}
-			ImGui::OpenPopup("Help");
+			ImGui::OpenPopup(LangCStr("help.Help"));
 		}
 
 		ImGui::SetNextWindowSize({ 400 * appConfig->scalingFactor,-1 });
@@ -547,7 +549,7 @@ public:
 		uiConfig->_helpPopupActive = false;
 
 		bool p_open = true;
-		if (ImGui::BeginPopupModal("Help", &p_open, ImGuiWindowFlags_NoResize))
+		if (ImGui::BeginPopupModal(LangCStr("help.Help"), &p_open, ImGuiWindowFlags_NoResize))
 		{
 			uiConfig->_helpPopupActive = true;
 
@@ -560,51 +562,51 @@ public:
 				ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_ButtonActive]);
 				char buf[256] = {};
 #ifdef WIN32
-				sprintf_s(buf, "Update %.3f Available!", appConfig->_versionAvailable);
+				sprintf_s(buf, LangCStr("help.Update"), appConfig->_versionAvailable);
 #else
-                sprintf(buf, "Update %.3f Available!", appConfig->_versionAvailable);
+                sprintf(buf, LangCStr("help.Update"), appConfig->_versionAvailable);
 #endif
 				ImGui::SeparatorText(buf);
 				ImGui::PopStyleColor();
 
-				if (ImGui::Button("Go to Downloads page", { -1, UIUnit }))
+				if (ImGui::Button(LangCStr("help.Downloads"), { -1, UIUnit }))
 				{
 					OsOpenInShell("https://rahisaurus.itch.io/rahituber/download/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys");
 				}
-				ToolTip("Opens the RahiTuber Downloads page in your default web browser.", "https://rahisaurus.itch.io/rahituber/\ndownload/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys",  & appConfig->_hoverTimer);
+				ToolTip(LangCStr("help.DownloadsTT"), "https://rahisaurus.itch.io/rahituber/\ndownload/09yDNW4jF8gpROQenA8J4jTZl96VGo4YbzGez4ys",  & appConfig->_hoverTimer);
 
 				ImGui::SeparatorText("");
 			}
 
-			if (ImGui::Button("Devlog (web link)", { -1, UIUnit }))
+			if (ImGui::Button(LangCStr("help.Devlog"), { -1, UIUnit }))
 			{
 				OsOpenInShell("https://rahisaurus.itch.io/rahituber/devlog");
 			}
-			ToolTip("Opens the RahiTuber Development log page\nin your default web browser.", "https://rahisaurus.itch.io/rahituber/devlog", & appConfig->_hoverTimer);
+			ToolTip(LangCStr("help.DevlogTT"), "https://rahisaurus.itch.io/rahituber/devlog", & appConfig->_hoverTimer);
 
-			if (ImGui::Button("FAQ (web link)", { -1, UIUnit }))
+			if (ImGui::Button(LangCStr("help.FAQ"), { -1, UIUnit }))
 			{
 				OsOpenInShell("https://itch.io/t/3967527/faq");
 			}
-			ToolTip("Opens the RahiTuber FAQ page in your default web browser.", "https://itch.io/t/3967527/faq", &appConfig->_hoverTimer);
+			ToolTip(LangCStr("help.FAQTT"), "https://itch.io/t/3967527/faq", &appConfig->_hoverTimer);
 
-			if (ImGui::Button("Tutorials (web link)", { -1, UIUnit }))
+			if (ImGui::Button(LangCStr("help.Tutorials"), { -1, UIUnit }))
 			{
 				OsOpenInShell("https://itch.io/t/3967451/tutorials");
 			}
-			ToolTip("Opens the RahiTuber Tutorials page in your default web browser.", "https://itch.io/t/3967451/tutorials", &appConfig->_hoverTimer);
+			ToolTip(LangCStr("help.TutorialsTT"), "https://itch.io/t/3967451/tutorials", &appConfig->_hoverTimer);
 
 			ImGui::NewLine();
 
-			ImGui::SeparatorText("General tips:");
+			ImGui::SeparatorText(LangCStr("help.TipTitle"));
 
 			ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_Text]);
-			ImGui::TextWrapped("Hover over (or right-click) any control to see an explanation of what it does.");
-			ImGui::TextWrapped("CTRL+click any input field to manually type the value. For most sliders you can type a value outside of the sliding range.");
+			ImGui::TextWrapped(LangCStr("help.Tip1"));
+			ImGui::TextWrapped(LangCStr("help.Tip2"));
 			ImGui::NewLine();
 
-			ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Window Controls:");
-			ImGui::TextWrapped("Drag the squares in the top-left or bottom-right corner to resize the window.\nDrag with the middle mouse button, or use the move tab in the top centre, to move the whole window.");
+			ImGui::TextColored(style.Colors[ImGuiCol_Separator], LangCStr("help.ControlTitle"));
+			ImGui::TextWrapped(LangCStr("help.Controls"));
 			ImGui::PopStyleColor();
 
 			ImGui::NewLine();
@@ -622,9 +624,9 @@ public:
 #endif
 			int year = timeStruct.tm_year + 1900;
 
-			ImGui::SeparatorText("Acknowledgement");
+			ImGui::SeparatorText(LangCStr("help.Acknowledgement"));
 
-			ImGui::TextWrapped("PortAudio (c) 1999-2006 Ross Bencina and Phil Burk");
+			ImGui::TextWrapped("PortAudio (c) 1999-2006 Ross Bencina, Phil Burk");
 			ImGui::TextWrapped("SFML (c) 2007-%d Laurent Gomila", year);
 			ImGui::TextWrapped("Dear ImGui (c) 2014-%d Omar Cornut", year);
 			ImGui::NewLine();
@@ -634,7 +636,7 @@ public:
 			ImGui::TextWrapped("Version: %.3f", appConfig->_versionNumber);
 
 			ImGui::Separator();
-			if (ImGui::Button("OK", { -1,20 }))
+			if (ImGui::Button(LangCStr("common.OK"), {-1,20}))
 			{
 				ImGui::CloseCurrentPopup();
 			}
@@ -2044,15 +2046,15 @@ public:
 
 		ImDrawList* dList = ImGui::GetWindowDrawList();
 
-		std::string menuShowName = "Close Menu (Esc)";
-		std::string menuPopName = "Popout Menu";
+		std::string menuShowName = LangStr("common.Close") +" "+ LangStr("common.Menu") + " (Esc)";
+		std::string menuPopName = LangStr("common.Popout") + " " + LangStr("common.Menu");
 		if (appConfig->_menuPopped)
 		{
-			menuPopName = "Dock Menu";
+			menuPopName = LangStr("common.Dock") + " " + LangStr("common.Menu");
 			if (uiConfig->_menuShowing)
-				menuShowName = "Hide Interface (Esc)";
+				menuShowName = LangStr("common.Hide") + " " + LangStr("common.Interface") + " (Esc)";
 			else
-				menuShowName = "Show Interface (Esc)";
+				menuShowName = LangStr("common.Show") + " " + LangStr("common.Interface") + " (Esc)";
 		}
 
 		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,0 });
@@ -2072,7 +2074,8 @@ public:
 		ImGui::PopStyleVar();
 
 		//	FULLSCREEN
-		if (ImGui::Button(appConfig->_isFullScreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)", { -1, UIUnit }))
+		std::string fullscreenBtnName = appConfig->_isFullScreen ? LangStr("common.Exit") + " " + LangStr("menu.Fullscreen") : LangStr("menu.Fullscreen");
+		if (ImGui::Button(fullscreenBtnName.c_str(), {-1, UIUnit}))
 		{
 			swapFullScreen();
 		}
@@ -2116,7 +2119,8 @@ public:
 		ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_FrameBg]);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 0.5f + 0.2f * pulse, 0.f, 0.f, 1.0f });
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 0.3f, 0.f, 0.f, 1.0f });
-		if (ImGui::Button("Exit RahiTuber", { -1, UIUnit }))
+		std::string exitBtnName = LangStr("common.Exit") + " RahiTuber";
+		if (ImGui::Button(exitBtnName.c_str(), {-1, UIUnit}))
 		{
 			if (appConfig->_menuWindow.isOpen())
 				appConfig->_lastMenuPopPosition = appConfig->_menuWindow.getPosition();
@@ -2285,9 +2289,9 @@ public:
 
 			ImGui::SFML::Update(appConfig->_window, dt);
 
-			ImGui::SetNextWindowSizeConstraints(ImGui::CalcTextSize("...RahiTuber is Loading..."), { 500, 500 });
+			ImGui::SetNextWindowSizeConstraints(ImGui::CalcTextSize(LangCStr("common.LoadingMsg")) + ImVec2(40,0), { 500, 500 });
 			ImGui::SetNextWindowPos({ appConfig->_scrW / 2, appConfig->_scrH / 2 }, 0, { 0.5, 0.5 });
-			ImGui::Begin("RahiTuber is Loading", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+			ImGui::Begin(LangCStr("common.LoadingMsg"), 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
 
 			layerMan->DrawLoadingMessage();
 
@@ -2323,9 +2327,9 @@ public:
 
 			ImGui::SFML::Update(appConfig->_window, dt);
 
-			ImGui::Begin("FPS", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
+			ImGui::Begin(LangCStr("menu.FPS"), 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar);
 
-			ImGui::Text("FPS: %d", (int)appConfig->_fps);
+			ImGui::Text("%s: %d", LangCStr("menu.FPS"), (int)appConfig->_fps);
 
 			ImGui::End();
 			ImGui::EndFrame();
@@ -2725,7 +2729,11 @@ public:
 
 	void handleEvents()
 	{
-		if(!appConfig->_gamepadThreaded || appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT)
+        bool threadSafe = true;
+#ifdef _WIN32
+        threadSafe = appConfig->_mouseAPI != GamepadAPI::GAMEPAD_API_RAWINPUT;
+#endif
+        if(!appConfig->_gamepadThreaded || !threadSafe)
 			GamePad::update(false);
 
 		sf::Event menuEvt;
@@ -3523,6 +3531,8 @@ If you accept, please click the Accept button.
 		appConfig->_appLocation = getAppLocation();
 #endif
 
+		InitLangEN();
+
 		logToFile(appConfig, "Creating UIConfig");
 		uiConfig = new UIConfig();
 
@@ -3804,6 +3814,11 @@ If you accept, please click the Accept button.
 	void MainLoop()
 	{
 
+        bool threadSafe = true;
+#ifdef _WIN32
+        threadSafe = appConfig->_mouseAPI != GamepadAPI::GAMEPAD_API_RAWINPUT;
+#endif
+
 		bool gamePadThreadActive = false;
 		std::thread gamepadUpdateThread;
 		if (appConfig->_gamepadThreaded)
@@ -3812,7 +3827,7 @@ If you accept, please click the Accept button.
 			gamepadUpdateThread = std::thread([&]() {
 				while (gamePadThreadActive)
 				{
-					if (appConfig->_gamepadThreaded && appConfig->_mouseAPI != GamepadAPI::GAMEPAD_API_RAWINPUT)
+                    if (appConfig->_gamepadThreaded && threadSafe)
 					{
 						GamePad::update(true);
 					}

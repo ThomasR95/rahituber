@@ -18,6 +18,7 @@ public:
 	struct QueueItem {
 		std::string stateId;
 		int activeState;
+		bool getStatus = false;
 	};
 
 	void Start(int port = 8000)
@@ -101,6 +102,54 @@ public:
 		return _msgQueue.size() > 0;
 	}
 
+	void sendStatus(std::vector<QueueItem> status)
+	{
+
+		std::string jsonReply = "";
+		
+		if (status.size() == 1)
+		{
+			jsonReply = std::to_string(status[0].activeState);
+		}
+		else
+		{
+			jsonReply = "{";
+			for (int s = 0; s < status.size(); s++)
+			{
+				jsonReply += "\"" + status[s].stateId + "\":" + std::to_string(status[s].activeState);
+				if (s < status.size() - 1)
+				{
+					jsonReply += ", ";
+				}
+			}
+			jsonReply += "}\n";
+		} 
+
+		if (_eventManager.conns != NULL)
+		{
+			mg_connection* conn = &_eventManager.conns[0];
+			while (conn != NULL)
+			{
+				try
+				{
+					mg_http_reply(conn, 200, "Content-Type: application/json\r\n",
+						jsonReply.c_str());
+
+					if (_logFunction)
+						_logFunction("Replied : Status\n" + jsonReply);
+				}
+				catch (...)
+				{
+					if (_logFunction)
+						_logFunction("HTTP reply failed");
+				}
+
+				conn = conn->next;
+			}
+		}
+		
+	}
+
 	std::function<void(const std::string&)> _logFunction;
 
 	std::function<void(const std::string&)> _getStateFnc;
@@ -164,6 +213,39 @@ inline void ev_handler(struct mg_connection* c, int ev, void* ev_data)
 			webSocket->_logFunction("State change added to queue: " + stateID + " = " + std::to_string(stateActive));
 
 			webSocket->AddQueueItem({ stateID, int(stateActive) });
+		}
+		else if (mg_match(hm->uri, mg_str("/status"), NULL))
+		{
+
+			std::string decodedQuery;
+			decodedQuery.resize(hm->query.len);
+			mg_url_decode(hm->query.buf, hm->query.len, decodedQuery.data(), hm->query.len, 0);
+
+			auto query = mg_str(decodedQuery.c_str());
+
+			std::string stateID = "";
+
+			if (query.len > 0)
+			{
+				char* stringRet = mg_json_get_str(query, "$[0]");
+
+				if (stringRet == NULL)
+					stateID = std::to_string(mg_json_get_long(query, "$[0]", -1));
+				else
+					stateID = stringRet;
+			}
+
+			if (stateID.length() > 0)
+			{
+				webSocket->AddQueueItem({ stateID, 0, true });
+				webSocket->_logFunction( "Recieved: Status " + stateID);
+			}
+			else
+			{
+				webSocket->AddQueueItem({ "", 0, true});
+				webSocket->_logFunction("Recieved: Status (all) ");
+			}
+			
 		}
 		else
 		{

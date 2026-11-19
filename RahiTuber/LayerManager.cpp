@@ -3753,6 +3753,39 @@ void LayerManager::CheckHotkeys()
 	bool alt = sf::Keyboard::isKeyPressed(sf::Keyboard::LAlt) || sf::Keyboard::isKeyPressed(sf::Keyboard::RAlt);
 	bool shift = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift);
 
+	//clear out any get status requests first
+	if (_appConfig->_listenHTTP && _appConfig->_webSocket != nullptr)
+	{
+		WebSocket::QueueItem qItem = _appConfig->_webSocket->QueueFront();
+		while (qItem.getStatus)
+		{
+			std::vector<WebSocket::QueueItem> response;
+
+			for (int h = 0; h < _states.size(); h++)
+			{
+				StatesInfo& stateInfo = _states[h];
+				if (qItem.stateId != "")
+				{
+					bool match = qItem.stateId == std::to_string(h);
+					match |= qItem.stateId == stateInfo._name;
+
+					if (match)
+					{
+						response.push_back({ stateInfo._name, stateInfo._active });
+						break;
+					}
+				}
+				else
+					response.push_back({ stateInfo._name, stateInfo._active });
+			}
+
+			_appConfig->_webSocket->sendStatus(response);
+
+			_appConfig->_webSocket->PopQueueFront();
+			qItem = _appConfig->_webSocket->QueueFront();
+		}
+	}
+
 	for (int h = 0; h < _states.size(); h++)
 	{
 		bool keyDown = false;
@@ -3805,6 +3838,7 @@ void LayerManager::CheckHotkeys()
 					if (checkMatch)
 					{
 						anyMatched = true;
+						// Leave it in the queue until we loop to that state
 						break;
 					}
 				}
