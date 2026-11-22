@@ -17,6 +17,8 @@ public:
 	bool loadPreset(const std::string& presetName);
 	bool savePreset(const std::string& presetName);
 
+	bool saveLangFile();
+
 	std::string getSettingsFilePath() { return _settingsFileName; }
 
 	std::string _errorMessage = "";

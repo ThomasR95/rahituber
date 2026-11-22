@@ -648,7 +648,7 @@ public:
 	{
 		float UIUnit = ImGui::GetFrameHeight();
 
-		if (ImGui::Button("Preferences", { -1, ImGui::GetFrameHeight() }))
+		if (ImGui::Button(LangCStr("menu.Preferences"), { -1, ImGui::GetFrameHeight() }))
 		{
 			float h = ImGui::GetWindowHeight();
 			ImGui::SetNextWindowSize({ UIUnit * 22, h });
@@ -662,7 +662,7 @@ public:
 			{
 				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - UIUnit*12, appConfig->_scrH/2 - uiConfig->_advancedMenuHeight/2 });
 			}
-			ImGui::OpenPopup("Preferences");
+			ImGui::OpenPopup(LangCStr("menu.Preferences"));
 		}
 		ImGui::SetNextWindowSize({ UIUnit * 22,-1 });
 
@@ -670,7 +670,7 @@ public:
 		uiConfig->_advancedMenuShowing = false;
 
 		bool p_open = true;
-		if (ImGui::BeginPopupModal("Preferences", &p_open, ImGuiWindowFlags_NoResize))
+		if (ImGui::BeginPopupModal(LangCStr("menu.Preferences"), &p_open, ImGuiWindowFlags_NoResize))
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2,2 });
 
@@ -757,10 +757,10 @@ public:
 
 	void menuAdvancedTrackingTab(bool& rowTop, ImGuiStyle& style)
 	{
-		std::string tooltipMsg = "Global settings for Mouse/Controller tracking";
+		std::string tooltipMsg = LangStr("track.TrackingTT");
 		if (!rowTop)
 		{
-			if(LesserButton("Tracking"))
+			if(LesserButton(LangCStr("track.Tracking")))
 			{
 				uiConfig->_advMenuPending_trackingTab = true;
 			}
@@ -774,7 +774,7 @@ public:
 			if (uiConfig->_advMenuPending_trackingTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_trackingTab;
 
-			if (ImGui::BeginTabItem("Tracking"))
+			if (ImGui::BeginTabItem(LangCStr("track.Tracking")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_trackingTab = false;
@@ -784,15 +784,15 @@ public:
 					ImGui::SetWindowPos({ menuWnd->Pos.x, (appConfig->_scrH - 2*ImGui::GetFrameHeightWithSpacing())  - menuWnd->SizeFull.y });
 
 				ImGui::Columns(2, 0, false);
-				ImGui::Checkbox("Mouse Tracking", &appConfig->_mouseTrackingEnabled);
-				ToolTip("Override setting to enable/disable all mouse tracking on layers.", &appConfig->_hoverTimer);
+				ImGui::Checkbox(LangCStr("track.MouseTracking"), &appConfig->_mouseTrackingEnabled);
+				ToolTip(LangCStr("track.MouseTrackingTT"), &appConfig->_hoverTimer);
 				ImGui::NextColumn();
-				ImGui::Checkbox("Controller Tracking", &appConfig->_controllerTrackingEnabled);
-				ToolTip("Override setting to enable/disable all controller tracking on layers.", &appConfig->_hoverTimer);
+				ImGui::Checkbox(LangCStr("track.CtrlTracking"), &appConfig->_controllerTrackingEnabled);
+				ToolTip(LangCStr("track.CtrlTrackingTT"), &appConfig->_hoverTimer);
 				ImGui::EndColumns();
 
-				ImGui::SeparatorText("Global Tracking Settings");
-				ImGui::TextWrapped("These settings will apply to all layers with the 'Use Global Settings' option enabled.");
+				ImGui::SeparatorText(LangCStr("track.GlobalHdr"));
+				ImGui::TextWrapped(LangCStr("track.GlobalTxt"));
 
 				LayerManager::LayerInfo::TrackingMode track = LayerManager::LayerInfo::TRACKING_BOTH;
 				bool useGlobal = false;
@@ -804,17 +804,17 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Tracking")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("track.Tracking"))
 					uiConfig->_advMenuID_trackingTab = t.ID;
 		}
 	}
 
 	void menuAdvancedPhonemesTab(bool& rowTop, ImGuiStyle& style)
 	{
-		std::string tooltipMsg = "Phoneme setup & calibration";
+		std::string tooltipMsg = LangCStr("phnm.PhonemesTT");
 		if (!rowTop)
 		{
-			if (LesserButton("Phonemes"))
+			if (LesserButton(LangCStr("phnm.Phonemes")))
 			{
 				uiConfig->_advMenuPending_phonemesTab = true;
 			}
@@ -828,67 +828,61 @@ public:
 			if (uiConfig->_advMenuPending_phonemesTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_phonemesTab;
 
-			if (ImGui::BeginTabItem("Phonemes"))
+			if (ImGui::BeginTabItem(LangCStr("phnm.Phonemes")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_phonemesTab = false;
 
-				ImGui::Checkbox("Show Debug Audio Display", &uiConfig->_showDebugBars);
+				ImGui::Checkbox(LangCStr("phnm.ShowDebug"), &uiConfig->_showDebugBars);
 
 				AddResetButton("subReset", audioConfig->_subSplit, 58.82f, appConfig, &style);
 				float subSplit = 100 / audioConfig->_subSplit;
-				if (ImGui::SliderFloat("Sub Split", &subSplit, 1, 100.f / audioConfig->_bassSplit, "%.1f"))
+				if (ImGui::SliderFloat(LangCStr("phnm.SubSplit"), &subSplit, 1, 100.f / audioConfig->_bassSplit, "%.1f"))
 				{
 					audioConfig->_subSplit = 100.0 / subSplit;
 					uiConfig->_showDebugBars = true;
 				}
-				ToolTip("Adjust where the border is between sub and bass frequencies.\
-\nShow the debug audio bars to see the border.\nSub (blue) should be louder when saying 'oo',\
-\nand bass (red) should be louder when saying 'Ah'.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("phnm.SubSplitTT"), &appConfig->_hoverTimer);
 
 				AddResetButton("bassReset", audioConfig->_bassSplit, 23.25f, appConfig, &style);
 				float bassSplit = 100 / audioConfig->_bassSplit;
-				if (ImGui::SliderFloat("Bass Split", &bassSplit, 100.f / audioConfig->_subSplit, 100.f / audioConfig->_midSplit, "%.1f"))
+				if (ImGui::SliderFloat(LangCStr("phnm.BassSplit"), &bassSplit, 100.f / audioConfig->_subSplit, 100.f / audioConfig->_midSplit, "%.1f"))
 				{
 					audioConfig->_bassSplit = 100.0 / bassSplit;
 					uiConfig->_showDebugBars = true;
 				}
-				ToolTip("Adjust where the border is between bass and mid frequencies.\
-\nShow the debug audio bars to see the border.\nBass (red) should be louder when saying 'Ah',\
-\nand mid (yellow) should be louder when saying 'Ee'.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("phnm.BassSplitTT"), &appConfig->_hoverTimer);
 
 				AddResetButton("midReset", audioConfig->_midSplit, 6.09f, appConfig, &style);
 				float midSplit = 100 / audioConfig->_midSplit;
-				if (ImGui::SliderFloat("Mid Split", &midSplit, 100.f / audioConfig->_bassSplit, 50, "%.1f"))
+				if (ImGui::SliderFloat(LangCStr("phnm.MidSplit"), &midSplit, 100.f / audioConfig->_bassSplit, 50, "%.1f"))
 				{
 					audioConfig->_midSplit = 100.0 / midSplit;
 					uiConfig->_showDebugBars = true;
 				}
-				ToolTip("Adjust where the border is between mid and treble frequencies.\
-\nShow the debug audio bars to see the border.\nMid (yellow) should be louder when saying 'Ee',\
-\nand treble (green) should be louder when saying 'SS'.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("phnm.MidSplitTT"), &appConfig->_hoverTimer);
 
-				if (ImGui::BeginTable("Adjustment", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+				if (ImGui::BeginTable(LangCStr("phnm.Adjustment"), 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
 				{
-					ImGui::TableSetupColumn("Phoneme", 0, 0.8);
-					ImGui::TableSetupColumn("Sensitivity", 0, 2);
-					ImGui::TableSetupColumn("Confidence", 0, 2);
+					ImGui::TableSetupColumn(LangCStr("phnm.Phoneme"), 0, 0.8);
+					ImGui::TableSetupColumn(LangCStr("phnm.Sensitivity"), 0, 2);
+					ImGui::TableSetupColumn(LangCStr("phnm.Confidence"), 0, 2);
 
 					ImGui::TableHeadersRow();
 
 					ImGui::TableNextColumn();
 
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text("E");
+					ImGui::Text(LangCStr("phnm.E"));
 					ImGui::Separator();
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text("S");
+					ImGui::Text(LangCStr("phnm.S"));
 					ImGui::Separator();
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text("oo");
+					ImGui::Text(LangCStr("phnm.oo"));
 					ImGui::Separator();
 					ImGui::AlignTextToFramePadding();
-					ImGui::Text("P");
+					ImGui::Text(LangCStr("phnm.P"));
 					//ImGui::AlignTextToFramePadding();
 					//ImGui::Text("P (low)");
 
@@ -897,8 +891,8 @@ public:
 					SensitivitySlider("eSensReset", audioConfig->balanceETolerance, balETDefault, style, "##E Sensitivity");
 					SensitivitySlider("sSensReset", audioConfig->midSTolerance, midSTDefault, style, "##S Sensitivity");
 					SensitivitySlider("wSensReset", audioConfig->balanceWTolerance, balWTDefault, style, "##W Sensitivity");
-					SensitivitySlider("pPkSensReset", audioConfig->peakPTolerance, peakPTDefault, style, "burst##P peak Sensitivity", false);
-					SensitivitySlider("pSensReset", audioConfig->subPTolerance, subPTDefault, style, "low##P Sensitivity", false);
+					SensitivitySlider("pPkSensReset", audioConfig->peakPTolerance, peakPTDefault, style, (LangStr("phnm.PBurst") + "##P peak Sensitivity").c_str(), false);
+					SensitivitySlider("pSensReset", audioConfig->subPTolerance, subPTDefault, style, (LangStr("phnm.PLow") + "##P Sensitivity").c_str(), false);
 
 					ImGui::TableNextColumn();
 
@@ -920,17 +914,17 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Phonemes")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("phnm.Phonemes"))
 					uiConfig->_advMenuID_phonemesTab = t.ID;
 		}
 	}
 
 	void menuAdvancedIntegrationTab(bool& rowTop, float UIUnit)
 	{
-		std::string tooltipMsg = "Settings related to integration with other software";
+		std::string tooltipMsg = LangCStr("intg.IntegrationTT");
 		if (!rowTop)
 		{
-			if (LesserButton("Integration"))
+			if (LesserButton(LangCStr("intg.Integration")))
 			{
 				uiConfig->_advMenuPending_integrationTab = true;
 			}
@@ -944,7 +938,7 @@ public:
 			if (uiConfig->_advMenuPending_integrationTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_integrationTab;
 
-			if (ImGui::BeginTabItem("Integration"))
+			if (ImGui::BeginTabItem(LangCStr("intg.Integration")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_integrationTab = false;
@@ -953,7 +947,7 @@ public:
 				if (ImGui::BeginTable("##IntegrationOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
 					ImGui::TableNextColumn();
-					if (ImGui::Checkbox("Control States via HTTP", &appConfig->_listenHTTP))
+					if (ImGui::Checkbox(LangCStr("intg.HTTP"), &appConfig->_listenHTTP))
 					{
 						if (appConfig->_listenHTTP && appConfig->_webSocket != nullptr)
 						{
@@ -964,23 +958,23 @@ public:
 							appConfig->_webSocket->Stop();
 						}
 					}
-					ToolTip("Use this with your automation tools (check Tutorials)!", ("Listens for HTTP messages in the format:\nhttp://127.0.0.1:" + portString + "/state?[stateIndex,active]\nhttp://127.0.0.1:" + portString + "/state?[\"state name\",active]").c_str(), &appConfig->_hoverTimer);
+					ToolTip(LangCStr("intg.HTTPTT_T"), (LangStr("intg.HTTPTT_1") + portString + LangCStr("intg.HTTPTT_2") + portString + LangCStr("intg.HTTPTT_3")).c_str(), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
 					ImGui::BeginDisabled(!appConfig->_listenHTTP);
-					ImGui::InputInt("HTTP Port", &appConfig->_httpPort);
+					ImGui::InputInt(LangCStr("intg.HTTPPort"), &appConfig->_httpPort);
 					if (ImGui::IsItemDeactivatedAfterEdit() && appConfig->_listenHTTP)
 					{
 						appConfig->_webSocket->Stop();
 						appConfig->_webSocket->Start(appConfig->_httpPort);
 					}
-					ToolTip("Set the port that RahiTuber listens for messages on", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("intg.HTTPPortTT"), &appConfig->_hoverTimer);
 					ImGui::EndDisabled();
 
 #ifdef _WIN32
 					ImGui::TableNextColumn();
 					ImGui::SetNextItemWidth(ImGui::CalcTextSize(g_gamepadAPINames[appConfig->_gamepadAPI]).x + UIUnit * 2);
-					if (ImGui::BeginCombo("Gamepad API", g_gamepadAPINames[appConfig->_gamepadAPI]))
+					if (ImGui::BeginCombo(LangCStr("intg.GamePadAPI"), g_gamepadAPINames[appConfig->_gamepadAPI]))
 					{
 						for (int api = 0; api < GAMEPAD_API_END; api++)
 						{	
@@ -994,11 +988,11 @@ public:
 
 						ImGui::EndCombo();
 					}
-					ToolTip("Select which method to read joystick status.", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("intg.GamePadAPITT"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
 					ImGui::SetNextItemWidth(ImGui::CalcTextSize(g_gamepadAPINames[appConfig->_mouseAPI]).x + UIUnit * 2);
-					if (ImGui::BeginCombo("Mouse API", g_gamepadAPINames[appConfig->_mouseAPI]))
+					if (ImGui::BeginCombo(LangCStr("intg.MouseAPI"), g_gamepadAPINames[appConfig->_mouseAPI]))
 					{
 						for (int api = 0; api < GAMEPAD_API_END; api++)
 						{
@@ -1015,38 +1009,38 @@ public:
 
 						ImGui::EndCombo();
 					}
-					ToolTip("Select which method to read mouse status.", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("intg.MouseAPI"), &appConfig->_hoverTimer);
 
 
 					if (appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT)
 					{
 						ImGui::EndTable();
-						ImGui::SeparatorText("Mouse handling");
+						ImGui::SeparatorText(LangCStr("intg.MouseHandling"));
 
-						if (ImGui::Checkbox("Movement-based", &appConfig->_mouseRelative))
+						if (ImGui::Checkbox(LangCStr("intg.MovementBased"), &appConfig->_mouseRelative))
 						{
 							GamePad::setMouseRelativeTracking(appConfig->_mouseRelative);
 						}
-						ToolTip("Track Mouse movement instead of position\nThis is useful for games that lock your cursor", &appConfig->_hoverTimer);
+						ToolTip(LangCStr("intg.MovementTT"), &appConfig->_hoverTimer);
 
 						if (appConfig->_mouseRelative)
 						{
 							bool anyChanged = false;
 
-							anyChanged |= FloatSliderDrag("Return speed", &appConfig->_mouseReturnSpeed, 10, 10000, "%.0f px/s");
-							ToolTip("How fast the mouse returns to the GLOBAL neutral point", &appConfig->_hoverTimer);
+							anyChanged |= FloatSliderDrag(LangCStr("intg.MReturnSpd"), &appConfig->_mouseReturnSpeed, 10, 10000, "%.0f px/s");
+							ToolTip(LangCStr("intg.MReturnSpdTT"), &appConfig->_hoverTimer);
 
-							anyChanged |= FloatSliderDrag("Delay", &appConfig->_mouseTimeout, 0, 10, "%.1f s");
-							ToolTip("How long the mouse waits before starting to return", &appConfig->_hoverTimer);
+							anyChanged |= FloatSliderDrag(LangCStr("intg.MDelay"), &appConfig->_mouseTimeout, 0, 10, "%.1f s");
+							ToolTip(LangCStr("intg.MDelayTT"), &appConfig->_hoverTimer);
 
-							anyChanged |= FloatSliderDrag("Ease", &appConfig->_mouseEase, 0, 10, "%.1f s");
-							ToolTip("How long the mouse accelerates/decelerates for", &appConfig->_hoverTimer);
+							anyChanged |= FloatSliderDrag(LangCStr("intg.MEase"), &appConfig->_mouseEase, 0, 10, "%.1f s");
+							ToolTip(LangCStr("intg.MEaseTT"), &appConfig->_hoverTimer);
 
-							anyChanged |= FloatSliderDrag("Deadzone", &appConfig->_mouseDeadzone, 0, 50, "%.0f dots");
-							ToolTip("How many dots the mouse must move before restarting the delay\n(Note: dots not pixels - this is raw device movement data)", &appConfig->_hoverTimer);
+							anyChanged |= FloatSliderDrag(LangCStr("intg.MDeadzone"), &appConfig->_mouseDeadzone, 0, 50, "%.0f dots");
+							ToolTip(LangCStr("intg.MDeadzoneTT"), &appConfig->_hoverTimer);
 
-							anyChanged |= ImGui::Checkbox("Constrain to bounds", &appConfig->_mouseConstrain);
-							ToolTip("Constrain the simulated mouse within the 'distance factor' set in the Global tracking settings tab", &appConfig->_hoverTimer);
+							anyChanged |= ImGui::Checkbox(LangCStr("intg.MConstrain"), &appConfig->_mouseConstrain);
+							ToolTip(LangCStr("intg.MConstrainTT"), &appConfig->_hoverTimer);
 
 							if (anyChanged)
 								GamePad::SetMouseMovementOptions(appConfig->_mouseReturnSpeed, appConfig->_mouseEase, appConfig->_mouseTimeout, appConfig->_mouseDeadzone, appConfig->_mouseConstrain);
@@ -1062,13 +1056,13 @@ public:
 					bool disableGPThread = appConfig->_mouseAPI == GamepadAPI::GAMEPAD_API_RAWINPUT;
 					ImGui::BeginDisabled(disableGPThread);
 					bool* gpCboxVal = disableGPThread  ? &g_False : &appConfig->_gamepadThreaded;
-					ImGui::Checkbox("Dedicated GamePad Thread", gpCboxVal);
-					ToolTip("Requires restart when changing this and other input API settings.", "Handle GamePad inputs on a separate thread.\nCan improve application smoothness\nbut some reports of losing input while out of focus.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("intg.GamePadThread"), gpCboxVal);
+					ToolTip(LangCStr("intg.GamePadThreadTTT"), LangCStr("intg.GamePadThreadTT"), &appConfig->_hoverTimer);
 					ImGui::EndDisabled();
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Use Spout2", &appConfig->_useSpout2Sender);
-					ToolTip("Send video output through Spout2.\n(Requires Spout2 plugin for your streaming software)", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("intg.Spout"), &appConfig->_useSpout2Sender);
+					ToolTip(LangCStr("intg.SpoutTT"), &appConfig->_hoverTimer);
 #endif
 
 					ImGui::EndTable();
@@ -1080,17 +1074,17 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Integration")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("intg.Integration"))
 					uiConfig->_advMenuID_integrationTab = t.ID;
 		}
 	}
 
 	void menuAdvancedAppearanceTab(bool& rowTop, float UIUnit)
 	{
-		std::string tooltipMsg = "Settings related to appearance and rendering";
+		std::string tooltipMsg = LangCStr("appr.AppearanceTT");
 		if (rowTop)
 		{
-			if (LesserButton("Appearance"))
+			if (LesserButton(LangCStr("appr.Appearance")))
 			{
 				uiConfig->_advMenuPending_appearanceTab = true;
 			}
@@ -1104,12 +1098,12 @@ public:
 			if (uiConfig->_advMenuPending_appearanceTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_appearanceTab;
 
-			if (ImGui::BeginTabItem("Appearance"))
+			if (ImGui::BeginTabItem(LangCStr("appr.Appearance")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_appearanceTab = false;
 
-				if (ImGui::BeginCombo("Theme", uiConfig->_theme.c_str()))
+				if (ImGui::BeginCombo(LangCStr("appr.Theme"), uiConfig->_theme.c_str()))
 				{
 					for (auto& theme : uiConfig->_themes)
 						if (ImGui::Selectable(theme.first.c_str(), theme.first == uiConfig->_theme))
@@ -1117,10 +1111,10 @@ public:
 
 					ImGui::EndCombo();
 				}
-				ToolTip("Set the colors of the interface.\n(psst: you can edit these in config.xml!)", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("appr.ThemeTT"), &appConfig->_hoverTimer);
 
 				//ImGui::SetNextItemWidth(-1);
-				if (ImGui::BeginCombo("Layer Set UI", (uiConfig->_layerUITypeNames[uiConfig->_layersUIType]).c_str()))
+				if (ImGui::BeginCombo(LangCStr("appr.LayerSetUI"), (uiConfig->_layerUITypeNames[uiConfig->_layersUIType]).c_str()))
 				{
 					for (auto& ltype : uiConfig->_layerUITypeNames)
 						if (ImGui::Selectable(ltype.second.c_str(), uiConfig->_layersUIType == ltype.first))
@@ -1128,10 +1122,10 @@ public:
 
 					ImGui::EndCombo();
 				}
-				ToolTip("Choose the UI for Layer Set controls.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("appr.LayerSetUITT"), &appConfig->_hoverTimer);
 
-				ImGui::InputFloat("UI Scale", &appConfig->customScaling, 0.1, 0.5, "%.1f");
-				ToolTip("Change the size of the user interface.", &appConfig->_hoverTimer);
+				ImGui::InputFloat(LangCStr("appr.UIScale"), &appConfig->customScaling, 0.1, 0.5, "%.1f");
+				ToolTip(LangCStr("appr.UIScaleTT"), &appConfig->_hoverTimer);
 
 				if (ImGui::BeginTable("##AppearanceOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
@@ -1139,7 +1133,7 @@ public:
 
 					ImGui::TableNextColumn();
 					float transChkBoxPos = ImGui::GetCursorPosY();
-					if (ImGui::Checkbox("Transparent", &appConfig->_transparent))
+					if (ImGui::Checkbox(LangCStr("appr.Transparent"), &appConfig->_transparent))
 					{
 						if (appConfig->_transparent)
 						{
@@ -1186,12 +1180,12 @@ public:
 
 
 					}
-					ToolTip("Turns the background transparent (Useful for screen capture).", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("appr.TransparentTT"), &appConfig->_hoverTimer);
 
 					ImVec4 imCol = toImVec4(appConfig->_bgColor);
 					ImGui::TableNextColumn();
 					ImGui::BeginDisabled(appConfig->_transparent);
-					if (ImGui::Button("Background Color", { -1, ImGui::GetFrameHeight() })) {
+					if (ImGui::Button(LangCStr("appr.BackgroundCol"), { -1, ImGui::GetFrameHeight() })) {
 						ImGui::OpenPopup("BGColorEdit");
 					}
 
@@ -1203,41 +1197,41 @@ public:
 						}
 						ImGui::EndPopup();
 					}
-					ToolTip("Set a background color for the window.", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("appr.BackgroundColTT"), &appConfig->_hoverTimer);
 					ImGui::EndDisabled();
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Show Layer Bounds", &uiConfig->_showLayerBounds);
-					ToolTip("Shows a box around each layer, and\na marker for the pivot point.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.LayerBounds"), &uiConfig->_showLayerBounds);
+					ToolTip(LangCStr("appr.LayerBoundsTT"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Highlight Hovered", &uiConfig->_hilightHovered);
-					ToolTip("Highlight the layer bounds when the layer's menu\nis expanded or hovered", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.Highlight"), &uiConfig->_hilightHovered);
+					ToolTip(LangCStr("appr.HighlightTT"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Show FPS", &uiConfig->_showFPS);
-					ToolTip("Shows an FPS counter (when menu is inactive).", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.ShowFPS"), &uiConfig->_showFPS);
+					ToolTip(LangCStr("appr.ShowFPSTT"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::BeginDisabled(appConfig->_transparent);
-					ImGui::Checkbox("Composite onto Background", &appConfig->_compositeOntoBackground);
-					ToolTip("Composite the layers onto the application background color.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.Composite"), &appConfig->_compositeOntoBackground);
+					ToolTip(LangCStr("appr.CompositeTT"), &appConfig->_hoverTimer);
 					ImGui::EndDisabled();
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Premultiply Alpha", &appConfig->_alphaPremultiplied);
-					ToolTip("Multiply the output (captured) color by the alpha value.\nDisabling is useful for glow effects etc.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.Premult"), &appConfig->_alphaPremultiplied);
+					ToolTip(LangCStr("appr.PremultTT"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("FXAA (Anti-Aliasing)", &appConfig->_FXAA);
-					ToolTip("Use Fast approXimate Anti Aliasing.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("appr.fxaa"), &appConfig->_FXAA);
+					ToolTip(LangCStr("appr.fxaaTT"), &appConfig->_hoverTimer);
 
 					ImGui::EndTable();
 				}
 				ImGui::SetNextItemWidth(UIUnit * 11);
-				FloatSliderDrag("Default Alpha Cutoff", &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
-				ToolTip("Define the minimum alpha (transparency) needed for visibility.\nValues below this will be fully transparent.\nUseful for removing unwanted soft edges from the Linear filter.", &appConfig->_hoverTimer);
+				FloatSliderDrag(LangCStr("appr.Cutoff"), &appConfig->_alphaClip, 0.001, 1.0, "%.3f", ImGuiSliderFlags_ClampOnInput, uiConfig->_numberEditType);
+				ToolTip(LangCStr("appr.CutoffTT"), &appConfig->_hoverTimer);
 
 				ImGui::EndTabItem();
 			}
@@ -1245,17 +1239,17 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Appearance")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("appr.Appearance"))
 					uiConfig->_advMenuID_appearanceTab = t.ID;
 		}
 	}
 
 	void menuAdvancedWindowTab(bool& rowTop)
 	{
-		std::string tooltipMsg = "Settings related to the app window";
+		std::string tooltipMsg = LangCStr("wnd.WindowTT");
 		if (rowTop)
 		{
-			if (LesserButton("Window"))
+			if (LesserButton(LangCStr("wnd.Window")))
 			{
 				uiConfig->_advMenuPending_windowTab = true;
 			}
@@ -1269,7 +1263,7 @@ public:
 			if (uiConfig->_advMenuPending_windowTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_windowTab;
 
-			if (ImGui::BeginTabItem("Window"))
+			if (ImGui::BeginTabItem(LangCStr("wnd.Window")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_windowTab = false;
@@ -1277,16 +1271,16 @@ public:
 				ImGui::BeginTable("##advancedOptions", 2, ImGuiTableFlags_SizingStretchSame);
 
 				ImGui::TableNextColumn();
-				ImGui::Checkbox("Menu On Start", &uiConfig->_showMenuOnStart);
-				ToolTip("Start the application with the menu open.", &appConfig->_hoverTimer);
+				ImGui::Checkbox(LangCStr("wnd.MenuStart"), &uiConfig->_showMenuOnStart);
+				ToolTip(LangCStr("wnd.MenuStartTT"), &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
-				ImGui::Checkbox("Follow Monitor Scale", &appConfig->followMonitorScaling);
-				ToolTip("RahiTuber attempts to match the resolution scaling\nsetting on your monitor.", &appConfig->_hoverTimer);
+				ImGui::Checkbox(LangCStr("wnd.MonitorScale"), &appConfig->followMonitorScaling);
+				ToolTip(LangCStr("wnd.MonitorScaleTT"), &appConfig->_hoverTimer);
 
 #ifdef _WIN32
 				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("Always On Top", &appConfig->_alwaysOnTop))
+				if (ImGui::Checkbox(LangCStr("wnd.OnTop"), &appConfig->_alwaysOnTop))
 				{
 
 					HWND hwnd = appConfig->_window.getSystemHandle();
@@ -1296,28 +1290,28 @@ public:
 					else
 						SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 				}
-				ToolTip("Keeps the app above all other windows on your screen.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("wnd.OnTopTT"), &appConfig->_hoverTimer);
 #endif
 
 				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("VSync", &appConfig->_enableVSync))
+				if (ImGui::Checkbox(LangCStr("wnd.VSync"), &appConfig->_enableVSync))
 				{
 					initWindow();
 				}
-				ToolTip("Enable/Disable Vertical Sync.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("wnd.VSyncTT"), &appConfig->_hoverTimer);
 
 				ImGui::TableNextColumn();
 				ImGui::BeginDisabled(appConfig->_enableVSync);
-				ImGui::InputInt("FPS Limit", &appConfig->_fpsLimit, 10, 30);
+				ImGui::InputInt(LangCStr("wnd.FPSLimit"), &appConfig->_fpsLimit, 10, 30);
 				if (ImGui::IsItemDeactivatedAfterEdit())
 				{
 					initWindow();
 				}
-				ToolTip("Set the FPS limit for the application.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("wnd.FPSLimitTT"), &appConfig->_hoverTimer);
 				ImGui::EndDisabled();
 
 				ImGui::TableNextColumn();
-				if (ImGui::Checkbox("Name windows separately", &appConfig->_nameWindowWithSet))
+				if (ImGui::Checkbox(LangCStr("wnd.NameSep"), &appConfig->_nameWindowWithSet))
 				{
 					appConfig->_nameLock.lock();
 					if (appConfig->_nameWindowWithSet)
@@ -1328,7 +1322,7 @@ public:
 					appConfig->_pendingSpoutNameChange = true;
 					appConfig->_nameLock.unlock();
 				}
-				ToolTip("Name the window based on the Layer Set.\nUseful for if you want multiple instances of RahiTuber.", &appConfig->_hoverTimer);
+				ToolTip(LangCStr("wnd.NameSepTT"), &appConfig->_hoverTimer);
 
 				ImGui::EndTable();
 
@@ -1338,17 +1332,17 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Window")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("wnd.Window"))
 					uiConfig->_advMenuID_windowTab = t.ID;
 		}
 	}
 
 	void menuAdvancedBehaviourTab(bool& rowTop)
 	{
-		std::string tooltipMsg = "Settings related to app behaviour";
+		std::string tooltipMsg = LangCStr("bhv.BehaviourTT");
 		if (rowTop)
 		{
-			if (LesserButton("Behaviour"))
+			if (LesserButton(LangCStr("bhv.Behaviour")))
 			{
 				uiConfig->_advMenuPending_behaviourTab = true;
 			}
@@ -1362,7 +1356,7 @@ public:
 			if (uiConfig->_advMenuPending_behaviourTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_behaviourTab;
 
-			if (ImGui::BeginTabItem("Behaviour"))
+			if (ImGui::BeginTabItem(LangCStr("bhv.Behaviour")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_behaviourTab = false;
@@ -1370,16 +1364,16 @@ public:
 				if (ImGui::BeginTable("##BehaviourOptions", 2, ImGuiTableFlags_SizingStretchSame))
 				{
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Create minimal layers", &appConfig->_createMinimalLayers);
-					ToolTip("Recommended when creating more complex 'paper doll' style rigs", "New layers begin without any default movement or additional sprites", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("bhv.MinLayers"), &appConfig->_createMinimalLayers);
+					ToolTip(LangCStr("bhv.MinLayersTT1"), LangCStr("bhv.MinLayersTT2"), &appConfig->_hoverTimer);
 
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("Check for updates", &appConfig->_checkForUpdates);
-					ToolTip("Automatically check for updates when the application starts.", &appConfig->_hoverTimer);
+					ImGui::Checkbox(LangCStr("bhv.CheckUpdates"), &appConfig->_checkForUpdates);
+					ToolTip(LangCStr("bhv.CheckUpdatesTT"), &appConfig->_hoverTimer);
 
 					ImGui::EndTable();
 
-					if (ImGui::BeginCombo("Number Edit type", uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
+					if (ImGui::BeginCombo(LangCStr("bhv.NumberType"), uiConfig->_numbertypes[uiConfig->_numberEditType].c_str()))
 					{
 						for (auto& numType : uiConfig->_numbertypes)
 						{
@@ -1394,9 +1388,9 @@ public:
 
 						ImGui::EndCombo();
 					}
-					ToolTip("Change the input method for most number fields", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("bhv.NumberTypeTT"), &appConfig->_hoverTimer);
 
-					if (ImGui::Checkbox("Unload images while hidden", &appConfig->_unloadTimeoutEnabled))
+					if (ImGui::Checkbox(LangCStr("bhv.Unload"), &appConfig->_unloadTimeoutEnabled))
 					{
 						if (appConfig->_unloadTimeoutEnabled)
 							appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
@@ -1404,28 +1398,31 @@ public:
 						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
 
 					}
-					ToolTip("Remove images from RAM while they're not being used.\n  WARNING: expect a delay in visibility\n  while an unloaded image is reloading!", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("bhv.UnloadTT"), &appConfig->_hoverTimer);
 					if (appConfig->_unloadTimeoutEnabled)
 					{
-						if (ImGui::DragInt("Unload timeout", &appConfig->_unloadTimeoutSetting, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
+						if (ImGui::DragInt(LangCStr("bhv.UnloadTime"), &appConfig->_unloadTimeoutSetting, 0.1f, 1, 60, "%d s", ImGuiSliderFlags_Logarithmic))
 							appConfig->_unloadTimeout = appConfig->_unloadTimeoutSetting;
 
 						layerMan->SetUnloadingTimer(appConfig->_unloadTimeout);
-						ToolTip("Set how long to wait before unloading an image.\n  If you set this to less than any\n  frequent states/blinks, expect stutter!", &appConfig->_hoverTimer);
+						ToolTip(LangCStr("bhv.UnloadTimeTT"), &appConfig->_hoverTimer);
 					}
 
 					//ImGui::Checkbox("Disable Rotation Effect Fix", &appConfig->_undoRotationEffectFix);
 					//ToolTip("Disable the fix for Rotation Effect on this Layer Set.", &appConfig->_hoverTimer);
 
-					if (ImGui::Checkbox("Accept duplicate layers when merging", &appConfig->_layerManAcceptMergeDuplicates))
+					if (ImGui::Checkbox(LangCStr("bhv.AcceptDupes"), &appConfig->_layerManAcceptMergeDuplicates))
 					{
 						layerMan->setAcceptMergeDuplicates(appConfig->_layerManAcceptMergeDuplicates);
 					}
-					ToolTip("Merged layers with duplicate GUIDs will be\nassigned a new guid instead of being discarded.", &appConfig->_hoverTimer);
+					ToolTip(LangCStr("bhv.AcceptDupesTT"), &appConfig->_hoverTimer);
 
-					ImGui::Text("Make Portable saves image paths relative to:");
+					ImGui::Text(LangCStr("bhv.PortablePath"));
 					int portableRelDirFlag = appConfig->_savePortableRelativeToXML ? 1 : 0;
-					if (SwapButtons("##portableRelDir", { { "RahiTuber", "The location of RahiTuber_64.exe\n(old behaviour)", 0 },{ "Portable XML", "The location of the\nportable XML being created\n(recommended)", 1 } }, portableRelDirFlag, &appConfig->_hoverTimer, false))
+					if (SwapButtons("##portableRelDir", { 
+						{ LangCStr("bhv.PortablePathRT"), LangCStr("bhv.PortablePathRTTT"), 0 },
+						{ LangCStr("bhv.PortablePathXML"), LangCStr("bhv.PortablePathXMLTT"), 1 } },
+						portableRelDirFlag, &appConfig->_hoverTimer, false))
 					{
 						appConfig->_savePortableRelativeToXML = portableRelDirFlag;
 					}
@@ -1437,7 +1434,7 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Behaviour")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("bhv.Behaviour"))
 					uiConfig->_advMenuID_behaviourTab = t.ID;
 
 		}
@@ -1445,10 +1442,10 @@ public:
 
 	void menuAdvancedShortcutsTab(bool& rowTop, ImGuiStyle& style)
 	{
-		std::string tooltipMsg = "Keyboard Shortcuts";
+		std::string tooltipMsg = LangCStr("kbd.ShortcutsTT");
 		if (rowTop)
 		{
-			if (LesserButton("Shortcuts"))
+			if (LesserButton(LangCStr("kbd.Shortcuts")))
 			{
 				uiConfig->_advMenuPending_shortcutsTab = true;
 			}
@@ -1462,12 +1459,12 @@ public:
 			if (uiConfig->_advMenuPending_shortcutsTab)
 				tabBar->NextSelectedTabId = uiConfig->_advMenuID_shortcutsTab;
 
-			if (ImGui::BeginTabItem("Shortcuts"))
+			if (ImGui::BeginTabItem(LangCStr("kbd.Shortcuts")))
 			{
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 				uiConfig->_advMenuPending_shortcutsTab = false;
 
-				ImGui::Checkbox("Push To Talk", &appConfig->_pushToTalkEnabled);
+				ImGui::Checkbox(LangCStr("kbd.PTT"), &appConfig->_pushToTalkEnabled);
 				if (appConfig->_pushToTalkEnabled)
 				{
 					ImGui::SameLine();
@@ -1475,12 +1472,12 @@ public:
 					ImGui::Dummy({ ImGui::GetFrameHeight(), 0 });
 					ImGui::SameLine();
 
-					ImGui::Text("Button:");
+					ImGui::Text(LangCStr("kbd.Button"));
 					ImGui::SameLine();
 
 					if (appConfig->_pttKey != sf::Keyboard::Scan::Scancode::Unknown)
 					{
-						std::string btnName = "empty";
+						std::string btnName = LangCStr("kbd.Empty");
 						if (g_scancode_names.count(appConfig->_pttKey))
 							btnName = g_scancode_names[appConfig->_pttKey];
 						else
@@ -1496,7 +1493,7 @@ public:
 					}
 					else
 					{
-						ImGui::Button("Record Key");
+						ImGui::Button(LangCStr("kbd.Record"));
 					}
 				}
 
@@ -1506,7 +1503,7 @@ public:
 				ToolTip(tooltipMsg.c_str(), &appConfig->_hoverTimer);
 
 			for (auto& t : ImGui::GetCurrentTabBar()->Tabs)
-				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == "Shortcuts")
+				if (std::string(ImGui::TabBarGetTabName(tabBar, &t)) == LangCStr("kbd.Shortcuts"))
 					uiConfig->_advMenuID_shortcutsTab = t.ID;
 		}
 	}
@@ -1516,7 +1513,7 @@ public:
         AddResetButton(id, value, defVal, appConfig, &style);
 		FloatSliderDrag(label, &value, 1, 50, "%.1f", 0, 0);
 
-		ToolTip("Adjust Confidence", "Boost confidence for detecting this phoneme\n(i.e. reduces how many frames a phoneme must be detected\nbefore being displayed)", &appConfig->_hoverTimer);
+		ToolTip(LangCStr("phnm.ConfidenceSl"), LangCStr("phnm.ConfidenceSlTT"), &appConfig->_hoverTimer);
 
 
 		if (doSeparator)
@@ -1530,7 +1527,7 @@ public:
 		if (FloatSliderDrag(label, &temp, -1, 1, "%.2f", 0, 0))
 			value = temp + defVal;
 
-		ToolTip("Adjust Sensitivity", "Raise or lower the sensitivity for detecting this phoneme", &appConfig->_hoverTimer);
+		ToolTip(LangCStr("phnm.SensitivitySl"), LangCStr("phnm.SensitivitySlTT"), &appConfig->_hoverTimer);
 
 		if(doSeparator)
 			ImGui::Separator();
@@ -1541,7 +1538,7 @@ public:
 		ImGui::PushStyleColor(ImGuiCol_Header, style.Colors[ImGuiCol_ChildBg]);
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, style.Colors[ImGuiCol_BorderShadow]);
 		ImGui::PushStyleColor(ImGuiCol_HeaderActive, style.Colors[ImGuiCol_BorderShadow]);
-		uiConfig->_audioExpanded = ImGui::CollapsingHeader("Audio Input", (uiConfig->_audioExpanded ? ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_UpsideDownArrow : 0));
+		uiConfig->_audioExpanded = ImGui::CollapsingHeader(LangCStr("audio.Title"), (uiConfig->_audioExpanded ? ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_UpsideDownArrow : 0));
 		ImGui::PopStyleColor(3);
 
 		if (uiConfig->_firstMenu)
@@ -1551,7 +1548,7 @@ public:
 
 		ImGui::PushID("AudImpCombo");
 		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeightWithSpacing());
-		std::string deviceName = "None";
+		std::string deviceName = LangCStr("audio.DevNone");
 		if (audioConfig->_deviceList.size() > audioConfig->_devIdx)
 			deviceName = audioConfig->_deviceList[audioConfig->_devIdx].first;
 		bool devListFirstOpen = false;
@@ -1577,14 +1574,14 @@ public:
 
 		ImGui::PopID();
 		ImGui::PopItemWidth();
-		ToolTip("Choose an audio input device.", &appConfig->_hoverTimer);
+		ToolTip(LangCStr("audio.DevTT"), &appConfig->_hoverTimer);
 
 		ImGui::SameLine();
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 1,1 });
 		if (ImGui::ImageButton("refreshInputs", *appConfig->_textureMan.GetIcon(TextureManager::ICON_REFRESH), { ImGui::GetFrameHeightWithSpacing(), ImGui::GetFrameHeightWithSpacing() }, sf::Color::Transparent, toSFColor(style.Colors[ImGuiCol_Text])) || devListFirstOpen)
 			ListAudioDevices(true);
 		ImGui::PopStyleVar();
-		ToolTip("Refresh input device list", &appConfig->_hoverTimer);
+		ToolTip(LangCStr("audio.RefreshTT"), &appConfig->_hoverTimer);
 
 		if (uiConfig->_audioExpanded)
 		{
@@ -1592,14 +1589,14 @@ public:
 			ImGui::TableNextColumn();
 
 			ImGui::PushItemWidth(100);
-			ImGui::DragFloat("Max Level", &audioConfig->_fixedMax, 0.01, 0.0, 5.0, "%.2f");
+			ImGui::DragFloat(LangCStr("audio.MaxLevel"), &audioConfig->_fixedMax, 0.01, 0.0, 5.0, "%.2f");
 			ImGui::PopItemWidth();
-			ToolTip("The maximum volume used in audio analysis.", &appConfig->_hoverTimer);
+			ToolTip(LangCStr("audio.MaxLevelTT"), &appConfig->_hoverTimer);
 
 			ImGui::TableNextColumn();
 
-			ImGui::Checkbox("Soft Max", &audioConfig->_softMaximum);
-			ToolTip("Allow the Max Level to increase temporarily if exceeded.", &appConfig->_hoverTimer);
+			ImGui::Checkbox(LangCStr("audio.SoftMax"), &audioConfig->_softMaximum);
+			ToolTip(LangCStr("audio.SoftMaxTT"), &appConfig->_hoverTimer);
 
 			ImGui::TableNextColumn();
 
@@ -1607,33 +1604,34 @@ public:
 			float percentVal = 1.0 / 60.0;
 			float smooth = (61.0 - audioConfig->_smoothFactor) * percentVal;
 			smooth = powf(smooth, 2.f);
-			if (FloatSliderDrag("Soft Fall", &smooth, 0.0, 1.0, "%.2f", 0, uiConfig->_numberEditType))
+			if (FloatSliderDrag(LangCStr("audio.SoftFall"), &smooth, 0.0, 1.0, "%.2f", 0, uiConfig->_numberEditType))
 			{
 				smooth = Clamp(smooth, 0.0f, 1.0f);
 				smooth = powf(smooth, 0.5);
 				audioConfig->_smoothFactor = 61 - smooth / percentVal;
 			}
 			ImGui::PopItemWidth();
-			ToolTip("Let audio level fall slowly after speaking.", &appConfig->_hoverTimer);
+			ToolTip(LangCStr("audio.SoftFallTT"), &appConfig->_hoverTimer);
 
 			ImGui::TableNextColumn();
 
-			ImGui::Checkbox("Audio Filter", &audioConfig->_doFiltering);
-			ToolTip("Basic low-latency filtering to cancel keyboard and mouse noise frequencies.", &appConfig->_hoverTimer);
+			ImGui::Checkbox(LangCStr("audio.Filter"), &audioConfig->_doFiltering);
+			ToolTip(LangCStr("audio.FilterTT"), &appConfig->_hoverTimer);
 
 			ImGui::TableNextColumn();
 
-			ImGui::Checkbox("Compression", &audioConfig->_compression);
-			ToolTip("Use a compression curve for audio levels\n(the difference in effect reduces as the volume nears maximum).", &appConfig->_hoverTimer);
+			ImGui::Checkbox(LangCStr("audio.Compress"), &audioConfig->_compression);
+			ToolTip(LangCStr("audio.CompressTT"), &appConfig->_hoverTimer);
 
 			ImGui::EndTable();
 		}
 
 		bool useDefaultDevice = audioConfig->_devIdx == -1;
+		bool useDefaultPopOpen = useDefaultDevice;
 		if (useDefaultDevice && !audioConfig->_missingDeviceShown)
 		{
-			switch (ConfirmModal("Audio Device Not Found", &useDefaultDevice, useDefaultDevice,
-				"The Audio Input device saved in your settings is not available.\nSwitch to the system default input device?", "Use Default", "Ignore"))
+			switch (ConfirmModal(LangCStr("audio.NotFound"), &useDefaultDevice, useDefaultPopOpen,
+				LangCStr("audio.NotFoundTxt"), LangCStr("audio.UseDefault"), LangCStr("audio.Ignore")))
 			{
 			case -1:
 				break;
@@ -1645,6 +1643,7 @@ public:
 			case 1:
 			{
 				int defInputIdx = Pa_GetDefaultInputDevice();
+				logFmtToFile(appConfig, "System default device idx = %d ", defInputIdx);
 				if (useDefaultDevice && audioConfig->_nDevices > 0)
 				{
 					//use the default input device
@@ -1654,7 +1653,10 @@ public:
 						SwitchAudioDevice(*dev);
 						logToFile(appConfig, "Auto-selecting system default device " + std::to_string(dev->second) + ": " + dev->first);
 					}
-
+					else
+					{
+						logFmtToFile(appConfig, "Default device was null");
+					}
 					if (audioConfig->_devIdx == -1)
 						audioConfig->_devIdx = 0;
 				}
@@ -1749,7 +1751,7 @@ public:
 
 	void menuPresets(ImGuiStyle& style)
 	{
-		if (ImGui::Button("Window Presets", { -1,ImGui::GetFrameHeight() }))
+		if (ImGui::Button(LangCStr("menuP.WndPresets"), { -1,ImGui::GetFrameHeight() }))
 		{
 			if (appConfig->_menuWindow.isOpen())
 			{
@@ -1760,24 +1762,24 @@ public:
 			{
 				ImGui::SetNextWindowPos({ appConfig->_scrW / 2 - 225, appConfig->_scrH / 3 });
 			}
-			ImGui::OpenPopup("Window Presets");
+			ImGui::OpenPopup(LangCStr("menuP.WndPresets"));
 		}
 
 		uiConfig->_presetPopupActive = false;
 
 		bool p_open = true;
-		if (ImGui::BeginPopupModal("Window Presets", &p_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
+		if (ImGui::BeginPopupModal(LangCStr("menuP.WndPresets"), &p_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
 		{
 			uiConfig->_presetPopupActive = true;
 
 			ImGui::SetWindowSize({ 450 * appConfig->scalingFactor,-1 });
 			//ImGui::SetWindowPos({ appConfig->_scrW / 2 - 200, appConfig->_scrH / 3 });
 
-			ImGui::TextColored(style.Colors[ImGuiCol_Separator], "Save or load presets for window attributes");
+			ImGui::TextColored(style.Colors[ImGuiCol_Separator], LangCStr("menuP.WndPresetsTxt"));
 			ImGui::Separator();
 			std::string prevName = "";
 			if (uiConfig->_presetNames.size()) prevName = uiConfig->_presetNames[uiConfig->_presetIdx];
-			if (ImGui::BeginCombo("Preset", prevName.c_str()))
+			if (ImGui::BeginCombo(LangCStr("menuP.Preset"), prevName.c_str()))
 			{
 				for (unsigned int p = 0; p < uiConfig->_presetNames.size(); p++)
 				{
@@ -1790,7 +1792,7 @@ public:
 				ImGui::EndCombo();
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Load", { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
+			if (ImGui::Button(LangCStr("common.Load"), { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
 			{
 				//gameConfig->loadFromSettingsFile(gameConfig->m_presetNames[gameConfig->m_presetIdx]);
 				if (appConfig->_loader->loadPreset(uiConfig->_presetNames[uiConfig->_presetIdx]))
@@ -1810,8 +1812,8 @@ public:
 				}
 			}
 			ImGui::Separator();
-			ImGui::TextColored(style.Colors[ImGuiCol_Text], "Save Preset");
-			ImGui::InputText("Name", uiConfig->_settingsFileBoxName.data(), 30 * appConfig->scalingFactor);
+			ImGui::TextColored(style.Colors[ImGuiCol_Text], LangCStr("menuP.SavePreset"));
+			ImGui::InputText(LangCStr("menuP.Name"), uiConfig->_settingsFileBoxName.data(), 30 * appConfig->scalingFactor);
 			ImGui::SameLine();
 			if (ImGui::Button("x", { ImGui::GetFrameHeight(),ImGui::GetFrameHeight() }))
 			{
@@ -1819,7 +1821,7 @@ public:
 				uiConfig->_settingsFileBoxName.resize(30);
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Use Current", { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
+			if (ImGui::Button(LangCStr("menuP.UseCurrent"), { -1,ImGui::GetFrameHeight() }) && uiConfig->_presetNames.size())
 			{
 				uiConfig->_settingsFileBoxName.clear();
 				uiConfig->_settingsFileBoxName.resize(30);
@@ -1838,15 +1840,15 @@ public:
 				}
 			}
 
-			std::string saveCheckBox = "Save";
-			if (overwriting) saveCheckBox = "Update";
+			std::string saveCheckBox = LangCStr("common.Save");
+			if (overwriting) saveCheckBox = LangCStr("common.Update");
 
 			uiConfig->_clearWindowInfo = false;
 			uiConfig->_saveWindowInfo = true;
 
 
-			std::string saveName = "Save";
-			if (overwriting) saveName = "Overwrite";
+			std::string saveName = LangCStr("common.Save");
+			if (overwriting) saveName = LangCStr("common.Overwrite");
 
 			std::string name(uiConfig->_settingsFileBoxName.data());
 
@@ -3569,6 +3571,8 @@ If you accept, please click the Accept button.
 
 		logToFile(appConfig, "Creating XML loader");
 		appConfig->_loader = new xmlConfigLoader(appConfig, uiConfig, audioConfig, appConfig->_appLocation + "config.xml");
+
+		appConfig->_loader->saveLangFile();
 
 		bool retry = true;
 		while (retry)

@@ -1,6 +1,7 @@
 #include "xmlConfig.h"
 
 #include "defines.h"
+#include "language.h"
 
 using namespace tinyxml2;
 
@@ -511,5 +512,48 @@ bool xmlConfigLoader::savePreset(const std::string & presetName)
 
 	doc.SaveFile(_settingsFileName.c_str());
 
+	return true;
+}
+
+bool xmlConfigLoader::saveLangFile()
+{
+	_errorMessage = "";
+	tinyxml2::XMLDocument doc;
+
+	std::string langFileEng = (_appConfig->_appLocation + "/Lang/english.xml");
+	doc.LoadFile(langFileEng.c_str());
+
+	auto root = doc.FirstChildElement("Language");
+	if (!root) root = doc.InsertFirstChild(doc.NewElement("Language"))->ToElement();
+	if (root)
+	{
+		root->SetAttribute("Name", "English");
+
+		auto langStrings = GetLangMap();
+
+		for (auto& pair : langStrings)
+		{
+			const std::string& key = pair.first;
+			const std::string& text = pair.second;
+
+			size_t pointPos = key.find('.');
+			std::string category = key.substr(0, pointPos);
+			std::string name = key.substr(pointPos+1);
+
+			auto elm = root->FirstChildElement(category.c_str());
+			if (!elm)
+				elm = root->InsertNewChildElement(category.c_str());
+
+			auto item = elm->FirstChildElement(name.c_str());
+			if (!item)
+				item = elm->InsertNewChildElement(name.c_str());
+
+			item->SetText(text.c_str());
+
+		}
+		
+	}
+
+	doc.SaveFile(langFileEng.c_str());
 	return true;
 }
