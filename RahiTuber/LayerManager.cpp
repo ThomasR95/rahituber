@@ -201,6 +201,9 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					|| checkLayer.motionTimerID == layer->_id
 					|| checkLayer.blinkSyncID == layer->_id
 					|| checkLayer.bounceTimerID == layer->_id
+					|| checkLayer._clipID == layer->_inFolder
+					|| std::find(checkLayer._clipIDs.begin(), checkLayer._clipIDs.end(), layer->_id) != checkLayer._clipIDs.end()
+					|| std::find(checkLayer._clipIDs.begin(), checkLayer._clipIDs.end(), layer->_inFolder) != checkLayer._clipIDs.end()
 					)
 				{
 					calculate = true;
@@ -246,6 +249,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 
 			LayerInfo* clipLayer = GetLayer(layer._clipID);
+			if (layer._clipToMultiple && layer._clipIDs.size() > 0)
+			{
+				clipLayer = GetLayer(layer._clipIDs[0]);
+			}
 
 			bool sharpEdge = _appConfig->_sharpEdge && layer._scaleFiltering == 1;
 
@@ -292,7 +299,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 			}
 			else
 			{
-				ClipRenderTextures& clipRTs = _clipRenderTextures[layer._id];
+				auto clipID = clipLayer->_id;
+				if(layer._clipToMultiple)
+					clipID = layer._id;
+				ClipRenderTextures& clipRTs = _clipRenderTextures[clipLayer->_id];
 
 				if (clipRTs._clipInitialized == false || target->getSize() != clipRTs._clipRT.getSize())
 				{
@@ -300,7 +310,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipRTs._clipInitialized = true;
 				}
 
-				if(layer._isClipInverted)
+				if (layer._isClipInverted)
 					clipRTs._clipRT.clear({ 0,0,0,255 });
 				else
 					clipRTs._clipRT.clear({ 0,0,0,0 });
@@ -342,13 +352,39 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipState.shader = _blendingShader.get();
 				}
 
-				clipState.blendMode = g_blendmodes["Overwrite"];
+				clipState.blendMode = g_blendmodes["Normal"];
 
-				// Draw clip layer onto an empty canvas
-				for (auto& csp : clipLayer->_sprites)
+
+				for(int cl = 0; cl < (layer._clipToMultiple ? layer._clipIDs.size() : 1); cl++)
 				{
-					csp.second->Draw(&clipRTs._clipRT, clipState);
+					if (layer._clipToMultiple)
+						clipLayer = GetLayer(layer._clipIDs[cl]);
+
+					// Draw clip layer onto an empty canvas
+					if (clipLayer->_isFolder)
+					{
+						for (auto& cfLayer : _layers)
+						{
+							if (cfLayer._inFolder == clipLayer->_id)
+							{
+								for (auto& csp : cfLayer._sprites)
+								{
+									csp.second->Draw(&clipRTs._clipRT, clipState);
+								}
+							}
+						}
+					}
+					else
+					{
+						for (auto& csp : clipLayer->_sprites)
+						{
+							csp.second->Draw(&clipRTs._clipRT, clipState);
+						}
+					}
 				}
+				
+				
+
 
 #ifdef DEBUG_CLIP_RENDERING
 				if (layer._isClipInverted)
@@ -389,6 +425,7 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 
 				sf::RenderStates clipState2 = sf::RenderStates::Default;
 				// Draw the layer RT onto the clip RT using the fancy new blend mode
+				// This blend mode creates an intersection of the two alpha channels
 				clipState2.blendMode = sf::BlendMode(sf::BlendMode::DstAlpha, sf::BlendMode::Zero, sf::BlendMode::Add,
 					sf::BlendMode::DstAlpha, sf::BlendMode::Zero, sf::BlendMode::Add);
 
@@ -2573,6 +2610,20 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 
 			thisLayer->SetAttribute("clipID", layer._clipID.c_str());
 			thisLayer->SetAttribute("clipInvert", layer._isClipInverted);
+			thisLayer->SetAttribute("clipToMultiple", layer._clipToMultiple);
+			if (layer._clipToMultiple && layer._clipIDs.size() > 0)
+			{
+				auto clipIDElement = thisLayer->FirstChildElement("clipIDs");
+				if (!clipIDElement)
+					clipIDElement = thisLayer->InsertFirstChild(doc.NewElement("clipIDs"))->ToElement();
+				clipIDElement->DeleteChildren();
+
+				for (int cl = 0; cl < layer._clipIDs.size(); cl++)
+				{
+					auto thisID = clipIDElement->InsertEndChild(doc.NewElement("id"))->ToElement();
+					thisID->SetText(layer._clipIDs[cl].c_str());
+				}
+			}
 		}
 
 		thisLayer->SetAttribute("isFolder", layer._isFolder);
@@ -2585,6 +2636,8 @@ bool LayerManager::SaveLayers(const std::string& settingsFileName, bool makePort
 		auto folderContent = thisLayer->FirstChildElement("folderContent");
 		if (!folderContent)
 			folderContent = thisLayer->InsertFirstChild(doc.NewElement("folderContent"))->ToElement();
+
+		folderContent->DeleteChildren();
 
 		for (int h = 0; h < layer._folderContents.size(); h++)
 		{
@@ -3250,6 +3303,21 @@ bool LayerManager::LoadLayers(const std::string& settingsFileName)
 					layer._clipID = clipGuid;
 
 				thisLayer->QueryAttribute("clipInvert", &layer._isClipInverted);
+				thisLayer->QueryAttribute("clipToMultiple", &layer._clipToMultiple);
+				if (layer._clipToMultiple)
+				{
+					auto clipIDElement = thisLayer->FirstChildElement("clipIDs");
+					if (clipIDElement)
+					{
+						auto thisID = clipIDElement->FirstChildElement("id");
+
+						while (thisID)
+						{
+							layer._clipIDs.push_back(thisID->GetText());
+							thisID = thisID->NextSiblingElement("id");
+						}
+					}
+				}
 
 				layer._sprites[SP_IDLE]->setSmooth(layer._scaleFiltering);
 				layer._sprites[SP_TALK]->setSmooth(layer._scaleFiltering);
@@ -6019,16 +6087,21 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 
 						LayerInfo* oldClip = _pLayerMan->GetLayer(_clipID);
 						std::string clipName = oldClip ? oldClip->_name : "Off";
+						if (_clipToMultiple)
+						{
+							clipName = _clipIDs.size() > 0 ? "Multiple" : "Off";
+						}
+
 						const char* comboID = "Clip Layer";
 						std::string& selectID = _clipID;
 						std::function<bool(const LayerManager::LayerInfo&)> comboFilter = [&](const LayerManager::LayerInfo& fLayer) {
-							if (fLayer._id != _id && fLayer._clipID != _id && fLayer._isFolder == false)
+							if (fLayer._id != _id && fLayer._clipID != _id)// && fLayer._isFolder == false)
 								return true;
 
 							return false;
 							};
 
-						LayerSelectCombo(comboID, clipName, selectID, comboFilter);
+						LayerSelectCombo(comboID, clipName, selectID, comboFilter, _clipToMultiple ? &_clipIDs : nullptr);
 
 						ToolTip("Clip this layer to the transparency\nof any other layer", &_pLayerMan->_appConfig->_hoverTimer);
 
@@ -6037,6 +6110,15 @@ bool LayerManager::LayerInfo::DrawGUI(ImGuiStyle& style, int layerID)
 							std::cout << "Invert Clip: " << _isClipInverted << std::endl;
 						}
 						ToolTip("Use the clip layer as a mask (cutout) instead", &_pLayerMan->_appConfig->_hoverTimer);
+
+						ImGui::SameLine();
+
+						if (ImGui::Checkbox("Clip to Multiple", &_clipToMultiple))
+						{
+							if (_clipToMultiple && _clipIDs.size() == 0 && oldClip != nullptr)
+								_clipIDs.push_back(_clipID);
+						}
+						ToolTip("Select multiple layers to clip this layer to", &_pLayerMan->_appConfig->_hoverTimer);
 
 
 					}
@@ -7358,7 +7440,7 @@ static int ImGuiTextResizeCallback(ImGuiInputTextCallbackData* data)
 	return 0;
 }
 
-void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string& selectedName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter)
+void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string& selectedName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter, std::vector<std::string>* multiselect)
 {
 	const float& uiScale = _pLayerMan->_appConfig->scalingFactor;
 	const float& UIUnit = ImGui::GetFrameHeightWithSpacing();
@@ -7366,6 +7448,9 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 	if (ImGui::BeginCombo(comboID, ANSIToUTF8(selectedName).c_str(), ImGuiComboFlags_HeightLargest))
 	{
 		float comboW = ImGui::GetContentRegionAvail().x;
+		float btnW = comboW;
+		if (multiselect)
+			btnW -= UIUnit * 2;
 
 		int itemCount = _pLayerMan->_layers.size();
 		if (_pLayerMan->_comboLengths.count(comboID))
@@ -7394,13 +7479,15 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 			bool offClicked = false;
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3,0,0,1.0));
 			if (selectID == "")
-				offClicked = ImGui::Button("(Off)", {comboW, UIUnit});
+				offClicked = ImGui::Button("(Off)", { btnW, UIUnit});
 			else
-				offClicked = LesserButton("(Off)", {comboW, UIUnit}, false);
+				offClicked = LesserButton("(Off)", { btnW, UIUnit}, false);
 			ImGui::PopStyleColor();
 			if (offClicked)
 			{
 				selectID = "";
+				if (multiselect)
+					multiselect->clear();
 				ImGui::CloseCurrentPopup();
 			}
 
@@ -7428,11 +7515,41 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 
 					ImGui::PushID(btnIdx++);
 
-					bool clicked = false;
-					if (selectID == layer._id)
-						clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit });
+					ImVec2 beforeBtnPos = ImGui::GetCursorPos();
+					bool selected = false;
+
+					if (multiselect)
+					{
+						selected = std::find(multiselect->begin(), multiselect->end(), layer._id) != multiselect->end();
+					}
 					else
-						clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { comboW, UIUnit }, false);
+						selected = selectID == layer._id;
+
+					bool clicked = false;
+					if (selected)
+					{
+						clicked = ImGui::Button(ANSIToUTF8(layer._name).c_str(), { btnW, UIUnit });
+						if (clicked) 
+							selected = false;
+					}
+					else
+					{
+						clicked = LesserButton(ANSIToUTF8(layer._name).c_str(), { btnW, UIUnit }, false);
+						if (clicked) 
+							selected = true;
+					}
+
+					if (multiselect)
+					{
+						//ImGui::SetCursorPos(beforeBtnPos);
+						ImGui::SameLine();
+						bool tmpMultiSelectOn = selected;
+						if (ImGui::Checkbox(ANSIToUTF8("##" + layer._name + "check").c_str(), &tmpMultiSelectOn))
+						{
+							clicked = true;
+							selected = tmpMultiSelectOn;
+						}
+					}
 
 					ImGui::PopID();
 
@@ -7442,7 +7559,22 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 					if (clicked)
 					{
 						selectID = layer._id;
-						ImGui::CloseCurrentPopup();
+
+						if (multiselect)
+						{
+							if(selected && std::find(multiselect->begin(), multiselect->end(), layer._id) == multiselect->end())
+								multiselect->push_back(layer._id);
+							else if (!selected)
+							{
+								auto foundit = std::find(multiselect->begin(), multiselect->end(), layer._id);
+								if (foundit != multiselect->end())
+									multiselect->erase(foundit);
+							}
+
+						}
+
+						if(!multiselect)
+							ImGui::CloseCurrentPopup();
 					}
 				}
 			}

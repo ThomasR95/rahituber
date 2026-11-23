@@ -207,6 +207,8 @@ public:
 		LayerManager* _pLayerMan = nullptr;
 
 		std::string _clipID = "";
+		bool _clipToMultiple = false;
+		std::vector<std::string> _clipIDs;
 		sf::RectangleShape _clipRect;
 		bool _isClipInverted = false;
 
@@ -359,7 +361,7 @@ public:
 
 		void DrawTransformsGUI(float indentSize, ImGuiStyle& style);
 
-		void LayerSelectCombo(const char* comboID, std::string& clipName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter);
+		void LayerSelectCombo(const char* comboID, std::string& clipName, std::string& selectID, std::function<bool(const LayerManager::LayerInfo&)>& comboFilter, std::vector<std::string>* multiselect = nullptr);
 
 		void DrawRenamePopupGUI();
 
