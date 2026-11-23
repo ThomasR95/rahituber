@@ -59,6 +59,8 @@ static std::map<std::string, sf::BlendMode> g_blendmodes = {
 												sf::BlendMode::Zero, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
 	{"Clip to Backdrop", sf::BlendMode(sf::BlendMode::DstAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
 												sf::BlendMode::DstAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add)},
+	{"Stencil", sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add,
+												sf::BlendMode::SrcAlpha, sf::BlendMode::DstAlpha, sf::BlendMode::Min)},
 };
 
 enum MotionStretchType {

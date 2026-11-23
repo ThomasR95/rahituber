@@ -352,7 +352,10 @@ void LayerManager::Draw(sf::RenderTarget* target, float windowHeight, float wind
 					clipState.shader = _blendingShader.get();
 				}
 
-				clipState.blendMode = g_blendmodes["Normal"];
+				if(layer._isClipInverted)
+					clipState.blendMode = g_blendmodes["Stencil"];
+				else
+					clipState.blendMode = g_blendmodes["Normal"];
 
 
 				for(int cl = 0; cl < (layer._clipToMultiple ? layer._clipIDs.size() : 1); cl++)
@@ -7541,7 +7544,6 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 
 					if (multiselect)
 					{
-						//ImGui::SetCursorPos(beforeBtnPos);
 						ImGui::SameLine();
 						bool tmpMultiSelectOn = selected;
 						if (ImGui::Checkbox(ANSIToUTF8("##" + layer._name + "check").c_str(), &tmpMultiSelectOn))
@@ -7558,8 +7560,6 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 
 					if (clicked)
 					{
-						selectID = layer._id;
-
 						if (multiselect)
 						{
 							if(selected && std::find(multiselect->begin(), multiselect->end(), layer._id) == multiselect->end())
@@ -7570,11 +7570,12 @@ void LayerManager::LayerInfo::LayerSelectCombo(const char* comboID, std::string&
 								if (foundit != multiselect->end())
 									multiselect->erase(foundit);
 							}
-
 						}
-
-						if(!multiselect)
+						else
+						{
+							selectID = layer._id;
 							ImGui::CloseCurrentPopup();
+						}
 					}
 				}
 			}
